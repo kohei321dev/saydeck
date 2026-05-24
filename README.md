@@ -33,6 +33,33 @@
 - `data/diary-prompts.csv`: 短い英語日記の練習プロンプト
 - `data/vocabulary.csv`: 使い回したい語彙・表現
 
+## Local Development
+
+```bash
+npm install
+DEV_AUTH_BYPASS=1 npm run dev
+```
+
+`DEV_AUTH_BYPASS=1` はローカル確認用です。`NODE_ENV=production` では無効になります。
+
+## GitHub Login Setup
+
+GitHub OAuth Appを作り、callback URLに次を設定します。
+
+```text
+https://your-vercel-url/api/auth/callback/github
+```
+
+Vercel Environment Variablesに次を設定します。
+
+- `AUTH_GITHUB_ID`
+- `AUTH_GITHUB_SECRET`
+- `AUTH_SECRET`
+- `NEXTAUTH_URL=https://your-vercel-url`
+- `OWNER_GITHUB_USERNAME=uechikohei`
+
+`OWNER_GITHUB_USERNAME` と一致するGitHub loginだけがトップページを閲覧できます。
+
 ## License
 
 MIT License. See `LICENSE`.
