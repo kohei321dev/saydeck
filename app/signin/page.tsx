@@ -28,7 +28,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
               <li>AUTH_SECRET</li>
               <li>AUTH_GITHUB_ID</li>
               <li>AUTH_GITHUB_SECRET</li>
-              <li>OWNER_GITHUB_USERNAME=uechikohei</li>
+              <li>OWNER_GITHUB_USERNAME=kohei321dev</li>
               <li>XAI_API_KEY</li>
               <li>XAI_MODEL=grok-4.3</li>
             </ul>

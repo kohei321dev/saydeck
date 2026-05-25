@@ -2,7 +2,7 @@
 
 ## Auth and AI Runtime
 
-[事実] This app uses Auth.js with GitHub OAuth. Sign-in is accepted only when the GitHub `login` matches `OWNER_GITHUB_USERNAME`, which defaults to `uechikohei`.
+[事実] This app uses Auth.js with GitHub OAuth. Sign-in is accepted only when the GitHub `login` matches `OWNER_GITHUB_USERNAME`, which defaults to `kohei321dev`.
 
 [事実] Grok review calls xAI from the server-side `/api/review` route. The browser never receives `XAI_API_KEY`.
 
@@ -25,7 +25,7 @@ Use the generated Client ID and Client Secret as Vercel env vars.
 
 ## Vercel Project
 
-1. Import `uechikohei/scene-builder` into Vercel.
+1. Import `kohei321dev/scene-builder` into Vercel.
 2. Framework Preset: `Next.js`
 3. Build Command: `npm run build`
 4. Install Command: `npm install`
@@ -39,7 +39,7 @@ Set these in Vercel Project Settings > Environment Variables for Production. Add
 AUTH_SECRET=<cryptographically-random-secret>
 AUTH_GITHUB_ID=<github-oauth-client-id>
 AUTH_GITHUB_SECRET=<github-oauth-client-secret>
-OWNER_GITHUB_USERNAME=uechikohei
+OWNER_GITHUB_USERNAME=kohei321dev
 XAI_API_KEY=<xai-api-key>
 XAI_MODEL=grok-4.3
 ```
@@ -68,7 +68,7 @@ Create `.env.local` locally with the same keys. Do not commit it.
 AUTH_SECRET=
 AUTH_GITHUB_ID=
 AUTH_GITHUB_SECRET=
-OWNER_GITHUB_USERNAME=uechikohei
+OWNER_GITHUB_USERNAME=kohei321dev
 XAI_API_KEY=
 XAI_MODEL=grok-4.3
 DEV_AUTH_BYPASS=1
@@ -77,6 +77,6 @@ DEV_AUTH_BYPASS=1
 ## Access Rules
 
 - The learning app redirects to `/signin` unless the GitHub session is the allowed owner.
-- GitHub OAuth sign-in is rejected unless the GitHub login is `uechikohei`.
+- GitHub OAuth sign-in is rejected unless the GitHub login is `kohei321dev`.
 - `/api/review` returns `401` unless the current Auth.js session is the allowed owner.
 - `/api/review` returns `503` if `XAI_API_KEY` is not configured.

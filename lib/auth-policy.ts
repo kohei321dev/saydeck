@@ -1,4 +1,4 @@
-const DEFAULT_OWNER = "uechikohei";
+const DEFAULT_OWNER = "kohei321dev";
 
 export function getOwnerGitHubUsername() {
   return (process.env.OWNER_GITHUB_USERNAME || DEFAULT_OWNER).trim();

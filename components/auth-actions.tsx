@@ -10,7 +10,7 @@ type AuthActionsProps = {
 
 export function AuthActions({ devBypass = false, session }: AuthActionsProps) {
   if (devBypass) {
-    return <span className="auth-user">@uechikohei dev</span>;
+    return <span className="auth-user">@kohei321dev dev</span>;
   }
 
   if (!session?.user) {
