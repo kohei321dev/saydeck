@@ -117,6 +117,23 @@ button {
   color: var(--muted);
 }
 
+.scene-list-meta {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.scene-list-status {
+  color: var(--accent-strong);
+  display: inline-flex;
+  flex-wrap: wrap;
+  font-size: 11px;
+  font-weight: 700;
+  gap: 6px;
+}
+
 .scene-list-item.active,
 .scene-list-item:hover {
   background: var(--panel);
@@ -179,6 +196,33 @@ h2 {
 .done-note {
   color: var(--muted);
   line-height: 1.6;
+}
+
+.practice-meta {
+  align-items: center;
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 13px;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.status-pill {
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 5px 9px;
+}
+
+.status-pill.done {
+  background: #e6f2ec;
+  color: var(--accent-strong);
+}
+
+.status-pill.review {
+  background: #fff4d8;
+  color: var(--warning);
 }
 
 .tag-row {
@@ -249,10 +293,26 @@ button:focus-visible {
 }
 
 .action-row > div {
+  align-items: center;
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   justify-content: flex-end;
+}
+
+.review-toggle {
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--foreground);
+  display: inline-flex;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 12px;
+}
+
+.review-toggle input {
+  accent-color: var(--accent);
 }
 
 .primary-button,
