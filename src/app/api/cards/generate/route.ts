@@ -6,6 +6,10 @@ import {
   MissingCardGenerationApiKeyError,
 } from "@/lib/ai-card-generation";
 import { authOptions, isDevAuthBypassEnabled, isOwnerSession } from "@/lib/auth";
+import {
+  isCardPersistenceConfigured,
+  saveStoredSceneCard,
+} from "@/lib/card-store";
 
 export const runtime = "nodejs";
 
@@ -74,7 +78,27 @@ export async function POST(request: Request) {
 
   try {
     const card = await generateSceneCardWithAi({ category, sceneJa, tags });
-    return NextResponse.json({ card });
+    const shouldPersist = isCardPersistenceConfigured();
+
+    if (!shouldPersist) {
+      return NextResponse.json({
+        card,
+        persistence: {
+          configured: false,
+          saved: false,
+        },
+      });
+    }
+
+    const storedCard = await saveStoredSceneCard(card);
+
+    return NextResponse.json({
+      card: storedCard,
+      persistence: {
+        configured: true,
+        saved: true,
+      },
+    });
   } catch (error) {
     if (error instanceof MissingCardGenerationApiKeyError) {
       return NextResponse.json(
@@ -86,7 +110,10 @@ export async function POST(request: Request) {
     console.error(error);
 
     return NextResponse.json(
-      { error: "カード生成に失敗しました。少し時間を置いて再実行してください。" },
+      {
+        error:
+          "カード生成または保存に失敗しました。少し時間を置いて再実行してください。",
+      },
       { status: 502 },
     );
   }

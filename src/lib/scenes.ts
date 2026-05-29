@@ -3,6 +3,8 @@ import path from "path";
 
 import { parse } from "csv-parse/sync";
 
+import { getStoredSceneCards } from "@/lib/card-store";
+
 export type TopicCardRow = {
   card_id: string;
   category: string;
@@ -35,7 +37,7 @@ export type SceneCard = {
   }>;
 };
 
-export async function getSceneCards(): Promise<SceneCard[]> {
+export async function getStaticSceneCards(): Promise<SceneCard[]> {
   const filePath = path.join(process.cwd(), "data", "topic-cards.csv");
   const csv = await readFile(filePath, "utf8");
   const rows = parse(csv, {
@@ -73,3 +75,23 @@ export async function getSceneCards(): Promise<SceneCard[]> {
   return [...cards.values()].sort((a, b) => a.id.localeCompare(b.id));
 }
 
+export async function getSceneCards(): Promise<SceneCard[]> {
+  const [staticCards, storedCards] = await Promise.all([
+    getStaticSceneCards(),
+    getStoredSceneCards(),
+  ]);
+
+  return mergeSceneCards(staticCards, storedCards);
+}
+
+export function mergeSceneCards(...cardGroups: SceneCard[][]): SceneCard[] {
+  const cards = new Map<string, SceneCard>();
+
+  for (const group of cardGroups) {
+    for (const card of group) {
+      cards.set(card.id, card);
+    }
+  }
+
+  return [...cards.values()];
+}

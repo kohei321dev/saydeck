@@ -15,8 +15,10 @@ import type { RuntimeDiagnostics } from "@/lib/runtime-diagnostics";
 import type { SceneCard } from "@/lib/scenes";
 
 type Props = {
+  cardPersistenceConfigured?: boolean;
   canAddCards?: boolean;
   cards: SceneCard[];
+  persistedCardIds?: string[];
 };
 
 type ReviewResult = {
@@ -41,9 +43,27 @@ type PracticeStates = Record<string, PracticeState>;
 const practiceStorageKey = "scene-builder.practice-state.v1";
 const customCardsStorageKey = "scene-builder.custom-cards.v1";
 
-export function ScenePractice({ canAddCards = false, cards }: Props) {
+export function ScenePractice({
+  cardPersistenceConfigured = false,
+  canAddCards = false,
+  cards,
+  persistedCardIds = [],
+}: Props) {
   const [customCards, setCustomCards] = useState<SceneCard[]>([]);
-  const allCards = useMemo(() => [...cards, ...customCards], [cards, customCards]);
+  const [deletedCardIds, setDeletedCardIds] = useState<string[]>([]);
+  const [savedCardIds, setSavedCardIds] = useState<string[]>([]);
+  const allCards = useMemo(
+    () =>
+      mergeClientSceneCards(
+        cards.filter((card) => !deletedCardIds.includes(card.id)),
+        customCards.filter((card) => !deletedCardIds.includes(card.id)),
+      ),
+    [cards, customCards, deletedCardIds],
+  );
+  const persistedCardIdSet = useMemo(
+    () => new Set([...persistedCardIds, ...savedCardIds]),
+    [persistedCardIds, savedCardIds],
+  );
   const [selectedCardId, setSelectedCardId] = useState(allCards[0]?.id ?? "");
   const [selectedLevel, setSelectedLevel] = useState("L1");
   const [answer, setAnswer] = useState("");
@@ -86,14 +106,16 @@ export function ScenePractice({ canAddCards = false, cards }: Props) {
   const wordCount = answer.trim().split(/\s+/).filter(Boolean).length;
 
   useEffect(() => {
-    setCustomCards(canAddCards ? readCustomCards() : []);
-  }, [canAddCards]);
+    setCustomCards(
+      canAddCards && !cardPersistenceConfigured ? readCustomCards() : [],
+    );
+  }, [canAddCards, cardPersistenceConfigured]);
 
   useEffect(() => {
-    if (canAddCards) {
+    if (canAddCards && !cardPersistenceConfigured) {
       writeCustomCards(customCards);
     }
-  }, [canAddCards, customCards]);
+  }, [canAddCards, cardPersistenceConfigured, customCards]);
 
   useEffect(() => {
     const selectedCardExists = allCards.some((card) => card.id === selectedCardId);
@@ -254,15 +276,30 @@ export function ScenePractice({ canAddCards = false, cards }: Props) {
       const payload = (await response.json().catch(() => ({}))) as {
         card?: SceneCard;
         error?: string;
+        persistence?: {
+          configured?: boolean;
+          saved?: boolean;
+        };
       };
 
       if (!response.ok || !payload.card) {
         throw new Error(payload.error || "カード生成に失敗しました。");
       }
 
-      setCustomCards((current) => [...current, payload.card as SceneCard]);
-      setSelectedCardId(payload.card.id);
-      setSelectedLevel(payload.card.levels[0]?.level ?? "L1");
+      const generatedCard = payload.card as SceneCard;
+      setCustomCards((current) => mergeClientSceneCards(current, [generatedCard]));
+
+      if (payload.persistence?.saved) {
+        setSavedCardIds((current) =>
+          current.includes(generatedCard.id) ? current : [...current, generatedCard.id],
+        );
+      }
+
+      setDeletedCardIds((current) =>
+        current.filter((cardId) => cardId !== generatedCard.id),
+      );
+      setSelectedCardId(generatedCard.id);
+      setSelectedLevel(generatedCard.levels[0]?.level ?? "L1");
       setNewCardSceneJa("");
       setNewCardTags("");
     } catch (error) {
@@ -274,12 +311,42 @@ export function ScenePractice({ canAddCards = false, cards }: Props) {
     }
   }
 
-  function handleDeleteCustomCard(cardId: string) {
+  async function handleDeleteCustomCard(cardId: string) {
+    const isPersistedCard = persistedCardIdSet.has(cardId);
+    const remainingCards = allCards.filter((card) => card.id !== cardId);
+
+    if (isPersistedCard && cardPersistenceConfigured) {
+      try {
+        const response = await fetch(`/api/cards/${encodeURIComponent(cardId)}`, {
+          method: "DELETE",
+        });
+        const payload = (await response.json().catch(() => ({}))) as {
+          error?: string;
+        };
+
+        if (!response.ok) {
+          throw new Error(payload.error || "カード削除に失敗しました。");
+        }
+      } catch (error) {
+        setCardGenerationError(
+          error instanceof Error ? error.message : "カード削除に失敗しました。",
+        );
+        return;
+      }
+    }
+
     const nextCards = customCards.filter((card) => card.id !== cardId);
     setCustomCards(nextCards);
+    setSavedCardIds((current) =>
+      current.filter((savedCardId) => savedCardId !== cardId),
+    );
+    setDeletedCardIds((current) =>
+      current.includes(cardId) ? current : [...current, cardId],
+    );
+    setCardGenerationError(null);
 
     if (selectedCardId === cardId) {
-      const nextSelectedCard = allCards.find((card) => card.id !== cardId);
+      const nextSelectedCard = remainingCards[0];
       setSelectedCardId(nextSelectedCard?.id ?? "");
       setSelectedLevel(nextSelectedCard?.levels[0]?.level ?? "L1");
     }
@@ -378,7 +445,9 @@ export function ScenePractice({ canAddCards = false, cards }: Props) {
           </div>
         ) : null}
         {allCards.map((card) => {
-          const isCustomCard = customCards.some((customCard) => customCard.id === card.id);
+          const isCustomCard =
+            persistedCardIdSet.has(card.id) ||
+            customCards.some((customCard) => customCard.id === card.id);
 
           return (
             <div className="scene-list-entry" key={card.id}>
@@ -625,6 +694,10 @@ function DiagnosticsSummary({
           label="Google"
         />
         <DiagnosticsRow isReady={diagnostics.ai.apiKeyConfigured} label="AI key" />
+        <DiagnosticsRow
+          isReady={diagnostics.cards.persistenceConfigured}
+          label="Storage"
+        />
         <div>
           <dt>Model</dt>
           <dd>{diagnostics.ai.model}</dd>
@@ -636,6 +709,10 @@ function DiagnosticsSummary({
         <div>
           <dt>NEXTAUTH_URL</dt>
           <dd>{diagnostics.auth.nextAuthUrlHost ?? "未設定"}</dd>
+        </div>
+        <div>
+          <dt>Card store</dt>
+          <dd>{diagnostics.cards.storePathname}</dd>
         </div>
       </dl>
     </div>
@@ -809,6 +886,18 @@ function arePracticeStatesEqual(
   next: PracticeStates,
 ): boolean {
   return JSON.stringify(current) === JSON.stringify(next);
+}
+
+function mergeClientSceneCards(...cardGroups: SceneCard[][]): SceneCard[] {
+  const cards = new Map<string, SceneCard>();
+
+  for (const group of cardGroups) {
+    for (const card of group) {
+      cards.set(card.id, card);
+    }
+  }
+
+  return [...cards.values()];
 }
 
 function formatLastPracticedAt(value: string | null): string | null {

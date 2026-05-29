@@ -11,12 +11,22 @@ import {
   isOwnerSession,
   ownerGithubUsername,
 } from "@/lib/auth";
-import { getSceneCards } from "@/lib/scenes";
+import {
+  getStoredSceneCards,
+  isCardPersistenceConfigured,
+} from "@/lib/card-store";
+import { getStaticSceneCards, mergeSceneCards } from "@/lib/scenes";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const cards = await getSceneCards();
+  const [staticCards, storedCards] = await Promise.all([
+    getStaticSceneCards(),
+    getStoredSceneCards(),
+  ]);
+  const cards = mergeSceneCards(staticCards, storedCards);
+  const persistedCardIds = storedCards.map((card) => card.id);
+  const cardPersistenceConfigured = isCardPersistenceConfigured();
 
   if (isDevAuthBypassEnabled()) {
     return (
@@ -30,7 +40,12 @@ export default async function HomePage() {
             <span className="user-chip">@{ownerGithubUsername} dev</span>
           </div>
         </header>
-        <ScenePractice canAddCards cards={cards} />
+        <ScenePractice
+          cardPersistenceConfigured={cardPersistenceConfigured}
+          canAddCards
+          cards={cards}
+          persistedCardIds={persistedCardIds}
+        />
       </div>
     );
   }
@@ -67,7 +82,12 @@ export default async function HomePage() {
           <SignOutButton />
         </div>
       </header>
-      <ScenePractice canAddCards={role === "owner"} cards={cards} />
+      <ScenePractice
+        cardPersistenceConfigured={cardPersistenceConfigured}
+        canAddCards={role === "owner"}
+        cards={cards}
+        persistedCardIds={role === "owner" ? persistedCardIds : []}
+      />
     </div>
   );
 }

@@ -66,6 +66,8 @@ Vercel Environment Variablesに次を設定します。
 - `GROK_API_KEY`
 - `GROK_MODEL=grok-4.3`
 - `GROK_REASONING_EFFORT=none`
+- `BLOB_READ_WRITE_TOKEN`
+- `CARD_STORE_BLOB_PATH=scene-builder/cards.json`
 
 `OWNER_GITHUB_USERNAME` と一致するGitHub loginはownerとして利用できます。Googleログインユーザーはguestとしてカード閲覧、回答、AI添削を利用できます。
 
@@ -75,7 +77,9 @@ Google OAuth Clientには次のcallback URLを設定します。
 https://your-vercel-url/api/auth/callback/google
 ```
 
-ownerログイン後、カード追加パネルの「設定診断」からAuth、Google、AI key、AI model、`NEXTAUTH_URL` の設定状態を確認できます。secret値そのものは表示しません。
+ownerログイン後、カード追加パネルの「設定診断」からAuth、Google、AI key、AI model、`NEXTAUTH_URL`、カード保存先の設定状態を確認できます。secret値そのものは表示しません。
+
+OwnerがAIで生成したカードは、`BLOB_READ_WRITE_TOKEN` が設定されている場合にVercel Blobへ保存されます。保存されたカードは `data/topic-cards.csv` の初期カードとマージして読み込まれるため、再読み込み後や別ブラウザでOwnerログインした場合も表示されます。未設定のローカル環境では、カード追加は従来どおり同じブラウザのlocalStorage fallbackで確認できます。
 
 ## License
 

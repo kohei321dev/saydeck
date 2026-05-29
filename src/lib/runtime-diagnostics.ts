@@ -4,6 +4,10 @@ import {
   isGoogleAuthConfigured,
   ownerGithubUsername,
 } from "@/lib/auth";
+import {
+  getCardStorePathname,
+  isCardPersistenceConfigured,
+} from "@/lib/card-store";
 
 export type RuntimeDiagnostics = {
   ai: {
@@ -17,6 +21,10 @@ export type RuntimeDiagnostics = {
     googleConfigured: boolean;
     nextAuthUrlHost: string | null;
     ownerGithubUsername: string;
+  };
+  cards: {
+    persistenceConfigured: boolean;
+    storePathname: string;
   };
 };
 
@@ -33,6 +41,10 @@ export function getRuntimeDiagnostics(): RuntimeDiagnostics {
       googleConfigured: isGoogleAuthConfigured(),
       nextAuthUrlHost: getNextAuthUrlHost(),
       ownerGithubUsername,
+    },
+    cards: {
+      persistenceConfigured: isCardPersistenceConfigured(),
+      storePathname: getCardStorePathname(),
     },
   };
 }
