@@ -117,6 +117,38 @@ button:disabled {
   padding: 0 14px;
 }
 
+.sync-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  background: var(--surface-soft);
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
+.sync-pill.synced {
+  border-color: #b8d8c6;
+  color: var(--green-dark);
+  background: #e7f5ec;
+}
+
+.sync-pill.saving,
+.sync-pill.loading {
+  border-color: #c8d7e7;
+  color: var(--blue);
+  background: #edf5fb;
+}
+
+.sync-pill.error {
+  border-color: #e0beb9;
+  color: var(--red);
+  background: #fbecea;
+}
+
 .auth-button,
 .primary-button {
   border-color: var(--green);
@@ -289,6 +321,7 @@ button:disabled {
 
 .action-row {
   gap: 10px;
+  flex-wrap: wrap;
   margin-top: 14px;
 }
 

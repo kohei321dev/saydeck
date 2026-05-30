@@ -11,6 +11,7 @@ import {
   isOwnerAuthorized,
 } from "@/lib/auth-policy";
 import { getLearningData } from "@/lib/data";
+import { isDatabaseConfigured } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
@@ -36,6 +37,7 @@ export default async function Home() {
 
   const canUseReview =
     isOwnerAuthorized(session?.user?.githubLogin) && Boolean(process.env.XAI_API_KEY);
+  const canUseCloudSync = isOwnerAuthorized(session?.user?.githubLogin) && isDatabaseConfigured();
 
   return (
     <main className="shell">
@@ -52,7 +54,11 @@ export default async function Home() {
         <AuthActions devBypass={isDevBypass} session={session} />
       </header>
 
-      <LearningWorkbench data={data} canUseReview={canUseReview} />
+      <LearningWorkbench
+        data={data}
+        canUseCloudSync={canUseCloudSync}
+        canUseReview={canUseReview}
+      />
     </main>
   );
 }

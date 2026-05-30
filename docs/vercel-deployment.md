@@ -6,6 +6,8 @@
 
 [事実] Grok review calls xAI from the server-side `/api/review` route. The browser never receives `XAI_API_KEY`.
 
+[事実] Practice records can be stored in Postgres through `DATABASE_URL`. The current ADR selects Neon Postgres as the first cloud database target.
+
 ## GitHub OAuth App
 
 Create an OAuth App from GitHub Developer Settings.
@@ -42,6 +44,7 @@ AUTH_GITHUB_SECRET=<github-oauth-client-secret>
 OWNER_GITHUB_USERNAME=kohei321dev
 XAI_API_KEY=<xai-api-key>
 XAI_MODEL=grok-4.3
+DATABASE_URL=<neon-postgres-connection-string>
 ```
 
 Do not set `DEV_AUTH_BYPASS` in Vercel Production.
@@ -71,8 +74,18 @@ AUTH_GITHUB_SECRET=
 OWNER_GITHUB_USERNAME=kohei321dev
 XAI_API_KEY=
 XAI_MODEL=grok-4.3
+DATABASE_URL=
 DEV_AUTH_BYPASS=1
 ```
+
+## Neon Postgres Setup
+
+1. Create or connect a Neon project from Vercel Marketplace, or create a Neon database manually.
+2. Set `DATABASE_URL` in Vercel Project Settings > Environment Variables.
+3. Apply `db/migrations/0001-practice-records.sql` to the Neon database.
+4. Redeploy the Vercel project after setting `DATABASE_URL`.
+
+If `DATABASE_URL` is not set, the app continues to use browser `localStorage` for practice records.
 
 ## Access Rules
 
@@ -80,3 +93,5 @@ DEV_AUTH_BYPASS=1
 - GitHub OAuth sign-in is rejected unless the GitHub login is `kohei321dev`.
 - `/api/review` returns `401` unless the current Auth.js session is the allowed owner.
 - `/api/review` returns `503` if `XAI_API_KEY` is not configured.
+- `/api/practice` returns `401` unless the current Auth.js session is the allowed owner.
+- `/api/practice` returns `503` if `DATABASE_URL` is not configured.

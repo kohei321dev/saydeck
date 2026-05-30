@@ -39,8 +39,24 @@ type StoredPractice = {
 
 type LearningWorkbenchProps = {
   data: LearningData;
+  canUseCloudSync: boolean;
   canUseReview: boolean;
 };
+
+type PracticeApiRecord = StoredPractice & {
+  createdAt: string;
+  itemId: string;
+  level: LevelCode;
+  mode: Mode;
+  ownerLogin: string;
+  updatedAt: string;
+};
+
+type PracticeApiResponse = {
+  record: PracticeApiRecord | null;
+};
+
+type SyncState = "local" | "loading" | "saving" | "synced" | "error";
 
 const storagePrefix = "scene-builder:v1";
 
@@ -72,6 +88,53 @@ function createInitialPractice(): StoredPractice {
   };
 }
 
+function normalizePractice(value: Partial<StoredPractice> | undefined): StoredPractice {
+  return {
+    answer: typeof value?.answer === "string" ? value.answer : "",
+    checks: {
+      meaning: value?.checks?.meaning === true,
+      subjectVerb: value?.checks?.subjectVerb === true,
+      tense: value?.checks?.tense === true,
+      stolenPhrase: value?.checks?.stolenPhrase === true,
+      speakable: value?.checks?.speakable === true,
+    },
+    status:
+      value?.status === "learned" || value?.status === "review" ? value.status : "new",
+    review: value?.review,
+  };
+}
+
+function readStoredPractice(raw: string | null) {
+  if (!raw) {
+    return createInitialPractice();
+  }
+
+  try {
+    return normalizePractice(JSON.parse(raw) as Partial<StoredPractice>);
+  } catch {
+    return createInitialPractice();
+  }
+}
+
+function hasPracticeContent(practice: StoredPractice) {
+  return Boolean(
+    practice.answer.trim() ||
+      Object.values(practice.checks).some(Boolean) ||
+      practice.status !== "new" ||
+      practice.review,
+  );
+}
+
+function makePracticeApiUrl(mode: Mode, itemId: string, level: LevelCode) {
+  const params = new URLSearchParams({
+    mode,
+    itemId,
+    level,
+  });
+
+  return `/api/practice?${params.toString()}`;
+}
+
 function getItems(data: LearningData, mode: Mode) {
   return mode === "topic" ? data.topicCards : data.diaryPrompts;
 }
@@ -96,7 +159,31 @@ function statusLabel(status: Status) {
   return "未整理";
 }
 
-export function LearningWorkbench({ data, canUseReview }: LearningWorkbenchProps) {
+function syncLabel(syncState: SyncState) {
+  if (syncState === "loading") {
+    return "Loading cloud";
+  }
+
+  if (syncState === "saving") {
+    return "Saving cloud";
+  }
+
+  if (syncState === "synced") {
+    return "Cloud saved";
+  }
+
+  if (syncState === "error") {
+    return "Local only";
+  }
+
+  return "Local";
+}
+
+export function LearningWorkbench({
+  data,
+  canUseCloudSync,
+  canUseReview,
+}: LearningWorkbenchProps) {
   const [mode, setMode] = useState<Mode>("topic");
   const [category, setCategory] = useState("all");
   const [selectedId, setSelectedId] = useState(
@@ -104,8 +191,13 @@ export function LearningWorkbench({ data, canUseReview }: LearningWorkbenchProps
   );
   const [selectedLevel, setSelectedLevel] = useState<LevelCode>("L1");
   const [practice, setPractice] = useState<StoredPractice>(createInitialPractice);
+  const [cloudReadyKey, setCloudReadyKey] = useState<string | null>(null);
+  const [cloudRecordKey, setCloudRecordKey] = useState<string | null>(null);
   const [loadedKey, setLoadedKey] = useState<string | null>(null);
   const [reviewState, setReviewState] = useState<"idle" | "loading" | "error">("idle");
+  const [syncState, setSyncState] = useState<SyncState>(
+    canUseCloudSync ? "loading" : "local",
+  );
 
   const items = useMemo(() => getItems(data, mode), [data, mode]);
   const categories = useMemo(() => getCategories(data, mode), [data, mode]);
@@ -132,12 +224,62 @@ export function LearningWorkbench({ data, canUseReview }: LearningWorkbenchProps
       return;
     }
 
-    const raw = window.localStorage.getItem(currentStorageKey);
+    const localPractice = readStoredPractice(window.localStorage.getItem(currentStorageKey));
 
-    setPractice(raw ? JSON.parse(raw) : createInitialPractice());
+    setPractice(localPractice);
+    setCloudReadyKey(canUseCloudSync ? null : currentStorageKey);
+    setCloudRecordKey(null);
     setReviewState("idle");
     setLoadedKey(currentStorageKey);
-  }, [currentStorageKey]);
+
+    if (!canUseCloudSync || !selectedItem || !currentLevel) {
+      setSyncState("local");
+      return;
+    }
+
+    const itemId = selectedItem.id;
+    const level = currentLevel.level;
+    let isCancelled = false;
+
+    async function loadCloudPractice() {
+      setSyncState("loading");
+
+      try {
+        const response = await fetch(makePracticeApiUrl(mode, itemId, level));
+
+        if (!response.ok) {
+          throw new Error("Failed to load practice record");
+        }
+
+        const result = (await response.json()) as PracticeApiResponse;
+
+        if (isCancelled) {
+          return;
+        }
+
+        if (result.record) {
+          setPractice(normalizePractice(result.record));
+          setCloudRecordKey(currentStorageKey);
+          setSyncState("synced");
+        } else {
+          setSyncState("local");
+        }
+
+        setCloudReadyKey(currentStorageKey);
+      } catch {
+        if (!isCancelled) {
+          setCloudReadyKey(currentStorageKey);
+          setSyncState("error");
+        }
+      }
+    }
+
+    loadCloudPractice();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [canUseCloudSync, currentLevel, currentStorageKey, mode, selectedItem]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   useEffect(() => {
@@ -147,6 +289,75 @@ export function LearningWorkbench({ data, canUseReview }: LearningWorkbenchProps
 
     window.localStorage.setItem(currentStorageKey, JSON.stringify(practice));
   }, [currentStorageKey, loadedKey, practice]);
+
+  useEffect(() => {
+    if (
+      !canUseCloudSync ||
+      !currentStorageKey ||
+      !selectedItem ||
+      !currentLevel ||
+      loadedKey !== currentStorageKey ||
+      cloudReadyKey !== currentStorageKey
+    ) {
+      return;
+    }
+
+    const shouldSave = hasPracticeContent(practice) || cloudRecordKey === currentStorageKey;
+
+    if (!shouldSave) {
+      return;
+    }
+
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(async () => {
+      setSyncState("saving");
+
+      try {
+        const response = await fetch("/api/practice", {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            mode,
+            itemId: selectedItem.id,
+            level: currentLevel.level,
+            answer: practice.answer,
+            checks: practice.checks,
+            status: practice.status,
+            review: practice.review,
+          }),
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to save practice record");
+        }
+
+        setCloudRecordKey(currentStorageKey);
+        setSyncState("synced");
+      } catch {
+        if (!controller.signal.aborted) {
+          setSyncState("error");
+        }
+      }
+    }, 700);
+
+    return () => {
+      controller.abort();
+      window.clearTimeout(timeoutId);
+    };
+  }, [
+    canUseCloudSync,
+    cloudReadyKey,
+    cloudRecordKey,
+    currentLevel,
+    currentStorageKey,
+    loadedKey,
+    mode,
+    practice,
+    selectedItem,
+  ]);
 
   if (!selectedItem || !currentLevel) {
     return null;
@@ -317,6 +528,7 @@ export function LearningWorkbench({ data, canUseReview }: LearningWorkbenchProps
               <RotateCcw aria-hidden="true" size={18} />
               Reset
             </button>
+            <span className={`sync-pill ${syncState}`}>{syncLabel(syncState)}</span>
           </div>
 
           {reviewState === "error" ? (

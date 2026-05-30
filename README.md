@@ -27,9 +27,11 @@
 ## Repository Structure
 
 - `docs/product-brief.md`: 学習課題、MVP、実現可能性
+- `docs/ADR.md`: ADRの運用ルール
 - `docs/adr/`: 設計判断の記録
 - `docs/prompt-templates/`: AIに問題生成や添削を頼むためのテンプレート
 - `docs/vercel-deployment.md`: Vercel、GitHub OAuth、xAI env設定手順
+- `db/migrations/`: Neon/Postgres向けmigration SQL
 - `data/topic-cards.csv`: スケボー会話向けトピックカード
 - `data/diary-prompts.csv`: 短い英語日記の練習プロンプト
 - `data/vocabulary.csv`: 使い回したい語彙・表現
@@ -44,6 +46,8 @@ DEV_AUTH_BYPASS=1 npm run dev
 `DEV_AUTH_BYPASS=1` はローカル確認用です。`NODE_ENV=production` では無効になります。
 
 GitHub SSOとGrok reviewを使う場合は、`.env.example` を参考に `.env.local` を作成してください。実secret値はcommitしません。Vercelへ設定する値は `docs/vercel-deployment.md` を参照してください。
+
+Neon/Postgresへ学習状態を保存する場合は、`DATABASE_URL` を設定し、`db/migrations/0001-practice-records.sql` を適用してください。未設定時はブラウザのlocalStorageに保存します。
 
 ## License
 
