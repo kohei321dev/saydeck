@@ -11,6 +11,7 @@ import {
   isOwnerSession,
   ownerGithubUsername,
 } from "@/lib/auth";
+import { isDatabaseConfigured } from "@/lib/db";
 import { getSceneCards } from "@/lib/scenes";
 
 export const dynamic = "force-dynamic";
@@ -30,7 +31,11 @@ export default async function HomePage() {
             <span className="user-chip">@{ownerGithubUsername} dev</span>
           </div>
         </header>
-        <ScenePractice canAddCards cards={cards} />
+        <ScenePractice
+          canAddCards
+          canUseCloudSync={isDatabaseConfigured()}
+          cards={cards}
+        />
       </div>
     );
   }
@@ -67,7 +72,11 @@ export default async function HomePage() {
           <SignOutButton />
         </div>
       </header>
-      <ScenePractice canAddCards={role === "owner"} cards={cards} />
+      <ScenePractice
+        canAddCards={role === "owner"}
+        canUseCloudSync={role === "owner" && isDatabaseConfigured()}
+        cards={cards}
+      />
     </div>
   );
 }

@@ -4,6 +4,7 @@ import {
   isGoogleAuthConfigured,
   ownerGithubUsername,
 } from "@/lib/auth";
+import { isDatabaseConfigured } from "@/lib/db";
 
 export type RuntimeDiagnostics = {
   ai: {
@@ -17,6 +18,9 @@ export type RuntimeDiagnostics = {
     googleConfigured: boolean;
     nextAuthUrlHost: string | null;
     ownerGithubUsername: string;
+  };
+  database: {
+    configured: boolean;
   };
 };
 
@@ -33,6 +37,9 @@ export function getRuntimeDiagnostics(): RuntimeDiagnostics {
       googleConfigured: isGoogleAuthConfigured(),
       nextAuthUrlHost: getNextAuthUrlHost(),
       ownerGithubUsername,
+    },
+    database: {
+      configured: isDatabaseConfigured(),
     },
   };
 }

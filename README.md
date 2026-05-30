@@ -66,6 +66,7 @@ Vercel Environment Variablesに次を設定します。
 - `GROK_API_KEY`
 - `GROK_MODEL=grok-4.3`
 - `GROK_REASONING_EFFORT=none`
+- `DATABASE_URL`
 
 `OWNER_GITHUB_USERNAME` と一致するGitHub loginはownerとして利用できます。Googleログインユーザーはguestとしてカード閲覧、回答、AI添削を利用できます。
 
@@ -75,7 +76,13 @@ Google OAuth Clientには次のcallback URLを設定します。
 https://your-vercel-url/api/auth/callback/google
 ```
 
-ownerログイン後、カード追加パネルの「設定診断」からAuth、Google、AI key、AI model、`NEXTAUTH_URL` の設定状態を確認できます。secret値そのものは表示しません。
+ownerログイン後、カード追加パネルの「設定診断」からAuth、Google、Database、AI key、AI model、`NEXTAUTH_URL` の設定状態を確認できます。secret値そのものは表示しません。
+
+## Neon Postgres
+
+Ownerの学習状態をクラウド保存する場合は、NeonなどのPostgresに `db/migrations/0001-practice-records.sql` を適用し、Vercel Production/Previewに `DATABASE_URL` を設定します。
+
+`DATABASE_URL` が未設定の場合、学習状態は従来どおりブラウザのlocalStorageに保存されます。
 
 ## License
 
