@@ -11,13 +11,25 @@ import {
   isOwnerSession,
   ownerGithubUsername,
 } from "@/lib/auth";
+import {
+  getSampleSceneCards,
+  getStoredSceneCards,
+  isCardPersistenceConfigured,
+} from "@/lib/card-store";
 import { isDatabaseConfigured } from "@/lib/db";
-import { getSceneCards } from "@/lib/scenes";
+import { mergeSceneCards } from "@/lib/scenes";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const cards = await getSceneCards();
+  const [sampleCards, storedCards] = await Promise.all([
+    getSampleSceneCards(),
+    getStoredSceneCards(),
+  ]);
+  const cards = mergeSceneCards(sampleCards, storedCards);
+  const persistedCardIds = storedCards.map((card) => card.id);
+  const cardPersistenceConfigured = isCardPersistenceConfigured();
+  const databaseConfigured = isDatabaseConfigured();
 
   if (isDevAuthBypassEnabled()) {
     return (
@@ -32,9 +44,11 @@ export default async function HomePage() {
           </div>
         </header>
         <ScenePractice
+          cardPersistenceConfigured={cardPersistenceConfigured}
           canAddCards
-          canUseCloudSync={isDatabaseConfigured()}
+          canUseCloudSync={databaseConfigured}
           cards={cards}
+          persistedCardIds={persistedCardIds}
         />
       </div>
     );
@@ -73,9 +87,11 @@ export default async function HomePage() {
         </div>
       </header>
       <ScenePractice
+        cardPersistenceConfigured={cardPersistenceConfigured}
         canAddCards={role === "owner"}
-        canUseCloudSync={role === "owner" && isDatabaseConfigured()}
+        canUseCloudSync={role === "owner" && databaseConfigured}
         cards={cards}
+        persistedCardIds={role === "owner" ? persistedCardIds : []}
       />
     </div>
   );

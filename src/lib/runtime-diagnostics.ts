@@ -4,6 +4,10 @@ import {
   isGoogleAuthConfigured,
   ownerGithubUsername,
 } from "@/lib/auth";
+import {
+  getCardStoreLocation,
+  isCardPersistenceConfigured,
+} from "@/lib/card-store";
 import { isDatabaseConfigured } from "@/lib/db";
 
 export type RuntimeDiagnostics = {
@@ -18,6 +22,10 @@ export type RuntimeDiagnostics = {
     googleConfigured: boolean;
     nextAuthUrlHost: string | null;
     ownerGithubUsername: string;
+  };
+  cards: {
+    persistenceConfigured: boolean;
+    storeLocation: string;
   };
   database: {
     configured: boolean;
@@ -37,6 +45,10 @@ export function getRuntimeDiagnostics(): RuntimeDiagnostics {
       googleConfigured: isGoogleAuthConfigured(),
       nextAuthUrlHost: getNextAuthUrlHost(),
       ownerGithubUsername,
+    },
+    cards: {
+      persistenceConfigured: isCardPersistenceConfigured(),
+      storeLocation: getCardStoreLocation(),
     },
     database: {
       configured: isDatabaseConfigured(),
