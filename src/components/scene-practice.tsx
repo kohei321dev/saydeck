@@ -49,7 +49,6 @@ type CloudPracticeResponse = {
 };
 
 const practiceStorageKey = "scene-builder.practice-state.v1";
-const customCardsStorageKey = "scene-builder.custom-cards.v1";
 
 export function ScenePractice({
   cardPersistenceConfigured = false,
@@ -123,16 +122,10 @@ export function ScenePractice({
   const wordCount = answer.trim().split(/\s+/).filter(Boolean).length;
 
   useEffect(() => {
-    setCustomCards(
-      canAddCards && !cardPersistenceConfigured ? readCustomCards() : [],
-    );
-  }, [canAddCards, cardPersistenceConfigured]);
-
-  useEffect(() => {
-    if (canAddCards && !cardPersistenceConfigured) {
-      writeCustomCards(customCards);
+    if (!canAddCards) {
+      setCustomCards([]);
     }
-  }, [canAddCards, cardPersistenceConfigured, customCards]);
+  }, [canAddCards]);
 
   useEffect(() => {
     const selectedCardExists = allCards.some((card) => card.id === selectedCardId);
@@ -839,7 +832,9 @@ function DiagnosticsSummary({
         <DiagnosticsRow isReady={diagnostics.database.configured} label="Database" />
         <DiagnosticsRow isReady={diagnostics.ai.apiKeyConfigured} label="AI key" />
         <DiagnosticsRow
-          isReady={diagnostics.cards.persistenceConfigured}
+          isReady={
+            diagnostics.cards.persistenceConfigured && diagnostics.cards.schemaReady
+          }
           label="Storage"
         />
         <div>
@@ -912,90 +907,6 @@ function getDoneNote(canUseCloudSync: boolean, status: CloudSyncStatus): string 
 
 function getPracticeKey(cardId: string, level: string): string {
   return `${cardId}:${level}`;
-}
-
-function readCustomCards(): SceneCard[] {
-  try {
-    const rawValue = window.localStorage.getItem(customCardsStorageKey);
-
-    if (!rawValue) {
-      return [];
-    }
-
-    const value = JSON.parse(rawValue);
-
-    if (!Array.isArray(value)) {
-      return [];
-    }
-
-    return value
-      .map(normalizeSceneCard)
-      .filter((card): card is SceneCard => Boolean(card));
-  } catch {
-    return [];
-  }
-}
-
-function writeCustomCards(cards: SceneCard[]) {
-  try {
-    if (cards.length === 0) {
-      window.localStorage.removeItem(customCardsStorageKey);
-      return;
-    }
-
-    window.localStorage.setItem(customCardsStorageKey, JSON.stringify(cards));
-  } catch {
-    // localStorage may be unavailable in restricted browser contexts.
-  }
-}
-
-function normalizeSceneCard(value: unknown): SceneCard | null {
-  if (!isRecord(value)) {
-    return null;
-  }
-
-  const levels = Array.isArray(value.levels)
-    ? value.levels
-        .map(normalizeSceneLevel)
-        .filter((level): level is SceneCard["levels"][number] => Boolean(level))
-    : [];
-
-  if (levels.length === 0) {
-    return null;
-  }
-
-  return {
-    id: getString(value.id),
-    category: getString(value.category) || "custom",
-    sceneJa: getString(value.sceneJa),
-    promptEn: getString(value.promptEn),
-    promptJa: getString(value.promptJa),
-    tags: Array.isArray(value.tags)
-      ? value.tags.map(getString).filter(Boolean)
-      : [],
-    levels,
-  };
-}
-
-function normalizeSceneLevel(value: unknown): SceneCard["levels"][number] | null {
-  if (!isRecord(value)) {
-    return null;
-  }
-
-  const level = getString(value.level);
-
-  if (!level) {
-    return null;
-  }
-
-  return {
-    level,
-    name: getString(value.name) || level,
-    constraints: getString(value.constraints),
-    answerEn: getString(value.answerEn),
-    answerJa: getString(value.answerJa),
-    reviewPoints: getString(value.reviewPoints),
-  };
 }
 
 function readPracticeStates(): PracticeStates {
@@ -1095,10 +1006,6 @@ function formatLastPracticedAt(value: string | null): string | null {
 
 function parseTags(value: string): string[] {
   return value.split(";").map((tag) => tag.trim()).filter(Boolean).slice(0, 8);
-}
-
-function getString(value: unknown): string {
-  return typeof value === "string" ? value.trim() : "";
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
