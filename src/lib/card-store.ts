@@ -1,20 +1,18 @@
-import { BlobPreconditionFailedError, get, put } from "@vercel/blob";
-
+import { getSql, isDatabaseConfigured } from "@/lib/db";
 import type { SceneCard } from "@/lib/scenes";
 
-const storedCardsVersion = 1;
 const maxStoredCards = 500;
-const maxSaveAttempts = 3;
 
-type StoredCardsFile = {
-  version?: unknown;
-  cards?: unknown;
-  updatedAt?: unknown;
-};
+type SceneCardSource = "sample" | "owner";
 
-type ReadStoredCardsResult = {
-  cards: SceneCard[];
-  etag: string | null;
+type SceneCardRow = {
+  id: string;
+  category: string;
+  scene_ja: string;
+  prompt_en: string;
+  prompt_ja: string;
+  tags: unknown;
+  levels: unknown;
 };
 
 export class MissingCardStoreError extends Error {
@@ -25,14 +23,26 @@ export class MissingCardStoreError extends Error {
 }
 
 export function isCardPersistenceConfigured(): boolean {
-  return Boolean(
-    process.env.BLOB_READ_WRITE_TOKEN ||
-      (process.env.VERCEL_OIDC_TOKEN && process.env.BLOB_STORE_ID),
-  );
+  return isDatabaseConfigured();
 }
 
-export function getCardStorePathname(): string {
-  return process.env.CARD_STORE_BLOB_PATH?.trim() || "scene-builder/cards.json";
+export function getCardStoreLocation(): string {
+  return isCardPersistenceConfigured()
+    ? "Neon/Postgres scene_cards"
+    : "DATABASE_URL未設定";
+}
+
+export async function getSampleSceneCards(): Promise<SceneCard[]> {
+  if (!isCardPersistenceConfigured()) {
+    return [];
+  }
+
+  try {
+    return await getSceneCardsBySource("sample");
+  } catch (error) {
+    console.error("Failed to read sample scene cards.", error);
+    return [];
+  }
 }
 
 export async function getStoredSceneCards(): Promise<SceneCard[]> {
@@ -41,10 +51,9 @@ export async function getStoredSceneCards(): Promise<SceneCard[]> {
   }
 
   try {
-    const { cards } = await readStoredCardsFile();
-    return cards;
+    return await getSceneCardsBySource("owner");
   } catch (error) {
-    console.error("Failed to read stored scene cards.", error);
+    console.error("Failed to read owner scene cards.", error);
     return [];
   }
 }
@@ -60,11 +69,50 @@ export async function saveStoredSceneCard(card: SceneCard): Promise<SceneCard> {
     throw new Error("Scene card shape is invalid.");
   }
 
-  await writeStoredCardsWithRetry((cards) => {
-    const nextCards = cards.filter((candidate) => candidate.id !== normalizedCard.id);
-    nextCards.push(normalizedCard);
-    return nextCards.slice(-maxStoredCards);
-  });
+  const sql = getSql();
+  const rows = await sql<{ id: string }[]>`
+    insert into scene_cards (
+      id,
+      category,
+      scene_ja,
+      prompt_en,
+      prompt_ja,
+      tags,
+      levels,
+      source,
+      position,
+      updated_at
+    )
+    values (
+      ${normalizedCard.id},
+      ${normalizedCard.category},
+      ${normalizedCard.sceneJa},
+      ${normalizedCard.promptEn},
+      ${normalizedCard.promptJa},
+      ${JSON.stringify(normalizedCard.tags)}::jsonb,
+      ${JSON.stringify(normalizedCard.levels)}::jsonb,
+      'owner',
+      10000,
+      now()
+    )
+    on conflict (id)
+    do update set
+      category = excluded.category,
+      scene_ja = excluded.scene_ja,
+      prompt_en = excluded.prompt_en,
+      prompt_ja = excluded.prompt_ja,
+      tags = excluded.tags,
+      levels = excluded.levels,
+      updated_at = now()
+    where scene_cards.source = 'owner'
+    returning id
+  `;
+
+  if (!rows[0]) {
+    throw new Error("Scene card id conflicts with a sample card.");
+  }
+
+  await pruneStoredSceneCards();
 
   return normalizedCard;
 }
@@ -80,92 +128,57 @@ export async function deleteStoredSceneCard(cardId: string): Promise<boolean> {
     return false;
   }
 
-  let deleted = false;
+  const sql = getSql();
+  const rows = await sql<{ id: string }[]>`
+    delete from scene_cards
+    where id = ${normalizedCardId}
+      and source = 'owner'
+    returning id
+  `;
 
-  await writeStoredCardsWithRetry((cards) => {
-    const nextCards = cards.filter((card) => card.id !== normalizedCardId);
-    deleted = nextCards.length !== cards.length;
-    return nextCards;
+  return Boolean(rows[0]);
+}
+
+async function getSceneCardsBySource(source: SceneCardSource): Promise<SceneCard[]> {
+  const sql = getSql();
+  const rows = await sql<SceneCardRow[]>`
+    select id, category, scene_ja, prompt_en, prompt_ja, tags, levels
+    from scene_cards
+    where source = ${source}
+    order by position asc, created_at asc, id asc
+  `;
+
+  return rows
+    .map(rowToSceneCard)
+    .filter((card): card is SceneCard => Boolean(card));
+}
+
+async function pruneStoredSceneCards(): Promise<void> {
+  const sql = getSql();
+
+  await sql`
+    delete from scene_cards
+    where source = 'owner'
+      and id in (
+        select id
+        from scene_cards
+        where source = 'owner'
+        order by created_at desc, id desc
+        offset ${maxStoredCards}
+      )
+  `;
+}
+
+function rowToSceneCard(row: SceneCardRow): SceneCard | null {
+  return normalizeSceneCard({
+    id: row.id,
+    category: row.category,
+    sceneJa: row.scene_ja,
+    promptEn: row.prompt_en,
+    promptJa: row.prompt_ja,
+    tags: row.tags,
+    levels: row.levels,
   });
-
-  return deleted;
-}
-
-async function writeStoredCardsWithRetry(
-  update: (cards: SceneCard[]) => SceneCard[],
-): Promise<void> {
-  let lastError: unknown;
-
-  for (let attempt = 1; attempt <= maxSaveAttempts; attempt += 1) {
-    const current = await readStoredCardsFile();
-    const nextCards = update(current.cards);
-
-    try {
-      await writeStoredCardsFile(nextCards, current.etag);
-      return;
-    } catch (error) {
-      lastError = error;
-
-      if (!(error instanceof BlobPreconditionFailedError)) {
-        throw error;
-      }
-    }
-  }
-
-  throw lastError instanceof Error
-    ? lastError
-    : new Error("Failed to update stored cards.");
-}
-
-async function readStoredCardsFile(): Promise<ReadStoredCardsResult> {
-  const result = await get(getCardStorePathname(), {
-    access: "private",
-    useCache: false,
-  });
-
-  if (!result || result.statusCode === 304) {
-    return { cards: [], etag: null };
-  }
-
-  const rawValue = await new Response(result.stream).text();
-  const value = JSON.parse(rawValue) as StoredCardsFile;
-
-  if (!isRecord(value) || value.version !== storedCardsVersion) {
-    return { cards: [], etag: result.blob.etag };
-  }
-
-  const cards = Array.isArray(value.cards)
-    ? value.cards
-        .map(normalizeSceneCard)
-        .filter((card): card is SceneCard => Boolean(card))
-    : [];
-
-  return { cards, etag: result.blob.etag };
-}
-
-async function writeStoredCardsFile(
-  cards: SceneCard[],
-  etag: string | null,
-): Promise<void> {
-  await put(
-    getCardStorePathname(),
-    JSON.stringify(
-      {
-        version: storedCardsVersion,
-        updatedAt: new Date().toISOString(),
-        cards,
-      },
-      null,
-      2,
-    ),
-    {
-      access: "private",
-      allowOverwrite: true,
-      cacheControlMaxAge: 60,
-      contentType: "application/json; charset=utf-8",
-      ...(etag ? { ifMatch: etag } : {}),
-    },
-  );
 }
 
 function normalizeSceneCard(value: unknown): SceneCard | null {
@@ -176,8 +189,9 @@ function normalizeSceneCard(value: unknown): SceneCard | null {
   const id = getString(value.id);
   const sceneJa = getString(value.sceneJa);
   const promptEn = getString(value.promptEn);
-  const levels = Array.isArray(value.levels)
-    ? value.levels
+  const levelsValue = readJson(value.levels);
+  const levels = Array.isArray(levelsValue)
+    ? levelsValue
         .map(normalizeSceneLevel)
         .filter((level): level is SceneCard["levels"][number] => Boolean(level))
     : [];
@@ -192,9 +206,7 @@ function normalizeSceneCard(value: unknown): SceneCard | null {
     sceneJa,
     promptEn,
     promptJa: getString(value.promptJa),
-    tags: Array.isArray(value.tags)
-      ? value.tags.map(getString).filter(Boolean).slice(0, 8)
-      : [],
+    tags: normalizeTags(value.tags),
     levels,
   };
 }
@@ -218,6 +230,28 @@ function normalizeSceneLevel(value: unknown): SceneCard["levels"][number] | null
     answerJa: getString(value.answerJa),
     reviewPoints: getString(value.reviewPoints),
   };
+}
+
+function normalizeTags(value: unknown): string[] {
+  const tagsValue = readJson(value);
+
+  if (!Array.isArray(tagsValue)) {
+    return [];
+  }
+
+  return tagsValue.map(getString).filter(Boolean).slice(0, 8);
+}
+
+function readJson(value: unknown): unknown {
+  if (typeof value !== "string") {
+    return value;
+  }
+
+  try {
+    return JSON.parse(value) as unknown;
+  } catch {
+    return undefined;
+  }
 }
 
 function getString(value: unknown): string {

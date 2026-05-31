@@ -12,20 +12,21 @@ import {
   ownerGithubUsername,
 } from "@/lib/auth";
 import {
+  getSampleSceneCards,
   getStoredSceneCards,
   isCardPersistenceConfigured,
 } from "@/lib/card-store";
 import { isDatabaseConfigured } from "@/lib/db";
-import { getStaticSceneCards, mergeSceneCards } from "@/lib/scenes";
+import { mergeSceneCards } from "@/lib/scenes";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const [staticCards, storedCards] = await Promise.all([
-    getStaticSceneCards(),
+  const [sampleCards, storedCards] = await Promise.all([
+    getSampleSceneCards(),
     getStoredSceneCards(),
   ]);
-  const cards = mergeSceneCards(staticCards, storedCards);
+  const cards = mergeSceneCards(sampleCards, storedCards);
   const persistedCardIds = storedCards.map((card) => card.id);
   const cardPersistenceConfigured = isCardPersistenceConfigured();
   const databaseConfigured = isDatabaseConfigured();

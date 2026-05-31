@@ -5,7 +5,7 @@ import {
   ownerGithubUsername,
 } from "@/lib/auth";
 import {
-  getCardStorePathname,
+  getCardStoreLocation,
   isCardPersistenceConfigured,
 } from "@/lib/card-store";
 import { isDatabaseConfigured } from "@/lib/db";
@@ -25,7 +25,7 @@ export type RuntimeDiagnostics = {
   };
   cards: {
     persistenceConfigured: boolean;
-    storePathname: string;
+    storeLocation: string;
   };
   database: {
     configured: boolean;
@@ -48,7 +48,7 @@ export function getRuntimeDiagnostics(): RuntimeDiagnostics {
     },
     cards: {
       persistenceConfigured: isCardPersistenceConfigured(),
-      storePathname: getCardStorePathname(),
+      storeLocation: getCardStoreLocation(),
     },
     database: {
       configured: isDatabaseConfigured(),

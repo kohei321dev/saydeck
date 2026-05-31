@@ -46,3 +46,14 @@
 
 カード数が増えたら、CSVをsource of truthにしたままbuild時にJSONへ変換する。AI生成・検索・履歴同期が必要になったら、SQLite、Supabase、Vercel Postgresなどを検討する。
 
+## Addendum: Neon-backed sample cards
+
+- Date: 2026-05-31
+
+サンプルカードのsource of truthをCSVからNeon/Postgresの `scene_cards` へ移す。初期サンプルは `db/migrations/0002-scene-cards.sql` でseedし、アプリは表示カードをDBから読む。
+
+理由:
+
+- AI生成カードとサンプルカードを同じ読み込み経路にできる
+- 初期表示、追加カード、将来の検索・進捗集計をPostgres中心に寄せられる
+- `data/topic-cards.csv` の読み込み経路を維持する必要がなくなる

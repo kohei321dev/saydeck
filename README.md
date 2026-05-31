@@ -17,7 +17,7 @@ https://scene-builder-tau.vercel.app
 - 課題: 話したい内容があっても、英文として頭に出てこない
 - 方針: スピーキングだけでなく、短いライティングを先に鍛える
 - 初期教材: スケボー場面のトピックカードと短い日記プロンプト
-- 初期実装: 静的データをVercelなどで閲覧できる形にする
+- 初期実装: Neon/Postgres上のサンプルカードをVercelなどで閲覧できる形にする
 - AI利用: Grok/xAI APIで回答添削とowner向けカード生成を行う
 
 ## Learning Loop
@@ -33,7 +33,7 @@ https://scene-builder-tau.vercel.app
 - `docs/product-brief.md`: 学習課題、MVP、実現可能性
 - `docs/adr/`: 設計判断の記録
 - `docs/prompt-templates/`: AIに問題生成や添削を頼むためのテンプレート
-- `data/topic-cards.csv`: スケボー会話向けトピックカード
+- `db/migrations/0002-scene-cards.sql`: スケボー会話向けサンプルカード
 - `data/diary-prompts.csv`: 短い英語日記の練習プロンプト
 - `data/vocabulary.csv`: 使い回したい語彙・表現
 
@@ -66,8 +66,6 @@ Vercel Environment Variablesに次を設定します。
 - `GROK_API_KEY`
 - `GROK_MODEL=grok-4.3`
 - `GROK_REASONING_EFFORT=none`
-- `BLOB_READ_WRITE_TOKEN`
-- `CARD_STORE_BLOB_PATH=scene-builder/cards.json`
 - `DATABASE_URL`
 
 `OWNER_GITHUB_USERNAME` と一致するGitHub loginはownerとして利用できます。Googleログインユーザーはguestとしてカード閲覧、回答、AI添削を利用できます。
@@ -80,11 +78,14 @@ https://your-vercel-url/api/auth/callback/google
 
 ownerログイン後、カード追加パネルの「設定診断」からAuth、Google、Database、AI key、AI model、`NEXTAUTH_URL`、カード保存先の設定状態を確認できます。secret値そのものは表示しません。
 
-OwnerがAIで生成したカードは、`BLOB_READ_WRITE_TOKEN` が設定されている場合にVercel Blobへ保存されます。保存されたカードは `data/topic-cards.csv` の初期カードとマージして読み込まれるため、再読み込み後や別ブラウザでOwnerログインした場合も表示されます。未設定のローカル環境では、カード追加は従来どおり同じブラウザのlocalStorage fallbackで確認できます。
+サンプルカードとOwnerがAIで生成したカードは、Neon/Postgresの `scene_cards` から読み込みます。Owner生成カードも同じテーブルへ保存されるため、再読み込み後や別ブラウザでOwnerログインした場合も表示されます。`DATABASE_URL` が未設定の場合、カード一覧は空になり、カード追加は同じブラウザのlocalStorage fallbackでのみ確認できます。
 
 ## Neon Postgres
 
-Ownerの学習状態をクラウド保存する場合は、NeonなどのPostgresに `db/migrations/0001-practice-records.sql` を適用し、Vercel Production/Previewに `DATABASE_URL` を設定します。
+NeonなどのPostgresに以下のmigrationを順番に適用し、Vercel Production/Previewに `DATABASE_URL` を設定します。
+
+1. `db/migrations/0001-practice-records.sql`
+2. `db/migrations/0002-scene-cards.sql`
 
 `DATABASE_URL` が未設定の場合、学習状態は従来どおりブラウザのlocalStorageに保存されます。
 

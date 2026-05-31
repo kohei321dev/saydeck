@@ -856,7 +856,7 @@ function DiagnosticsSummary({
         </div>
         <div>
           <dt>Card store</dt>
-          <dd>{diagnostics.cards.storePathname}</dd>
+          <dd>{diagnostics.cards.storeLocation}</dd>
         </div>
       </dl>
     </div>
