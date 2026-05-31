@@ -26,6 +26,35 @@ For local development, create a separate OAuth App:
 
 Use the generated Client ID and Client Secret as Vercel env vars.
 
+## Preview OAuth Verification Policy
+
+[事実] GitHub OAuth AppのAuthorization callback URLは完全一致で検証される。
+
+[事実] Vercel Preview URLやdeployment URLはbranch、PR、commitごとに変わる場合がある。そのURLをGitHub OAuth Appへ登録していない場合、GitHub sign-inは `redirect_uri` mismatchで失敗する。
+
+[判断] 既定では、GitHub owner sign-inを含むE2E確認はProduction正式ドメインだけを検証対象にする。
+
+[判断] PR Previewでは、次を確認対象にする。
+
+- buildとVercel deployが成功していること
+- 未ログイン時に `/signin` へredirectされること
+- OAuth env未設定時にsetup表示へ進めること
+- API routeが未認証リクエストを拒否すること
+- GitHub owner sign-in後の画面確認は、merge後にProduction正式ドメインで行うこと
+
+PreviewでGitHub owner sign-inまで確認する場合は、次のどちらかを事前に用意する。
+
+1. 固定のstaging/preview domainをVercelで用意し、そのURLだけを検証対象にする。
+2. Preview専用GitHub OAuth Appを作成し、Vercel Preview envにPreview専用の `AUTH_GITHUB_ID` / `AUTH_GITHUB_SECRET` / `NEXTAUTH_URL` を設定する。
+
+固定URLを使う場合のcallback URL:
+
+```text
+https://<stable-preview-or-staging-domain>/api/auth/callback/github
+```
+
+PRごと、commitごとの一時Preview URLをProduction用GitHub OAuth Appへ都度登録しない。Production用OAuth AppはProduction正式ドメイン用として扱う。
+
 ## Environment Variables
 
 Set these in Vercel Project Settings > Environment Variables for Production. Add the same values to Preview only if Preview deployments need login and AI review.
@@ -47,6 +76,13 @@ NEXTAUTH_URL=https://<your-vercel-domain>
 Do not set `DEV_AUTH_BYPASS` in Vercel Production.
 
 After changing any Vercel environment variable, redeploy. Vercel applies env changes only to new deployments.
+
+For Preview environments:
+
+- Set `NEXTAUTH_URL` to the exact Preview verification URL only when doing authenticated Preview checks.
+- Do not copy the Production `NEXTAUTH_URL` into Preview.
+- Use separate GitHub OAuth credentials for Preview if the Preview callback URL differs from Production.
+- If no stable Preview URL exists, skip GitHub owner sign-in checks in Preview and verify them after merge on the Production domain.
 
 ## Neon Postgres Setup
 
