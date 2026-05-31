@@ -4,6 +4,11 @@ import {
   isGoogleAuthConfigured,
   ownerGithubUsername,
 } from "@/lib/auth";
+import {
+  getCardStoreLocation,
+  isCardStoreReady,
+  isCardPersistenceConfigured,
+} from "@/lib/card-store";
 import { isDatabaseConfigured } from "@/lib/db";
 
 export type RuntimeDiagnostics = {
@@ -19,6 +24,11 @@ export type RuntimeDiagnostics = {
     nextAuthUrlHost: string | null;
     ownerGithubUsername: string;
   };
+  cards: {
+    persistenceConfigured: boolean;
+    schemaReady: boolean;
+    storeLocation: string;
+  };
   database: {
     configured: boolean;
   };
@@ -29,7 +39,7 @@ export type RuntimeDiagnostics = {
  *
  * @returns A `RuntimeDiagnostics` object containing `ai`, `auth`, and `database` sections that reflect the process environment and helper-detected configuration status.
  */
-export function getRuntimeDiagnostics(): RuntimeDiagnostics {
+export async function getRuntimeDiagnostics(): Promise<RuntimeDiagnostics> {
   return {
     ai: {
       apiKeyConfigured: Boolean(process.env.GROK_API_KEY || process.env.XAI_API_KEY),
@@ -42,6 +52,11 @@ export function getRuntimeDiagnostics(): RuntimeDiagnostics {
       googleConfigured: isGoogleAuthConfigured(),
       nextAuthUrlHost: getNextAuthUrlHost(),
       ownerGithubUsername,
+    },
+    cards: {
+      persistenceConfigured: isCardPersistenceConfigured(),
+      schemaReady: await isCardStoreReady(),
+      storeLocation: getCardStoreLocation(),
     },
     database: {
       configured: isDatabaseConfigured(),

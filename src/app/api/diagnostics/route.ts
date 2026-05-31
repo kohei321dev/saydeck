@@ -25,5 +25,5 @@ export async function GET() {
     }
   }
 
-  return NextResponse.json({ diagnostics: getRuntimeDiagnostics() });
+  return NextResponse.json({ diagnostics: await getRuntimeDiagnostics() });
 }

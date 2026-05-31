@@ -8,7 +8,7 @@
 
 [事実] Grok review and card generation call xAI from server-side API routes. The browser never receives `XAI_API_KEY` or `GROK_API_KEY`.
 
-[事実] Owner practice records can be stored in Postgres through `DATABASE_URL`. ADR 0008 selects Neon Postgres as the first cloud database target.
+[事実] Sample scene cards, owner-generated scene cards, and Owner practice records can be stored in Postgres through `DATABASE_URL`. ADR 0008 selects Neon Postgres as the first cloud database target.
 
 ## GitHub OAuth App
 
@@ -52,10 +52,12 @@ After changing any Vercel environment variable, redeploy. Vercel applies env cha
 
 1. Create or connect a Neon project from Vercel Marketplace, or create a Neon database manually.
 2. Set `DATABASE_URL` in Vercel Project Settings > Environment Variables.
-3. Apply `db/migrations/0001-practice-records.sql` to the Neon database.
+3. Apply migrations to the Neon database in order:
+   - `db/migrations/0001-practice-records.sql`
+   - `db/migrations/0002-scene-cards.sql`
 4. Redeploy the Vercel project after setting `DATABASE_URL`.
 
-If `DATABASE_URL` is not set, the app continues to use browser `localStorage` for practice records.
+If `DATABASE_URL` is not set, sample cards cannot be loaded from Neon and the app continues to use browser `localStorage` only for practice records.
 
 ## Access Rules
 
