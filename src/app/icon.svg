@@ -1,31 +1,26 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
   <title id="title">Scene Builder icon</title>
-  <desc id="desc">A minimal English study icon with large EN letters and a pencil.</desc>
+  <desc id="desc">A minimal English study icon with large EN letters and a pen.</desc>
   <defs>
-    <linearGradient id="bg" x1="88" x2="424" y1="52" y2="460" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#FFFDF7"/>
-      <stop offset="1" stop-color="#EEF4EF"/>
+    <linearGradient id="pen" x1="126" x2="400" y1="390" y2="320" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#184B7A"/>
+      <stop offset="1" stop-color="#1F6F5B"/>
     </linearGradient>
-    <linearGradient id="pencil" x1="122" x2="426" y1="388" y2="300" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#F2C14E"/>
-      <stop offset="1" stop-color="#D86E35"/>
-    </linearGradient>
-    <filter id="shadow" x="52" y="40" width="408" height="420" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse">
-      <feDropShadow dx="0" dy="16" flood-color="#1F2520" flood-opacity="0.16" stdDeviation="16"/>
+    <filter id="soft-shadow" x="64" y="72" width="384" height="384" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="12" flood-color="#1F2520" flood-opacity="0.14" stdDeviation="12"/>
     </filter>
   </defs>
 
-  <rect width="512" height="512" rx="112" fill="#F7F5EF"/>
-  <rect x="88" y="58" width="336" height="396" rx="82" fill="url(#bg)" stroke="#1F2520" stroke-width="16"/>
+  <g filter="url(#soft-shadow)">
+    <text x="256" y="244" fill="#1F6F5B" font-family="Arial, Helvetica, sans-serif" font-size="176" font-weight="900" letter-spacing="-6" text-anchor="middle">EN</text>
 
-  <g filter="url(#shadow)">
-    <text x="256" y="260" fill="#1F6F5B" font-family="Arial, Helvetica, sans-serif" font-size="150" font-weight="900" letter-spacing="-4" text-anchor="middle">EN</text>
-
-    <g aria-label="pencil">
-      <path d="M112 380L356 308L420 348L162 424Z" fill="url(#pencil)" stroke="#1F2520" stroke-linejoin="round" stroke-width="14"/>
-      <path d="M356 308L420 348L374 276Z" fill="#FFFDF7" stroke="#1F2520" stroke-linejoin="round" stroke-width="14"/>
-      <path d="M420 348L438 342" stroke="#1F2520" stroke-linecap="round" stroke-width="16"/>
-      <path d="M146 370L164 430" stroke="#7A4E16" stroke-linecap="round" stroke-width="10"/>
+    <g aria-label="pen">
+      <path d="M120 388L342 326L390 356L168 418Z" fill="url(#pen)" stroke="#1F2520" stroke-linejoin="round" stroke-width="14"/>
+      <path d="M342 326L390 356L416 316L374 290Z" fill="#FFFDF7" stroke="#1F2520" stroke-linejoin="round" stroke-width="14"/>
+      <path d="M416 316L432 292" stroke="#1F2520" stroke-linecap="round" stroke-width="16"/>
+      <path d="M182 382L316 344" stroke="#FFFDF7" stroke-linecap="round" stroke-opacity="0.9" stroke-width="12"/>
+      <path d="M332 330L370 354" stroke="#1F2520" stroke-linecap="round" stroke-width="10"/>
+      <path d="M144 382L160 424" stroke="#1F2520" stroke-linecap="round" stroke-width="10"/>
     </g>
   </g>
 </svg>
