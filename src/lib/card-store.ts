@@ -106,8 +106,8 @@ export async function saveStoredSceneCard(card: SceneCard): Promise<SceneCard> {
       ${normalizedCard.sceneJa},
       ${normalizedCard.promptEn},
       ${normalizedCard.promptJa},
-      ${JSON.stringify(normalizedCard.tags)}::jsonb,
-      ${JSON.stringify(normalizedCard.levels)}::jsonb,
+      ${sql.json(normalizedCard.tags)},
+      ${sql.json(normalizedCard.levels)},
       'owner',
       10000,
       now()

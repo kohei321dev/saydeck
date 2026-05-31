@@ -167,7 +167,7 @@ export async function upsertPracticeRecord({
       ${cardId},
       ${level},
       ${answer},
-      ${JSON.stringify(state)}::jsonb,
+      ${sql.json(state)},
       ${status},
       now()
     )
