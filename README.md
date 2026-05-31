@@ -78,7 +78,7 @@ https://your-vercel-url/api/auth/callback/google
 
 ownerログイン後、カード追加パネルの「設定診断」からAuth、Google、Database、AI key、AI model、`NEXTAUTH_URL`、カード保存先の設定状態を確認できます。secret値そのものは表示しません。
 
-サンプルカードとOwnerがAIで生成したカードは、Neon/Postgresの `scene_cards` から読み込みます。Owner生成カードも同じテーブルへ保存されるため、再読み込み後や別ブラウザでOwnerログインした場合も表示されます。`DATABASE_URL` が未設定の場合、カード一覧は空になり、カード追加は同じブラウザのlocalStorage fallbackでのみ確認できます。
+サンプルカードとOwnerがAIで生成したカードは、Neon/Postgresの `scene_cards` から読み込みます。Owner生成カードも同じテーブルへ保存されるため、再読み込み後や別ブラウザでOwnerログインした場合も表示されます。`DATABASE_URL` が未設定、またはmigration未適用の場合、カード追加は失敗します。
 
 ## Neon Postgres
 

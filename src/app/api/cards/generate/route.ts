@@ -76,29 +76,10 @@ export async function POST(request: Request) {
     );
   }
 
+  let card: Awaited<ReturnType<typeof generateSceneCardWithAi>>;
+
   try {
-    const card = await generateSceneCardWithAi({ category, sceneJa, tags });
-    const shouldPersist = isCardPersistenceConfigured();
-
-    if (!shouldPersist) {
-      return NextResponse.json({
-        card,
-        persistence: {
-          configured: false,
-          saved: false,
-        },
-      });
-    }
-
-    const storedCard = await saveStoredSceneCard(card);
-
-    return NextResponse.json({
-      card: storedCard,
-      persistence: {
-        configured: true,
-        saved: true,
-      },
-    });
+    card = await generateSceneCardWithAi({ category, sceneJa, tags });
   } catch (error) {
     if (error instanceof MissingCardGenerationApiKeyError) {
       return NextResponse.json(
@@ -111,8 +92,40 @@ export async function POST(request: Request) {
 
     return NextResponse.json(
       {
+        error: "カード生成に失敗しました。少し時間を置いて再実行してください。",
+      },
+      { status: 502 },
+    );
+  }
+
+  const shouldPersist = isCardPersistenceConfigured();
+
+  if (!shouldPersist) {
+    return NextResponse.json(
+      {
+        error: "Neonへのカード保存にはDATABASE_URLが必要です。",
+      },
+      { status: 503 },
+    );
+  }
+
+  try {
+    const storedCard = await saveStoredSceneCard(card);
+
+    return NextResponse.json({
+      card: storedCard,
+      persistence: {
+        configured: true,
+        saved: true,
+      },
+    });
+  } catch (error) {
+    console.error("Failed to save generated scene card.", error);
+
+    return NextResponse.json(
+      {
         error:
-          "カード生成または保存に失敗しました。少し時間を置いて再実行してください。",
+          "Neonへのカード保存に失敗しました。DATABASE_URLとmigration状態を確認してください。",
       },
       { status: 502 },
     );

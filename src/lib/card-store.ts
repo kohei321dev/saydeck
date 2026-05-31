@@ -32,6 +32,23 @@ export function getCardStoreLocation(): string {
     : "DATABASE_URL未設定";
 }
 
+export async function isCardStoreReady(): Promise<boolean> {
+  if (!isCardPersistenceConfigured()) {
+    return false;
+  }
+
+  try {
+    const sql = getSql();
+    const rows = await sql<{ exists: boolean }[]>`
+      select to_regclass('public.scene_cards') is not null as exists
+    `;
+    return rows[0]?.exists === true;
+  } catch (error) {
+    console.error("Failed to check scene card store readiness.", error);
+    return false;
+  }
+}
+
 export async function getSampleSceneCards(): Promise<SceneCard[]> {
   if (!isCardPersistenceConfigured()) {
     return [];
