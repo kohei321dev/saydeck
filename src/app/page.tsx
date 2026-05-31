@@ -21,6 +21,17 @@ import { mergeSceneCards } from "@/lib/scenes";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * Render the Scene Builder home page, fetching scene cards and enforcing dev, auth, and permission gates.
+ *
+ * When dev-auth-bypass is enabled, returns a dev view with an owner dev chip and cloud sync controlled by database configuration.
+ * If authentication is not configured, redirects to "/signin?setup=1".
+ * If no session is present, redirects to "/signin".
+ * If the session cannot use practice, redirects to "/denied".
+ * Otherwise returns the main app frame showing the user's role and a configured ScenePractice (owner vs guest) with cloud sync enabled only for owners when a database is configured.
+ *
+ * @returns The page's JSX element.
+ */
 export default async function HomePage() {
   const [sampleCards, storedCards] = await Promise.all([
     getSampleSceneCards(),

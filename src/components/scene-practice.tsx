@@ -50,6 +50,15 @@ type CloudPracticeResponse = {
 
 const practiceStorageKey = "scene-builder.practice-state.v1";
 
+/**
+ * Render the scene practice UI with local persistence, optional cloud sync,
+ * AI-assisted card generation, and AI review features.
+ *
+ * @param canAddCards - When true, enables creating, persisting, and deleting custom cards (default: `false`).
+ * @param canUseCloudSync - When true, enables cloud-backed loading and debounced saving of practice state (default: `false`).
+ * @param cards - The initial list of scene cards available for practice.
+ * @returns The React element for the ScenePractice user interface.
+ */
 export function ScenePractice({
   cardPersistenceConfigured = false,
   canAddCards = false,
@@ -812,6 +821,12 @@ function SceneProgress({
   );
 }
 
+/**
+ * Render a diagnostics summary listing service readiness and configuration values.
+ *
+ * @param diagnostics - Runtime diagnostics snapshot used to populate readiness rows and configuration fields
+ * @returns A JSX element containing a definition list of readiness indicators (Auth, GitHub, Google, Database, AI key) and related values (model, reasoning effort, NEXTAUTH_URL host)
+ */
 function DiagnosticsSummary({
   diagnostics,
 }: {
@@ -858,6 +873,13 @@ function DiagnosticsSummary({
   );
 }
 
+/**
+ * Renders a labeled status row that displays readiness as "OK" or "未設定".
+ *
+ * @param isReady - Whether the item is ready; controls text and CSS class.
+ * @param label - The label text shown for the row.
+ * @returns A definition-row element (`<dt>`/`<dd>`) with a readiness pill styled via `"ok"` or `"warn"`.
+ */
 function DiagnosticsRow({
   isReady,
   label,
@@ -873,6 +895,12 @@ function DiagnosticsRow({
   );
 }
 
+/**
+ * Map a cloud synchronization status to a Japanese label for UI display.
+ *
+ * @param status - The cloud sync status to describe (`"local" | "loading" | "saving" | "saved" | "error"`).
+ * @returns A Japanese string label corresponding to `status` (e.g. "Cloud 保存中", "Local 保存").
+ */
 function getCloudSyncLabel(status: CloudSyncStatus): string {
   switch (status) {
     case "loading":
@@ -889,6 +917,13 @@ function getCloudSyncLabel(status: CloudSyncStatus): string {
   }
 }
 
+/**
+ * Selects the user-facing note that explains where the current answer is stored based on cloud sync availability and status.
+ *
+ * @param canUseCloudSync - Whether cloud-backed syncing is enabled
+ * @param status - Current cloud synchronization status
+ * @returns A Japanese message indicating storage location/status: local-only, cloud saved (with local backup), cloud saving in progress (with local backup), or cloud save failure (fallback to local)
+ */
 function getDoneNote(canUseCloudSync: boolean, status: CloudSyncStatus): string {
   if (!canUseCloudSync) {
     return "この回答はlocalStorageに保存されています。同じブラウザでカードと難易度を開くと復元されます。";
@@ -905,6 +940,13 @@ function getDoneNote(canUseCloudSync: boolean, status: CloudSyncStatus): string 
   return "この回答はNeon/Postgresに保存されています。localStorageにもバックアップしています。";
 }
 
+/**
+ * Builds the practice-state key for a given card and level.
+ *
+ * @param cardId - The card identifier
+ * @param level - The practice level identifier (e.g., "L1")
+ * @returns The practice-state key formatted as `"{cardId}:{level}"`
+ */
 function getPracticeKey(cardId: string, level: string): string {
   return `${cardId}:${level}`;
 }
