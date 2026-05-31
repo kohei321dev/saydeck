@@ -277,6 +277,16 @@ h2 {
   color: var(--warning);
 }
 
+.status-pill.sync {
+  background: #e7eef8;
+  color: #32506f;
+}
+
+.status-pill.sync.error {
+  background: #fff4ee;
+  color: var(--warning);
+}
+
 .tag-row {
   display: flex;
   flex-wrap: wrap;

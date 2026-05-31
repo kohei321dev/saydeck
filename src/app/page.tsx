@@ -15,6 +15,7 @@ import {
   getStoredSceneCards,
   isCardPersistenceConfigured,
 } from "@/lib/card-store";
+import { isDatabaseConfigured } from "@/lib/db";
 import { getStaticSceneCards, mergeSceneCards } from "@/lib/scenes";
 
 export const dynamic = "force-dynamic";
@@ -27,6 +28,7 @@ export default async function HomePage() {
   const cards = mergeSceneCards(staticCards, storedCards);
   const persistedCardIds = storedCards.map((card) => card.id);
   const cardPersistenceConfigured = isCardPersistenceConfigured();
+  const databaseConfigured = isDatabaseConfigured();
 
   if (isDevAuthBypassEnabled()) {
     return (
@@ -43,6 +45,7 @@ export default async function HomePage() {
         <ScenePractice
           cardPersistenceConfigured={cardPersistenceConfigured}
           canAddCards
+          canUseCloudSync={databaseConfigured}
           cards={cards}
           persistedCardIds={persistedCardIds}
         />
@@ -85,6 +88,7 @@ export default async function HomePage() {
       <ScenePractice
         cardPersistenceConfigured={cardPersistenceConfigured}
         canAddCards={role === "owner"}
+        canUseCloudSync={role === "owner" && databaseConfigured}
         cards={cards}
         persistedCardIds={role === "owner" ? persistedCardIds : []}
       />

@@ -17,6 +17,7 @@ import type { SceneCard } from "@/lib/scenes";
 type Props = {
   cardPersistenceConfigured?: boolean;
   canAddCards?: boolean;
+  canUseCloudSync?: boolean;
   cards: SceneCard[];
   persistedCardIds?: string[];
 };
@@ -40,12 +41,20 @@ type PracticeState = {
 
 type PracticeStates = Record<string, PracticeState>;
 
+type CloudSyncStatus = "local" | "loading" | "saving" | "saved" | "error";
+
+type CloudPracticeResponse = {
+  record?: PracticeState | null;
+  error?: string;
+};
+
 const practiceStorageKey = "scene-builder.practice-state.v1";
 const customCardsStorageKey = "scene-builder.custom-cards.v1";
 
 export function ScenePractice({
   cardPersistenceConfigured = false,
   canAddCards = false,
+  canUseCloudSync = false,
   cards,
   persistedCardIds = [],
 }: Props) {
@@ -86,6 +95,10 @@ export function ScenePractice({
   const practiceStatesRef = useRef<PracticeStates>({});
   const [hasLoadedPracticeStates, setHasLoadedPracticeStates] = useState(false);
   const [loadedPracticeKey, setLoadedPracticeKey] = useState("");
+  const [cloudReadyKey, setCloudReadyKey] = useState("");
+  const [cloudSyncStatus, setCloudSyncStatus] = useState<CloudSyncStatus>(
+    canUseCloudSync ? "loading" : "local",
+  );
 
   const selectedCard = useMemo(
     () => allCards.find((card) => card.id === selectedCardId) ?? allCards[0],
@@ -100,8 +113,12 @@ export function ScenePractice({
     selectedCard && selectedLevelData
       ? getPracticeKey(selectedCard.id, selectedLevelData.level)
       : "";
+  const selectedCloudCardId = selectedCard?.id ?? "";
+  const selectedCloudLevel = selectedLevelData?.level ?? "";
 
   const formattedLastPracticedAt = formatLastPracticedAt(lastPracticedAt);
+  const cloudSyncLabel = getCloudSyncLabel(cloudSyncStatus);
+  const doneNote = getDoneNote(canUseCloudSync, cloudSyncStatus);
 
   const wordCount = answer.trim().split(/\s+/).filter(Boolean).length;
 
@@ -135,20 +152,79 @@ export function ScenePractice({
   }, [practiceStates]);
 
   useEffect(() => {
-    if (!hasLoadedPracticeStates || !selectedPracticeKey) {
+    if (
+      !hasLoadedPracticeStates ||
+      !selectedPracticeKey ||
+      !selectedCloudCardId ||
+      !selectedCloudLevel
+    ) {
       return;
     }
 
+    let isCancelled = false;
     const savedState = practiceStatesRef.current[selectedPracticeKey];
-    setAnswer(savedState?.answer ?? "");
-    setIsDone(savedState?.isDone ?? false);
-    setNeedsReview(savedState?.needsReview ?? false);
-    setLastPracticedAt(savedState?.lastPracticedAt ?? null);
+    const applyPracticeState = (state?: PracticeState | null) => {
+      setAnswer(state?.answer ?? "");
+      setIsDone(state?.isDone ?? false);
+      setNeedsReview(state?.needsReview ?? false);
+      setLastPracticedAt(state?.lastPracticedAt ?? null);
+    };
+
+    applyPracticeState(savedState);
     setShowModel(false);
     setReview(null);
     setReviewError(null);
     setLoadedPracticeKey(selectedPracticeKey);
-  }, [hasLoadedPracticeStates, selectedPracticeKey]);
+    setCloudReadyKey("");
+
+    if (!canUseCloudSync) {
+      setCloudSyncStatus("local");
+      return;
+    }
+
+    setCloudSyncStatus("loading");
+
+    const params = new URLSearchParams({
+      cardId: selectedCloudCardId,
+      level: selectedCloudLevel,
+    });
+
+    fetch(`/api/practice?${params.toString()}`)
+      .then(async (response) => {
+        const payload = (await response.json().catch(() => ({}))) as CloudPracticeResponse;
+
+        if (!response.ok) {
+          throw new Error(payload.error || "クラウド保存の読み込みに失敗しました。");
+        }
+
+        if (isCancelled) {
+          return;
+        }
+
+        if (payload.record) {
+          applyPracticeState(payload.record);
+        }
+
+        setCloudReadyKey(selectedPracticeKey);
+        setCloudSyncStatus("saved");
+      })
+      .catch(() => {
+        if (!isCancelled) {
+          setCloudReadyKey(selectedPracticeKey);
+          setCloudSyncStatus("error");
+        }
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [
+    canUseCloudSync,
+    hasLoadedPracticeStates,
+    selectedCloudCardId,
+    selectedCloudLevel,
+    selectedPracticeKey,
+  ]);
 
   useEffect(() => {
     if (
@@ -198,6 +274,70 @@ export function ScenePractice({
 
     writePracticeStates(practiceStates);
   }, [hasLoadedPracticeStates, practiceStates]);
+
+  useEffect(() => {
+    if (
+      !canUseCloudSync ||
+      !selectedPracticeKey ||
+      !selectedCloudCardId ||
+      !selectedCloudLevel ||
+      loadedPracticeKey !== selectedPracticeKey ||
+      cloudReadyKey !== selectedPracticeKey
+    ) {
+      return;
+    }
+
+    const controller = new AbortController();
+    const timerId = window.setTimeout(() => {
+      setCloudSyncStatus("saving");
+
+      fetch("/api/practice", {
+        body: JSON.stringify({
+          answer,
+          cardId: selectedCloudCardId,
+          isDone,
+          lastPracticedAt,
+          level: selectedCloudLevel,
+          needsReview,
+        }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "PUT",
+        signal: controller.signal,
+      })
+        .then(async (response) => {
+          const payload = (await response.json().catch(() => ({}))) as CloudPracticeResponse;
+
+          if (!response.ok) {
+            throw new Error(payload.error || "クラウド保存に失敗しました。");
+          }
+
+          setCloudSyncStatus("saved");
+        })
+        .catch((error: unknown) => {
+          if (!(error instanceof DOMException && error.name === "AbortError")) {
+            setCloudSyncStatus("error");
+          }
+        });
+    }, 700);
+
+    return () => {
+      window.clearTimeout(timerId);
+      controller.abort();
+    };
+  }, [
+    answer,
+    canUseCloudSync,
+    cloudReadyKey,
+    isDone,
+    lastPracticedAt,
+    loadedPracticeKey,
+    needsReview,
+    selectedCloudCardId,
+    selectedCloudLevel,
+    selectedPracticeKey,
+  ]);
 
   async function handleAiReview() {
     if (!selectedCard || !selectedLevelData) {
@@ -519,6 +659,9 @@ export function ScenePractice({
               <span>{formattedLastPracticedAt ?? "この難易度は未練習"}</span>
               {isDone ? <span className="status-pill done">完了</span> : null}
               {needsReview ? <span className="status-pill review">要復習</span> : null}
+              <span className={`status-pill sync ${cloudSyncStatus}`}>
+                {cloudSyncLabel}
+              </span>
             </div>
           </div>
 
@@ -642,7 +785,7 @@ export function ScenePractice({
 
           {isDone ? (
             <div className="done-note">
-              この回答はlocalStorageに保存されています。同じブラウザでカードと難易度を開くと復元されます。
+              {doneNote}
             </div>
           ) : null}
         </section>
@@ -693,6 +836,7 @@ function DiagnosticsSummary({
           isReady={diagnostics.auth.googleConfigured}
           label="Google"
         />
+        <DiagnosticsRow isReady={diagnostics.database.configured} label="Database" />
         <DiagnosticsRow isReady={diagnostics.ai.apiKeyConfigured} label="AI key" />
         <DiagnosticsRow
           isReady={diagnostics.cards.persistenceConfigured}
@@ -732,6 +876,38 @@ function DiagnosticsRow({
       <dd className={isReady ? "ok" : "warn"}>{isReady ? "OK" : "未設定"}</dd>
     </div>
   );
+}
+
+function getCloudSyncLabel(status: CloudSyncStatus): string {
+  switch (status) {
+    case "loading":
+      return "Cloud 読込中";
+    case "saving":
+      return "Cloud 保存中";
+    case "saved":
+      return "Cloud 保存済み";
+    case "error":
+      return "Cloud 未同期";
+    case "local":
+    default:
+      return "Local 保存";
+  }
+}
+
+function getDoneNote(canUseCloudSync: boolean, status: CloudSyncStatus): string {
+  if (!canUseCloudSync) {
+    return "この回答はlocalStorageに保存されています。同じブラウザでカードと難易度を開くと復元されます。";
+  }
+
+  if (status === "error") {
+    return "クラウド保存に失敗したため、この回答はlocalStorageに保存されています。";
+  }
+
+  if (status === "loading" || status === "saving") {
+    return "この回答はクラウド保存中です。localStorageにもバックアップしています。";
+  }
+
+  return "この回答はNeon/Postgresに保存されています。localStorageにもバックアップしています。";
 }
 
 function getPracticeKey(cardId: string, level: string): string {

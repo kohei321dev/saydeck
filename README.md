@@ -68,6 +68,7 @@ Vercel Environment Variablesに次を設定します。
 - `GROK_REASONING_EFFORT=none`
 - `BLOB_READ_WRITE_TOKEN`
 - `CARD_STORE_BLOB_PATH=scene-builder/cards.json`
+- `DATABASE_URL`
 
 `OWNER_GITHUB_USERNAME` と一致するGitHub loginはownerとして利用できます。Googleログインユーザーはguestとしてカード閲覧、回答、AI添削を利用できます。
 
@@ -77,9 +78,15 @@ Google OAuth Clientには次のcallback URLを設定します。
 https://your-vercel-url/api/auth/callback/google
 ```
 
-ownerログイン後、カード追加パネルの「設定診断」からAuth、Google、AI key、AI model、`NEXTAUTH_URL`、カード保存先の設定状態を確認できます。secret値そのものは表示しません。
+ownerログイン後、カード追加パネルの「設定診断」からAuth、Google、Database、AI key、AI model、`NEXTAUTH_URL`、カード保存先の設定状態を確認できます。secret値そのものは表示しません。
 
 OwnerがAIで生成したカードは、`BLOB_READ_WRITE_TOKEN` が設定されている場合にVercel Blobへ保存されます。保存されたカードは `data/topic-cards.csv` の初期カードとマージして読み込まれるため、再読み込み後や別ブラウザでOwnerログインした場合も表示されます。未設定のローカル環境では、カード追加は従来どおり同じブラウザのlocalStorage fallbackで確認できます。
+
+## Neon Postgres
+
+Ownerの学習状態をクラウド保存する場合は、NeonなどのPostgresに `db/migrations/0001-practice-records.sql` を適用し、Vercel Production/Previewに `DATABASE_URL` を設定します。
+
+`DATABASE_URL` が未設定の場合、学習状態は従来どおりブラウザのlocalStorageに保存されます。
 
 ## License
 

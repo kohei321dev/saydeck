@@ -8,6 +8,7 @@ import {
   getCardStorePathname,
   isCardPersistenceConfigured,
 } from "@/lib/card-store";
+import { isDatabaseConfigured } from "@/lib/db";
 
 export type RuntimeDiagnostics = {
   ai: {
@@ -25,6 +26,9 @@ export type RuntimeDiagnostics = {
   cards: {
     persistenceConfigured: boolean;
     storePathname: string;
+  };
+  database: {
+    configured: boolean;
   };
 };
 
@@ -45,6 +49,9 @@ export function getRuntimeDiagnostics(): RuntimeDiagnostics {
     cards: {
       persistenceConfigured: isCardPersistenceConfigured(),
       storePathname: getCardStorePathname(),
+    },
+    database: {
+      configured: isDatabaseConfigured(),
     },
   };
 }
