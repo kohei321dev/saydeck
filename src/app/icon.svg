@@ -1,46 +1,43 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
   <title id="title">Scene Builder icon</title>
-  <desc id="desc">A bold Scene Builder app icon with layered scene cards, English blocks, and a skateboard line.</desc>
+  <desc id="desc">A large transparent Scene Builder icon with a scene card, English blocks, and a skateboard line.</desc>
   <defs>
-    <linearGradient id="bg" x1="72" x2="440" y1="56" y2="456" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#17221E"/>
-      <stop offset="0.55" stop-color="#20312B"/>
-      <stop offset="1" stop-color="#0F1715"/>
-    </linearGradient>
-    <linearGradient id="card" x1="132" x2="386" y1="116" y2="346" gradientUnits="userSpaceOnUse">
+    <linearGradient id="card" x1="78" x2="430" y1="40" y2="452" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#FFFDF7"/>
-      <stop offset="1" stop-color="#EAF2EA"/>
+      <stop offset="0.68" stop-color="#EEF6F0"/>
+      <stop offset="1" stop-color="#DDEAE2"/>
     </linearGradient>
-    <linearGradient id="accent" x1="146" x2="386" y1="132" y2="358" gradientUnits="userSpaceOnUse">
+    <linearGradient id="tab" x1="78" x2="434" y1="52" y2="166" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#30D5A0"/>
       <stop offset="1" stop-color="#54A4FF"/>
     </linearGradient>
-    <filter id="shadow" x="38" y="38" width="436" height="436" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse">
-      <feDropShadow dx="0" dy="18" flood-color="#06100D" flood-opacity="0.34" stdDeviation="18"/>
+    <linearGradient id="deck" x1="68" x2="432" y1="422" y2="352" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#17221E"/>
+      <stop offset="1" stop-color="#2A4B42"/>
+    </linearGradient>
+    <filter id="shadow" x="28" y="16" width="456" height="480" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="18" flood-color="#06100D" flood-opacity="0.24" stdDeviation="14"/>
     </filter>
   </defs>
 
-  <rect width="512" height="512" rx="108" fill="url(#bg)"/>
-  <path d="M104 352C148 408 232 435 322 416C377 404 417 374 440 334" fill="none" stroke="#2F4D43" stroke-linecap="round" stroke-width="24"/>
-  <path d="M104 360C152 396 250 410 348 376" fill="none" stroke="#54A4FF" stroke-linecap="round" stroke-opacity="0.42" stroke-width="10"/>
-
   <g filter="url(#shadow)">
-    <path d="M141 126L330 92C352 88 370 102 374 124L415 337C419 359 405 377 383 381L194 416C172 420 154 406 150 384L109 171C105 149 119 130 141 126Z" fill="#294038"/>
-    <path d="M172 106H350C374 106 392 124 392 148V344C392 368 374 386 350 386H172C148 386 130 368 130 344V148C130 124 148 106 172 106Z" fill="url(#card)"/>
-    <path d="M172 106H350C374 106 392 124 392 148V176H130V148C130 124 148 106 172 106Z" fill="url(#accent)"/>
-    <path d="M168 151H226" stroke="#17221E" stroke-linecap="round" stroke-width="12"/>
-    <path d="M250 151H334" stroke="#17221E" stroke-linecap="round" stroke-opacity="0.42" stroke-width="12"/>
+    <path d="M105 42H371C405 42 430 67 430 101V365C430 399 405 424 371 424H105C71 424 46 399 46 365V101C46 67 71 42 105 42Z" fill="#17221E"/>
+    <path d="M112 58H376C401 58 420 77 420 102V358C420 383 401 402 376 402H112C87 402 68 383 68 358V102C68 77 87 58 112 58Z" fill="url(#card)"/>
+    <path d="M112 58H376C401 58 420 77 420 102V156H68V102C68 77 87 58 112 58Z" fill="url(#tab)"/>
+    <path d="M112 110H192" stroke="#17221E" stroke-linecap="round" stroke-width="18"/>
+    <path d="M226 110H356" stroke="#17221E" stroke-linecap="round" stroke-opacity="0.42" stroke-width="18"/>
 
-    <path d="M176 224H255" stroke="#1F2520" stroke-linecap="round" stroke-width="18"/>
-    <path d="M176 270H330" stroke="#1F2520" stroke-linecap="round" stroke-opacity="0.78" stroke-width="18"/>
-    <path d="M176 316H282" stroke="#1F2520" stroke-linecap="round" stroke-opacity="0.42" stroke-width="18"/>
+    <path d="M122 216H236" stroke="#17221E" stroke-linecap="round" stroke-width="24"/>
+    <path d="M122 274H350" stroke="#17221E" stroke-linecap="round" stroke-opacity="0.78" stroke-width="24"/>
+    <path d="M122 332H284" stroke="#17221E" stroke-linecap="round" stroke-opacity="0.42" stroke-width="24"/>
 
-    <path d="M300 219C328 219 350 238 350 262C350 286 328 305 300 305H286L260 330V305H252C224 305 202 286 202 262C202 238 224 219 252 219H300Z" fill="#17221E"/>
-    <path d="M246 260H306" stroke="#30D5A0" stroke-linecap="round" stroke-width="14"/>
-    <path d="M246 282H286" stroke="#54A4FF" stroke-linecap="round" stroke-width="14"/>
+    <path d="M307 200C351 200 385 229 385 266C385 303 351 332 307 332H291L254 367V332H242C198 332 164 303 164 266C164 229 198 200 242 200H307Z" fill="#17221E"/>
+    <path d="M222 258H318" stroke="#30D5A0" stroke-linecap="round" stroke-width="20"/>
+    <path d="M222 292H284" stroke="#54A4FF" stroke-linecap="round" stroke-width="20"/>
   </g>
 
-  <path d="M135 410L358 370" stroke="#FFFDF7" stroke-linecap="round" stroke-width="20"/>
-  <path d="M174 420C174 432 164 442 152 442C140 442 130 432 130 420C130 408 140 398 152 398C164 398 174 408 174 420Z" fill="#17221E" stroke="#30D5A0" stroke-width="10"/>
-  <path d="M374 384C374 396 364 406 352 406C340 406 330 396 330 384C330 372 340 362 352 362C364 362 374 372 374 384Z" fill="#17221E" stroke="#54A4FF" stroke-width="10"/>
+  <path d="M58 434C122 461 252 457 428 409" fill="none" stroke="#17221E" stroke-linecap="round" stroke-width="28"/>
+  <path d="M84 430C160 448 274 438 402 404" fill="none" stroke="url(#deck)" stroke-linecap="round" stroke-width="16"/>
+  <path d="M152 446C152 465 137 480 118 480C99 480 84 465 84 446C84 427 99 412 118 412C137 412 152 427 152 446Z" fill="#FFFDF7" stroke="#30D5A0" stroke-width="14"/>
+  <path d="M418 397C418 416 403 431 384 431C365 431 350 416 350 397C350 378 365 363 384 363C403 363 418 378 418 397Z" fill="#FFFDF7" stroke="#54A4FF" stroke-width="14"/>
 </svg>
