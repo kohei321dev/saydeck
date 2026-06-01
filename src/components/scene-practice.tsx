@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Check,
   Eye,
+  Menu,
   Plus,
   RotateCcw,
   ShieldCheck,
@@ -42,6 +43,19 @@ type PracticeState = {
 type PracticeStates = Record<string, PracticeState>;
 
 type CloudSyncStatus = "local" | "loading" | "saving" | "saved" | "error";
+
+type CardDeck = {
+  id: string;
+  title: string;
+  description: string;
+  cardIds: string[];
+};
+
+type DetailSection = {
+  id: string;
+  label: string;
+  meta: string;
+};
 
 type CloudPracticeResponse = {
   record?: PracticeState | null;
@@ -82,6 +96,7 @@ export function ScenePractice({
     [persistedCardIds, savedCardIds],
   );
   const [selectedCardId, setSelectedCardId] = useState(allCards[0]?.id ?? "");
+  const [selectedDeckId, setSelectedDeckId] = useState("all");
   const [selectedLevel, setSelectedLevel] = useState("L1");
   const [answer, setAnswer] = useState("");
   const [newCardCategory, setNewCardCategory] = useState("custom");
@@ -107,6 +122,9 @@ export function ScenePractice({
   const [cloudSyncStatus, setCloudSyncStatus] = useState<CloudSyncStatus>(
     canUseCloudSync ? "loading" : "local",
   );
+  const [isTocOpen, setIsTocOpen] = useState(true);
+  const [isDetailRailVisible, setIsDetailRailVisible] = useState(false);
+  const tocSentinelRef = useRef<HTMLDivElement | null>(null);
 
   const selectedCard = useMemo(
     () => allCards.find((card) => card.id === selectedCardId) ?? allCards[0],
@@ -129,6 +147,59 @@ export function ScenePractice({
   const doneNote = getDoneNote(canUseCloudSync, cloudSyncStatus);
 
   const wordCount = answer.trim().split(/\s+/).filter(Boolean).length;
+  const decks = useMemo(
+    () => buildCardDecks(allCards, practiceStates, persistedCardIdSet),
+    [allCards, persistedCardIdSet, practiceStates],
+  );
+  const selectedDeck = decks.find((deck) => deck.id === selectedDeckId) ?? decks[0];
+  const visibleCardIdSet = useMemo(
+    () => new Set(selectedDeck?.cardIds ?? allCards.map((card) => card.id)),
+    [allCards, selectedDeck],
+  );
+  const visibleCards = useMemo(
+    () => allCards.filter((card) => visibleCardIdSet.has(card.id)),
+    [allCards, visibleCardIdSet],
+  );
+  const selectedCardSummary = selectedCard
+    ? getCardPracticeSummary(selectedCard, practiceStates)
+    : null;
+  const detailSections = useMemo<DetailSection[]>(
+    () => [
+      {
+        id: "scene-overview",
+        label: "場面",
+        meta: selectedCard?.category ?? "-",
+      },
+      {
+        id: "practice-levels",
+        label: "難易度",
+        meta: selectedLevelData?.level ?? selectedLevel,
+      },
+      {
+        id: "answer-practice",
+        label: "回答",
+        meta: `${wordCount} words`,
+      },
+      {
+        id: "practice-actions",
+        label: "復習",
+        meta: selectedCardSummary?.hasReview
+          ? "要復習あり"
+          : selectedCardSummary?.doneCount
+            ? `${selectedCardSummary.doneCount}/${selectedCard?.levels.length ?? 0} 完了`
+            : "未練習",
+      },
+    ],
+    [
+      selectedCard?.category,
+      selectedCard?.levels.length,
+      selectedCardSummary?.doneCount,
+      selectedCardSummary?.hasReview,
+      selectedLevel,
+      selectedLevelData?.level,
+      wordCount,
+    ],
+  );
 
   useEffect(() => {
     if (!canAddCards) {
@@ -137,12 +208,38 @@ export function ScenePractice({
   }, [canAddCards]);
 
   useEffect(() => {
-    const selectedCardExists = allCards.some((card) => card.id === selectedCardId);
-
-    if ((!selectedCardId || !selectedCardExists) && allCards[0]) {
-      setSelectedCardId(allCards[0].id);
+    if (!decks.some((deck) => deck.id === selectedDeckId) && decks[0]) {
+      setSelectedDeckId(decks[0].id);
     }
-  }, [allCards, selectedCardId]);
+  }, [decks, selectedDeckId]);
+
+  useEffect(() => {
+    const selectedCardExists = visibleCards.some((card) => card.id === selectedCardId);
+
+    if ((!selectedCardId || !selectedCardExists) && visibleCards[0]) {
+      setSelectedCardId(visibleCards[0].id);
+    }
+  }, [selectedCardId, visibleCards]);
+
+  useEffect(() => {
+    const node = tocSentinelRef.current;
+
+    if (!node || !("IntersectionObserver" in window)) {
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => setIsDetailRailVisible(!entry.isIntersecting),
+      {
+        rootMargin: "-16px 0px 0px 0px",
+        threshold: 0,
+      },
+    );
+
+    observer.observe(node);
+
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     setPracticeStates(readPracticeStates());
@@ -523,8 +620,24 @@ export function ScenePractice({
     <div className="practice-shell">
       <aside className="scene-list" aria-label="シーン一覧">
         <div className="sidebar-heading">
-          <span>Scenes</span>
-          <span>{allCards.length}</span>
+          <span>Decks</span>
+          <span>{decks.length}</span>
+        </div>
+        <div className="deck-list" aria-label="デッキ">
+          {decks.map((deck) => (
+            <button
+              aria-pressed={deck.id === selectedDeck?.id}
+              className={deck.id === selectedDeck?.id ? "deck-item active" : "deck-item"}
+              key={deck.id}
+              onClick={() => setSelectedDeckId(deck.id)}
+            >
+              <span>
+                <strong>{deck.title}</strong>
+                <small>{deck.description}</small>
+              </span>
+              <b>{deck.cardIds.length}</b>
+            </button>
+          ))}
         </div>
         {canAddCards ? (
           <div className="card-builder">
@@ -586,7 +699,11 @@ export function ScenePractice({
             </div>
           </div>
         ) : null}
-        {allCards.map((card) => {
+        <div className="sidebar-heading card-list-heading">
+          <span>Cards</span>
+          <span>{visibleCards.length}/{allCards.length}</span>
+        </div>
+        {visibleCards.map((card) => {
           const isCustomCard =
             persistedCardIdSet.has(card.id) ||
             customCards.some((customCard) => customCard.id === card.id);
@@ -625,8 +742,44 @@ export function ScenePractice({
         })}
       </aside>
 
-      <main className="practice-main">
-        <section className="prompt-panel">
+      <main
+        className={
+          isDetailRailVisible ? "practice-main rail-visible" : "practice-main"
+        }
+      >
+        <nav className="detail-toc-window" aria-label="詳細目次">
+          <button
+            aria-controls="detail-toc-links"
+            aria-expanded={isTocOpen}
+            className="toc-toggle"
+            onClick={() => setIsTocOpen((current) => !current)}
+          >
+            <Menu aria-hidden="true" size={18} />
+            <span>目次</span>
+            <small>{selectedDeck?.title ?? "All cards"}</small>
+          </button>
+          {isTocOpen ? (
+            <div className="toc-links" id="detail-toc-links">
+              {detailSections.map((section) => (
+                <a href={`#${section.id}`} key={section.id}>
+                  <span>{section.label}</span>
+                  <small>{section.meta}</small>
+                </a>
+              ))}
+            </div>
+          ) : null}
+        </nav>
+        <div aria-hidden="true" className="toc-sentinel" ref={tocSentinelRef} />
+        <aside className="detail-rail" aria-label="詳細ナビ">
+          {detailSections.map((section) => (
+            <a href={`#${section.id}`} key={section.id}>
+              <span>{section.label}</span>
+              <small>{section.meta}</small>
+            </a>
+          ))}
+        </aside>
+
+        <section className="prompt-panel" id="scene-overview">
           <div className="prompt-kicker">{selectedCard?.category}</div>
           <h1>{selectedCard?.sceneJa}</h1>
           <p className="prompt-en">{selectedCard?.promptEn}</p>
@@ -637,7 +790,7 @@ export function ScenePractice({
         </section>
 
         <section className="work-panel">
-          <div className="level-tabs" aria-label="難易度">
+          <div className="level-tabs" aria-label="難易度" id="practice-levels">
             {selectedCard?.levels.map((level) => (
               <button
                 className={level.level === selectedLevel ? "active" : ""}
@@ -667,22 +820,24 @@ export function ScenePractice({
             </div>
           </div>
 
-          <label className="answer-label" htmlFor="answer">
-            自分の回答
-          </label>
-          <textarea
-            id="answer"
-            value={answer}
-            onChange={(event) => {
-              setAnswer(event.target.value);
-              setLastPracticedAt(new Date().toISOString());
-              setReviewError(null);
-            }}
-            placeholder="例: I practiced ollies today."
-            rows={7}
-          />
+          <div id="answer-practice">
+            <label className="answer-label" htmlFor="answer">
+              自分の回答
+            </label>
+            <textarea
+              id="answer"
+              value={answer}
+              onChange={(event) => {
+                setAnswer(event.target.value);
+                setLastPracticedAt(new Date().toISOString());
+                setReviewError(null);
+              }}
+              placeholder="例: I practiced ollies today."
+              rows={7}
+            />
+          </div>
 
-          <div className="action-row">
+          <div className="action-row" id="practice-actions">
             <span>{wordCount} words</span>
             <div>
               <label className="review-toggle">
@@ -803,11 +958,7 @@ function SceneProgress({
   card: SceneCard;
   states: PracticeStates;
 }) {
-  const cardStates = card.levels
-    .map((level) => states[getPracticeKey(card.id, level.level)])
-    .filter(Boolean);
-  const doneCount = cardStates.filter((state) => state.isDone).length;
-  const hasReview = cardStates.some((state) => state.needsReview);
+  const { doneCount, hasReview } = getCardPracticeSummary(card, states);
 
   if (doneCount === 0 && !hasReview) {
     return null;
@@ -819,6 +970,105 @@ function SceneProgress({
       {hasReview ? <span>要復習</span> : null}
     </span>
   );
+}
+
+function buildCardDecks(
+  cards: SceneCard[],
+  states: PracticeStates,
+  persistedCardIdSet: Set<string>,
+): CardDeck[] {
+  const decks: CardDeck[] = [
+    {
+      id: "all",
+      title: "All cards",
+      description: "すべての場面",
+      cardIds: cards.map((card) => card.id),
+    },
+  ];
+  const reviewCardIds = cards
+    .filter((card) => getCardPracticeSummary(card, states).hasReview)
+    .map((card) => card.id);
+  const activeCardIds = cards
+    .filter((card) => {
+      const summary = getCardPracticeSummary(card, states);
+      return summary.hasStarted && summary.doneCount < card.levels.length;
+    })
+    .map((card) => card.id);
+  const ownerCardIds = cards
+    .filter((card) => persistedCardIdSet.has(card.id) || card.category === "custom")
+    .map((card) => card.id);
+
+  if (reviewCardIds.length > 0) {
+    decks.push({
+      id: "review",
+      title: "Review",
+      description: "要復習",
+      cardIds: reviewCardIds,
+    });
+  }
+
+  if (activeCardIds.length > 0) {
+    decks.push({
+      id: "active",
+      title: "In progress",
+      description: "途中のカード",
+      cardIds: activeCardIds,
+    });
+  }
+
+  if (ownerCardIds.length > 0) {
+    decks.push({
+      id: "owner",
+      title: "Owner deck",
+      description: "追加カード",
+      cardIds: ownerCardIds,
+    });
+  }
+
+  const categoryMap = new Map<string, string[]>();
+
+  for (const card of cards) {
+    const category = card.category || "uncategorized";
+    const categoryCardIds = categoryMap.get(category) ?? [];
+    categoryCardIds.push(card.id);
+    categoryMap.set(category, categoryCardIds);
+  }
+
+  for (const [category, cardIds] of [...categoryMap.entries()].sort((a, b) =>
+    a[0].localeCompare(b[0]),
+  )) {
+    decks.push({
+      id: `category:${category}`,
+      title: formatDeckTitle(category),
+      description: "カテゴリ",
+      cardIds,
+    });
+  }
+
+  return decks;
+}
+
+function getCardPracticeSummary(card: SceneCard, states: PracticeStates) {
+  const cardStates = card.levels
+    .map((level) => states[getPracticeKey(card.id, level.level)])
+    .filter((state): state is PracticeState => Boolean(state));
+  const doneCount = cardStates.filter((state) => state.isDone).length;
+  const hasReview = cardStates.some((state) => state.needsReview);
+  const hasStarted = cardStates.some(hasMeaningfulPracticeState);
+
+  return {
+    doneCount,
+    hasReview,
+    hasStarted,
+  };
+}
+
+function formatDeckTitle(value: string): string {
+  return value
+    .split(/[-_\s]+/)
+    .filter(Boolean)
+    .map((word) => `${word.charAt(0).toUpperCase()}${word.slice(1)}`)
+    .join(" ");
 }
 
 /**
