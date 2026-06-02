@@ -9,6 +9,7 @@ import {
 } from "@/lib/auth";
 import { isDatabaseConfigured } from "@/lib/db";
 import { getPracticeRecord, upsertPracticeRecord } from "@/lib/practice-records";
+import type { ReviewResult } from "@/lib/ai-review";
 
 export const runtime = "nodejs";
 
@@ -101,6 +102,7 @@ function readPracticePayload(value: unknown) {
   const answer = typeof source.answer === "string" ? source.answer : "";
   const lastPracticedAt =
     typeof source.lastPracticedAt === "string" ? source.lastPracticedAt : null;
+  const review = readReview(source.review);
 
   if (answer.length > 4000) {
     return null;
@@ -112,7 +114,40 @@ function readPracticePayload(value: unknown) {
     isDone: source.isDone === true,
     lastPracticedAt,
     needsReview: source.needsReview === true,
+    review,
   };
+}
+
+function readReview(value: unknown): ReviewResult | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+
+  const source = value as Record<string, unknown>;
+
+  return {
+    score: clampScore(source.score),
+    goodPoint: getString(source.goodPoint),
+    fix: getString(source.fix),
+    naturalAnswer: getString(source.naturalAnswer),
+    phraseToRemember: getString(source.phraseToRemember),
+    nextPractice: getString(source.nextPractice),
+    sceneFit: getString(source.sceneFit),
+  };
+}
+
+function getString(value: unknown): string {
+  return typeof value === "string" ? value : "";
+}
+
+function clampScore(value: unknown): number {
+  const score = typeof value === "number" ? value : Number(value);
+
+  if (!Number.isFinite(score)) {
+    return 0;
+  }
+
+  return Math.max(0, Math.min(10, Math.round(score)));
 }
 
 /**

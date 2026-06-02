@@ -1,13 +1,14 @@
 :root {
   color-scheme: light;
-  --background: #f7f5ef;
+  --background: #f4f7f5;
   --foreground: #1f2520;
   --muted: #6b706b;
-  --line: #d8d5cb;
-  --panel: #fffdf7;
-  --panel-strong: #eef4ef;
+  --line: #d6ded9;
+  --panel: #ffffff;
+  --panel-strong: #eef5f2;
   --accent: #1f6f5b;
   --accent-strong: #15483d;
+  --accent-cool: #375a8c;
   --warning: #7a4e16;
 }
 
@@ -85,6 +86,65 @@ button {
   display: grid;
   grid-template-columns: minmax(220px, 300px) 1fr;
   min-height: calc(100vh - 64px);
+}
+
+.mode-hero {
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  gap: 18px;
+  grid-column: 1 / -1;
+  justify-content: space-between;
+  padding: 22px 28px;
+}
+
+.mode-copy {
+  display: grid;
+  gap: 6px;
+}
+
+.mode-copy span {
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.mode-copy h1 {
+  font-size: 24px;
+  margin-bottom: 0;
+}
+
+.mode-copy p {
+  color: var(--muted);
+  margin-bottom: 0;
+}
+
+.mode-tabs {
+  align-items: center;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+}
+
+.mode-tab {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: var(--foreground);
+  display: inline-flex;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 14px;
+}
+
+.mode-tab.active {
+  background: var(--accent);
+  color: #fff;
 }
 
 .scene-list {
@@ -259,6 +319,60 @@ button {
   padding: 28px;
 }
 
+.learning-start-panel {
+  align-items: start;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 16px;
+  grid-column: 1 / -1;
+  grid-template-columns: minmax(220px, 0.8fr) minmax(280px, 1.2fr);
+  padding: 20px;
+}
+
+.learning-start-panel h2 {
+  font-size: 20px;
+}
+
+.learning-start-panel p {
+  color: var(--muted);
+  line-height: 1.6;
+  margin-bottom: 0;
+}
+
+.theme-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.theme-chip {
+  align-items: center;
+  background: #f8faf9;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--foreground);
+  display: inline-flex;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 12px;
+}
+
+.theme-chip.active {
+  background: #e7f1ed;
+  border-color: var(--accent);
+  color: var(--accent-strong);
+}
+
+.theme-chip small {
+  background: var(--panel);
+  border-radius: 999px;
+  color: var(--accent-cool);
+  font-weight: 700;
+  padding: 3px 7px;
+}
+
 .detail-toc-window {
   background: rgba(255, 253, 247, 0.94);
   border: 1px solid var(--line);
@@ -299,7 +413,7 @@ button {
 }
 
 .toc-links {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
 }
 
 .toc-links a,
@@ -368,6 +482,7 @@ button {
 }
 
 #practice-levels,
+#practice-hints,
 #answer-practice,
 #practice-actions {
   scroll-margin-top: 18px;
@@ -380,6 +495,138 @@ button {
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 24px;
+}
+
+.hint-panel {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  margin-top: 18px;
+  overflow: hidden;
+}
+
+.hint-toggle {
+  align-items: center;
+  background: #f8faf9;
+  border: 0;
+  color: var(--foreground);
+  display: flex;
+  gap: 8px;
+  justify-content: flex-start;
+  min-height: 44px;
+  padding: 0 14px;
+  width: 100%;
+}
+
+.hint-body {
+  background: var(--panel-strong);
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+}
+
+.hint-body strong {
+  color: var(--accent-strong);
+  font-size: 13px;
+}
+
+.hint-body p {
+  color: var(--muted);
+  line-height: 1.6;
+  margin-bottom: 0;
+  margin-top: 4px;
+}
+
+.creation-main {
+  grid-column: 1 / -1;
+  padding: 28px;
+}
+
+.creation-panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 22px;
+  padding: 24px;
+}
+
+.creation-heading p {
+  color: var(--muted);
+  line-height: 1.6;
+  margin-bottom: 0;
+}
+
+.creation-layout {
+  align-items: start;
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(280px, 0.78fr) minmax(320px, 1.22fr);
+}
+
+.create-form {
+  margin-bottom: 0;
+}
+
+.draft-preview {
+  background: #f8faf9;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  min-height: 360px;
+  padding: 16px;
+}
+
+.draft-preview label {
+  display: grid;
+  gap: 6px;
+}
+
+.draft-preview label span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.draft-heading p,
+.empty-draft p {
+  color: var(--muted);
+  line-height: 1.6;
+  margin-bottom: 0;
+}
+
+.draft-levels {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.draft-level {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+}
+
+.draft-level strong {
+  color: var(--accent);
+}
+
+.draft-level small {
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.empty-draft {
+  align-content: center;
+  color: var(--muted);
+  display: grid;
+  justify-items: center;
+  min-height: 320px;
+  text-align: center;
 }
 
 .prompt-panel {
@@ -754,6 +1001,10 @@ button:disabled {
     grid-template-columns: minmax(280px, 0.85fr) minmax(320px, 1.15fr);
   }
 
+  .creation-layout {
+    grid-template-columns: 1fr;
+  }
+
   .detail-rail {
     display: none;
   }
@@ -770,6 +1021,24 @@ button:disabled {
 @media (max-width: 900px) {
   .practice-shell,
   .practice-main {
+    grid-template-columns: 1fr;
+  }
+
+  .mode-hero {
+    align-items: stretch;
+    flex-direction: column;
+    padding: 18px 16px;
+  }
+
+  .mode-tabs {
+    width: 100%;
+  }
+
+  .mode-tab {
+    flex: 1;
+  }
+
+  .learning-start-panel {
     grid-template-columns: 1fr;
   }
 
@@ -815,6 +1084,18 @@ button:disabled {
 
   .practice-main {
     padding: 16px;
+  }
+
+  .creation-main {
+    padding: 16px;
+  }
+
+  .creation-panel {
+    padding: 18px;
+  }
+
+  .draft-levels {
+    grid-template-columns: 1fr;
   }
 
   .action-row {
