@@ -148,6 +148,7 @@ button {
 }
 
 .scene-list {
+  background: #f8faf9;
   border-right: 1px solid var(--line);
   padding: 20px;
 }
@@ -259,6 +260,15 @@ button {
   border-color: var(--accent);
 }
 
+.deck-empty-state {
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+  padding: 12px;
+}
+
 .card-list-heading {
   margin-top: 18px;
 }
@@ -309,14 +319,155 @@ button {
 }
 
 .practice-main {
-  display: grid;
-  gap: 24px;
-  grid-template-columns:
-    minmax(280px, 0.82fr)
-    minmax(320px, 1.08fr)
-    minmax(148px, 0.34fr);
   align-items: start;
+  display: grid;
+  gap: 20px;
+  grid-template-columns: minmax(280px, 0.9fr) minmax(320px, 1.1fr);
   padding: 28px;
+}
+
+.practice-main-single {
+  grid-template-columns: minmax(0, 760px);
+  justify-content: center;
+}
+
+.practice-main-full {
+  grid-column: 1 / -1;
+}
+
+.deck-start-panel,
+.card-picker-panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 18px;
+  grid-column: 1 / -1;
+  padding: 24px;
+}
+
+.deck-start-heading,
+.card-picker-heading {
+  display: grid;
+  gap: 6px;
+}
+
+.picker-heading-row {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.deck-start-heading h2,
+.card-picker-heading h2 {
+  font-size: 22px;
+  margin-bottom: 0;
+}
+
+.deck-start-heading p,
+.card-picker-heading p {
+  color: var(--muted);
+  line-height: 1.6;
+  margin-bottom: 0;
+}
+
+.deck-card-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.deck-card,
+.study-card-choice {
+  background: #fffefa;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--foreground);
+  min-height: 76px;
+  padding: 14px;
+  text-align: left;
+  width: 100%;
+}
+
+.deck-card {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.deck-card:hover,
+.study-card-choice:hover {
+  border-color: var(--accent);
+}
+
+.deck-card span,
+.study-card-choice {
+  display: grid;
+  gap: 4px;
+}
+
+.deck-card strong,
+.study-card-choice span {
+  font-weight: 700;
+}
+
+.deck-card small,
+.study-card-choice small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.deck-card b {
+  background: var(--panel-strong);
+  border-radius: 999px;
+  color: var(--accent-strong);
+  font-size: 12px;
+  min-width: 32px;
+  padding: 6px 9px;
+  text-align: center;
+}
+
+.study-card-list {
+  display: grid;
+  gap: 8px;
+}
+
+.study-card-entry {
+  align-items: stretch;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.study-card-panel {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 360px;
+}
+
+.study-card-footer {
+  display: grid;
+  gap: 16px;
+  margin-top: 28px;
+}
+
+.card-primary-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.card-primary-actions button {
+  min-width: 132px;
+}
+
+.compact-button {
+  min-height: 38px;
+  padding: 0 12px;
 }
 
 .learning-start-panel {
@@ -1001,6 +1152,10 @@ button:disabled {
     grid-template-columns: minmax(280px, 0.85fr) minmax(320px, 1.15fr);
   }
 
+  .practice-main.practice-main-single {
+    grid-template-columns: minmax(0, 760px);
+  }
+
   .creation-layout {
     grid-template-columns: 1fr;
   }
@@ -1027,7 +1182,16 @@ button:disabled {
   .mode-hero {
     align-items: stretch;
     flex-direction: column;
-    padding: 18px 16px;
+    gap: 12px;
+    padding: 14px 16px;
+  }
+
+  .mode-copy h1 {
+    font-size: 20px;
+  }
+
+  .mode-copy p {
+    font-size: 13px;
   }
 
   .mode-tabs {
@@ -1043,8 +1207,11 @@ button:disabled {
   }
 
   .scene-list {
+    background: var(--background);
     border-bottom: 1px solid var(--line);
     border-right: 0;
+    display: none;
+    padding: 12px 16px;
   }
 
   .topbar {
@@ -1055,20 +1222,32 @@ button:disabled {
   }
 
   .topbar-actions {
+    flex-wrap: wrap;
     width: 100%;
+  }
+
+  .user-chip {
+    max-width: 100%;
+    overflow-wrap: anywhere;
   }
 
   .deck-list {
     display: flex;
-    margin: 0 -16px 18px;
+    margin: 0 -16px;
     overflow-x: auto;
     padding: 0 16px 4px;
     scroll-snap-type: x proximity;
   }
 
   .deck-item {
-    flex: 0 0 210px;
+    flex: 0 0 178px;
     scroll-snap-align: start;
+  }
+
+  .deck-empty-state,
+  .scene-list .card-list-heading,
+  .scene-list .scene-list-entry {
+    display: none;
   }
 
   .detail-toc-window,
@@ -1083,7 +1262,50 @@ button:disabled {
   }
 
   .practice-main {
+    gap: 14px;
     padding: 16px;
+  }
+
+  .deck-start-panel,
+  .card-picker-panel,
+  .prompt-panel,
+  .work-panel {
+    padding: 18px;
+  }
+
+  .deck-card-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .deck-card,
+  .study-card-choice {
+    min-height: 68px;
+  }
+
+  .study-card-panel {
+    min-height: 300px;
+  }
+
+  .study-card-panel h1 {
+    font-size: 24px;
+  }
+
+  .study-card-footer {
+    margin-top: 22px;
+  }
+
+  .picker-heading-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .card-primary-actions {
+    justify-content: stretch;
+  }
+
+  .card-primary-actions button {
+    flex: 1 1 140px;
+    min-width: 0;
   }
 
   .creation-main {
