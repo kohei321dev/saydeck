@@ -48,7 +48,7 @@ export default async function HomePage() {
         <header className="topbar">
           <div className="brand">
             <strong>Scene Builder</strong>
-            <span>場面から英文を組み立てる練習</span>
+            <span>話したいシチュエーションで使える英文を作る練習</span>
           </div>
           <div className="topbar-actions">
             <span className="user-chip">@{ownerGithubUsername} dev</span>
@@ -86,7 +86,7 @@ export default async function HomePage() {
       <header className="topbar">
         <div className="brand">
           <strong>Scene Builder</strong>
-          <span>場面から英文を組み立てる練習</span>
+          <span>話したいシチュエーションで使える英文を作る練習</span>
         </div>
         <div className="topbar-actions">
           <span className="user-chip">

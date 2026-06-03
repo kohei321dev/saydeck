@@ -15,6 +15,7 @@ export const runtime = "nodejs";
 
 type GenerateCardRequestBody = {
   category?: unknown;
+  persist?: unknown;
   sceneJa?: unknown;
   tags?: unknown;
 };
@@ -59,6 +60,7 @@ export async function POST(request: Request) {
   }
 
   const category = getString(body.category) || "custom";
+  const shouldPersist = body.persist !== false;
   const sceneJa = getString(body.sceneJa);
   const tags = getTags(body.tags);
 
@@ -98,13 +100,19 @@ export async function POST(request: Request) {
     );
   }
 
-  const shouldPersist = isCardPersistenceConfigured();
-
   if (!shouldPersist) {
-    return NextResponse.json(
-      {
-        error: "Neonへのカード保存にはDATABASE_URLが必要です。",
+    return NextResponse.json({
+      card,
+      persistence: {
+        configured: isCardPersistenceConfigured(),
+        saved: false,
       },
+    });
+  }
+
+  if (!isCardPersistenceConfigured()) {
+    return NextResponse.json(
+      { error: "Neonへのカード保存にはDATABASE_URLが必要です。" },
       { status: 503 },
     );
   }

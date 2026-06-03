@@ -2,11 +2,13 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  BookOpen,
   Check,
   Eye,
-  Menu,
-  Plus,
+  Lightbulb,
+  PencilLine,
   RotateCcw,
+  Save,
   ShieldCheck,
   Sparkles,
   Trash2,
@@ -38,23 +40,20 @@ type PracticeState = {
   isDone: boolean;
   lastPracticedAt: string | null;
   needsReview: boolean;
+  review: ReviewResult | null;
 };
 
 type PracticeStates = Record<string, PracticeState>;
 
 type CloudSyncStatus = "local" | "loading" | "saving" | "saved" | "error";
 
+type ActiveMode = "learn" | "create";
+
 type CardDeck = {
   id: string;
   title: string;
   description: string;
   cardIds: string[];
-};
-
-type DetailSection = {
-  id: string;
-  label: string;
-  meta: string;
 };
 
 type CloudPracticeResponse = {
@@ -83,6 +82,9 @@ export function ScenePractice({
   const [customCards, setCustomCards] = useState<SceneCard[]>([]);
   const [deletedCardIds, setDeletedCardIds] = useState<string[]>([]);
   const [savedCardIds, setSavedCardIds] = useState<string[]>([]);
+  const [activeMode, setActiveMode] = useState<ActiveMode>("learn");
+  const [hasSelectedDeck, setHasSelectedDeck] = useState(false);
+  const [isPracticeOpen, setIsPracticeOpen] = useState(false);
   const allCards = useMemo(
     () =>
       mergeClientSceneCards(
@@ -95,7 +97,7 @@ export function ScenePractice({
     () => new Set([...persistedCardIds, ...savedCardIds]),
     [persistedCardIds, savedCardIds],
   );
-  const [selectedCardId, setSelectedCardId] = useState(allCards[0]?.id ?? "");
+  const [selectedCardId, setSelectedCardId] = useState("");
   const [selectedDeckId, setSelectedDeckId] = useState("all");
   const [selectedLevel, setSelectedLevel] = useState("L1");
   const [answer, setAnswer] = useState("");
@@ -107,7 +109,9 @@ export function ScenePractice({
   const [diagnosticsError, setDiagnosticsError] = useState<string | null>(null);
   const [isLoadingDiagnostics, setIsLoadingDiagnostics] = useState(false);
   const [isGeneratingCard, setIsGeneratingCard] = useState(false);
+  const [isSavingDraftCard, setIsSavingDraftCard] = useState(false);
   const [showModel, setShowModel] = useState(false);
+  const [showHints, setShowHints] = useState(false);
   const [isDone, setIsDone] = useState(false);
   const [needsReview, setNeedsReview] = useState(false);
   const [lastPracticedAt, setLastPracticedAt] = useState<string | null>(null);
@@ -122,12 +126,13 @@ export function ScenePractice({
   const [cloudSyncStatus, setCloudSyncStatus] = useState<CloudSyncStatus>(
     canUseCloudSync ? "loading" : "local",
   );
-  const [isTocOpen, setIsTocOpen] = useState(true);
-  const [isDetailRailVisible, setIsDetailRailVisible] = useState(false);
-  const tocSentinelRef = useRef<HTMLDivElement | null>(null);
+  const [draftCard, setDraftCard] = useState<SceneCard | null>(null);
 
   const selectedCard = useMemo(
-    () => allCards.find((card) => card.id === selectedCardId) ?? allCards[0],
+    () =>
+      selectedCardId
+        ? allCards.find((card) => card.id === selectedCardId) ?? null
+        : null,
     [allCards, selectedCardId],
   );
 
@@ -151,10 +156,12 @@ export function ScenePractice({
     () => buildCardDecks(allCards, practiceStates, persistedCardIdSet),
     [allCards, persistedCardIdSet, practiceStates],
   );
-  const selectedDeck = decks.find((deck) => deck.id === selectedDeckId) ?? decks[0];
+  const selectedDeck = hasSelectedDeck
+    ? decks.find((deck) => deck.id === selectedDeckId) ?? null
+    : null;
   const visibleCardIdSet = useMemo(
-    () => new Set(selectedDeck?.cardIds ?? allCards.map((card) => card.id)),
-    [allCards, selectedDeck],
+    () => new Set(selectedDeck?.cardIds ?? []),
+    [selectedDeck],
   );
   const visibleCards = useMemo(
     () => allCards.filter((card) => visibleCardIdSet.has(card.id)),
@@ -163,43 +170,6 @@ export function ScenePractice({
   const selectedCardSummary = selectedCard
     ? getCardPracticeSummary(selectedCard, practiceStates)
     : null;
-  const detailSections = useMemo<DetailSection[]>(
-    () => [
-      {
-        id: "scene-overview",
-        label: "場面",
-        meta: selectedCard?.category ?? "-",
-      },
-      {
-        id: "practice-levels",
-        label: "難易度",
-        meta: selectedLevelData?.level ?? selectedLevel,
-      },
-      {
-        id: "answer-practice",
-        label: "回答",
-        meta: `${wordCount} words`,
-      },
-      {
-        id: "practice-actions",
-        label: "復習",
-        meta: selectedCardSummary?.hasReview
-          ? "要復習あり"
-          : selectedCardSummary?.doneCount
-            ? `${selectedCardSummary.doneCount}/${selectedCard?.levels.length ?? 0} 完了`
-            : "未練習",
-      },
-    ],
-    [
-      selectedCard?.category,
-      selectedCard?.levels.length,
-      selectedCardSummary?.doneCount,
-      selectedCardSummary?.hasReview,
-      selectedLevel,
-      selectedLevelData?.level,
-      wordCount,
-    ],
-  );
 
   useEffect(() => {
     if (!canAddCards) {
@@ -208,38 +178,26 @@ export function ScenePractice({
   }, [canAddCards]);
 
   useEffect(() => {
-    if (!decks.some((deck) => deck.id === selectedDeckId) && decks[0]) {
-      setSelectedDeckId(decks[0].id);
-    }
-  }, [decks, selectedDeckId]);
-
-  useEffect(() => {
-    const selectedCardExists = visibleCards.some((card) => card.id === selectedCardId);
-
-    if ((!selectedCardId || !selectedCardExists) && visibleCards[0]) {
-      setSelectedCardId(visibleCards[0].id);
-    }
-  }, [selectedCardId, visibleCards]);
-
-  useEffect(() => {
-    const node = tocSentinelRef.current;
-
-    if (!node || !("IntersectionObserver" in window)) {
+    if (!hasSelectedDeck) {
       return;
     }
 
-    const observer = new IntersectionObserver(
-      ([entry]) => setIsDetailRailVisible(!entry.isIntersecting),
-      {
-        rootMargin: "-16px 0px 0px 0px",
-        threshold: 0,
-      },
-    );
+    if (!decks.some((deck) => deck.id === selectedDeckId) && decks[0]) {
+      setSelectedDeckId(decks[0].id);
+      setSelectedCardId("");
+      setIsPracticeOpen(false);
+    }
+  }, [decks, hasSelectedDeck, selectedDeckId]);
 
-    observer.observe(node);
-
-    return () => observer.disconnect();
-  }, []);
+  useEffect(() => {
+    if (
+      selectedCardId &&
+      !visibleCards.some((card) => card.id === selectedCardId)
+    ) {
+      setSelectedCardId("");
+      setIsPracticeOpen(false);
+    }
+  }, [selectedCardId, visibleCards]);
 
   useEffect(() => {
     setPracticeStates(readPracticeStates());
@@ -267,11 +225,12 @@ export function ScenePractice({
       setIsDone(state?.isDone ?? false);
       setNeedsReview(state?.needsReview ?? false);
       setLastPracticedAt(state?.lastPracticedAt ?? null);
+      setReview(state?.review ?? null);
     };
 
     applyPracticeState(savedState);
     setShowModel(false);
-    setReview(null);
+    setShowHints(false);
     setReviewError(null);
     setLoadedPracticeKey(selectedPracticeKey);
     setCloudReadyKey("");
@@ -339,6 +298,7 @@ export function ScenePractice({
       isDone,
       lastPracticedAt,
       needsReview,
+      review,
     };
 
     setPracticeStates((current) => {
@@ -363,6 +323,7 @@ export function ScenePractice({
     lastPracticedAt,
     loadedPracticeKey,
     needsReview,
+    review,
     selectedPracticeKey,
   ]);
 
@@ -398,6 +359,7 @@ export function ScenePractice({
           lastPracticedAt,
           level: selectedCloudLevel,
           needsReview,
+          review,
         }),
         headers: {
           "Content-Type": "application/json",
@@ -433,6 +395,7 @@ export function ScenePractice({
     lastPracticedAt,
     loadedPracticeKey,
     needsReview,
+    review,
     selectedCloudCardId,
     selectedCloudLevel,
     selectedPracticeKey,
@@ -478,6 +441,7 @@ export function ScenePractice({
       }
 
       setReview(payload.review);
+      setIsDone(true);
       setLastPracticedAt(new Date().toISOString());
     } catch (error) {
       setReviewError(
@@ -488,16 +452,17 @@ export function ScenePractice({
     }
   }
 
-  async function handleGenerateCard() {
+  async function handleGenerateCardDraft() {
     const trimmedScene = newCardSceneJa.trim();
 
     if (!trimmedScene) {
-      setCardGenerationError("シチュエーションを入力してください。");
+      setCardGenerationError("気づきやシチュエーションを入力してください。");
       return;
     }
 
     setIsGeneratingCard(true);
     setCardGenerationError(null);
+    setDraftCard(null);
 
     try {
       const response = await fetch("/api/cards/generate", {
@@ -507,6 +472,7 @@ export function ScenePractice({
         },
         body: JSON.stringify({
           category: newCardCategory.trim() || "custom",
+          persist: false,
           sceneJa: trimmedScene,
           tags: parseTags(newCardTags),
         }),
@@ -526,6 +492,47 @@ export function ScenePractice({
       }
 
       const generatedCard = payload.card as SceneCard;
+      setDraftCard(generatedCard);
+    } catch (error) {
+      setCardGenerationError(
+        error instanceof Error ? error.message : "カード案の生成に失敗しました。",
+      );
+    } finally {
+      setIsGeneratingCard(false);
+    }
+  }
+
+  async function handleSaveDraftCard() {
+    if (!draftCard) {
+      return;
+    }
+
+    setIsSavingDraftCard(true);
+    setCardGenerationError(null);
+
+    try {
+      const response = await fetch("/api/cards", {
+        body: JSON.stringify({ card: draftCard }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+      });
+
+      const payload = (await response.json().catch(() => ({}))) as {
+        card?: SceneCard;
+        error?: string;
+        persistence?: {
+          configured?: boolean;
+          saved?: boolean;
+        };
+      };
+
+      if (!response.ok || !payload.card) {
+        throw new Error(payload.error || "カード保存に失敗しました。");
+      }
+
+      const generatedCard = payload.card as SceneCard;
       setCustomCards((current) => mergeClientSceneCards(current, [generatedCard]));
 
       if (payload.persistence?.saved) {
@@ -539,20 +546,28 @@ export function ScenePractice({
       );
       setSelectedCardId(generatedCard.id);
       setSelectedLevel(generatedCard.levels[0]?.level ?? "L1");
+      setSelectedDeckId("all");
+      setHasSelectedDeck(true);
+      setIsPracticeOpen(false);
       setNewCardSceneJa("");
       setNewCardTags("");
+      setDraftCard(null);
+      setActiveMode("learn");
     } catch (error) {
       setCardGenerationError(
-        error instanceof Error ? error.message : "カード生成に失敗しました。",
+        error instanceof Error ? error.message : "カード保存に失敗しました。",
       );
     } finally {
-      setIsGeneratingCard(false);
+      setIsSavingDraftCard(false);
     }
+  }
+
+  function updateDraftCard(patch: Partial<SceneCard>) {
+    setDraftCard((current) => (current ? { ...current, ...patch } : current));
   }
 
   async function handleDeleteCustomCard(cardId: string) {
     const isPersistedCard = persistedCardIdSet.has(cardId);
-    const remainingCards = allCards.filter((card) => card.id !== cardId);
 
     if (isPersistedCard && cardPersistenceConfigured) {
       try {
@@ -585,9 +600,8 @@ export function ScenePractice({
     setCardGenerationError(null);
 
     if (selectedCardId === cardId) {
-      const nextSelectedCard = remainingCards[0];
-      setSelectedCardId(nextSelectedCard?.id ?? "");
-      setSelectedLevel(nextSelectedCard?.levels[0]?.level ?? "L1");
+      setSelectedCardId("");
+      setIsPracticeOpen(false);
     }
   }
 
@@ -616,9 +630,75 @@ export function ScenePractice({
     }
   }
 
+  function handleSelectDeck(deckId: string) {
+    setSelectedDeckId(deckId);
+    setHasSelectedDeck(true);
+    setSelectedCardId("");
+    setSelectedLevel("L1");
+    setIsPracticeOpen(false);
+    setShowModel(false);
+    setShowHints(false);
+    setReview(null);
+    setReviewError(null);
+  }
+
+  function handleSelectCard(card: SceneCard) {
+    const nextLevel = card.levels[0]?.level ?? "L1";
+    setSelectedCardId(card.id);
+    setSelectedLevel(nextLevel);
+    setIsPracticeOpen(false);
+    setShowModel(false);
+    setShowHints(false);
+    setReview(null);
+    setReviewError(null);
+  }
+
+  function handleReturnToDecks() {
+    setHasSelectedDeck(false);
+    setSelectedCardId("");
+    setIsPracticeOpen(false);
+    setShowModel(false);
+    setShowHints(false);
+    setReview(null);
+    setReviewError(null);
+  }
+
   return (
     <div className="practice-shell">
-      <aside className="scene-list" aria-label="シーン一覧">
+      <section className="mode-hero" aria-label="モード選択">
+        <div className="mode-copy">
+          <span>Scene Builder</span>
+          <h1>話したいシチュエーションで使える英文を作る</h1>
+          <p>通勤中でも声を出さずに、テーマ選択からAI添削まで進めます。</p>
+        </div>
+        <div className="mode-tabs" role="tablist" aria-label="学習と作成">
+          <button
+            aria-selected={activeMode === "learn"}
+            className={activeMode === "learn" ? "mode-tab active" : "mode-tab"}
+            onClick={() => setActiveMode("learn")}
+            role="tab"
+          >
+            <BookOpen aria-hidden="true" size={18} />
+            学習
+          </button>
+          <button
+            aria-selected={activeMode === "create"}
+            className={activeMode === "create" ? "mode-tab active" : "mode-tab"}
+            disabled={!canAddCards}
+            onClick={() => setActiveMode("create")}
+            role="tab"
+          >
+            <PencilLine aria-hidden="true" size={18} />
+            作成
+          </button>
+        </div>
+      </section>
+
+      <aside
+        className="scene-list"
+        aria-label="シーン一覧"
+        hidden={activeMode !== "learn" || !hasSelectedDeck}
+      >
         <div className="sidebar-heading">
           <span>Decks</span>
           <span>{decks.length}</span>
@@ -629,7 +709,7 @@ export function ScenePractice({
               aria-pressed={deck.id === selectedDeck?.id}
               className={deck.id === selectedDeck?.id ? "deck-item active" : "deck-item"}
               key={deck.id}
-              onClick={() => setSelectedDeckId(deck.id)}
+              onClick={() => handleSelectDeck(deck.id)}
             >
               <span>
                 <strong>{deck.title}</strong>
@@ -639,314 +719,530 @@ export function ScenePractice({
             </button>
           ))}
         </div>
-        {canAddCards ? (
-          <div className="card-builder">
-            <div className="card-builder-heading">
-              <Plus aria-hidden="true" size={16} />
-              <span>カード追加</span>
+        {hasSelectedDeck ? (
+          <>
+            <div className="sidebar-heading card-list-heading">
+              <span>Cards</span>
+              <span>{visibleCards.length}/{allCards.length}</span>
             </div>
-            <label>
-              <span>シチュエーション</span>
-              <textarea
-                onChange={(event) => {
-                  setNewCardSceneJa(event.target.value);
-                  setCardGenerationError(null);
-                }}
-                placeholder="例: 外国人の友達に今日の練習メニューを話す"
-                rows={4}
-                value={newCardSceneJa}
-              />
-            </label>
-            <label>
-              <span>カテゴリ</span>
-              <input
-                onChange={(event) => setNewCardCategory(event.target.value)}
-                value={newCardCategory}
-              />
-            </label>
-            <label>
-              <span>タグ</span>
-              <input
-                onChange={(event) => setNewCardTags(event.target.value)}
-                placeholder="practice;friend"
-                value={newCardTags}
-              />
-            </label>
-            <button
-              className="primary-button"
-              disabled={isGeneratingCard}
-              onClick={handleGenerateCard}
-            >
-              <Sparkles aria-hidden="true" size={16} />
-              {isGeneratingCard ? "生成中" : "AIで作成"}
-            </button>
-            {cardGenerationError ? (
-              <div className="error-note compact">{cardGenerationError}</div>
-            ) : null}
-            <div className="diagnostics-panel">
-              <button
-                className="secondary-button"
-                disabled={isLoadingDiagnostics}
-                onClick={handleLoadDiagnostics}
-              >
-                <ShieldCheck aria-hidden="true" size={16} />
-                {isLoadingDiagnostics ? "確認中" : "設定診断"}
-              </button>
-              {diagnosticsError ? (
-                <div className="error-note compact">{diagnosticsError}</div>
-              ) : null}
-              {diagnostics ? <DiagnosticsSummary diagnostics={diagnostics} /> : null}
-            </div>
-          </div>
-        ) : null}
-        <div className="sidebar-heading card-list-heading">
-          <span>Cards</span>
-          <span>{visibleCards.length}/{allCards.length}</span>
-        </div>
-        {visibleCards.map((card) => {
-          const isCustomCard =
-            persistedCardIdSet.has(card.id) ||
-            customCards.some((customCard) => customCard.id === card.id);
+            {visibleCards.map((card) => {
+              const isCustomCard =
+                persistedCardIdSet.has(card.id) ||
+                customCards.some((customCard) => customCard.id === card.id);
 
-          return (
-            <div className="scene-list-entry" key={card.id}>
-              <button
-                className={
-                  card.id === selectedCard?.id
-                    ? "scene-list-item active"
-                    : "scene-list-item"
-                }
-                onClick={() => {
-                  const nextLevel = card.levels[0]?.level ?? "L1";
-                  setSelectedCardId(card.id);
-                  setSelectedLevel(nextLevel);
-                }}
-              >
-                <span>{card.sceneJa}</span>
-                <div className="scene-list-meta">
-                  <small>{isCustomCard ? `${card.category} / custom` : card.category}</small>
-                  <SceneProgress card={card} states={practiceStates} />
+              return (
+                <div className="scene-list-entry" key={card.id}>
+                  <button
+                    className={
+                      card.id === selectedCard?.id
+                        ? "scene-list-item active"
+                        : "scene-list-item"
+                    }
+                    onClick={() => handleSelectCard(card)}
+                  >
+                    <span>{card.sceneJa}</span>
+                    <div className="scene-list-meta">
+                      <small>{isCustomCard ? `${card.category} / custom` : card.category}</small>
+                      <SceneProgress card={card} states={practiceStates} />
+                    </div>
+                  </button>
+                  {canAddCards && isCustomCard ? (
+                    <button
+                      aria-label={`${card.sceneJa}を削除`}
+                      className="icon-button danger"
+                      onClick={() => handleDeleteCustomCard(card.id)}
+                    >
+                      <Trash2 aria-hidden="true" size={16} />
+                    </button>
+                  ) : null}
                 </div>
-              </button>
-              {canAddCards && isCustomCard ? (
-                <button
-                  aria-label={`${card.sceneJa}を削除`}
-                  className="icon-button danger"
-                  onClick={() => handleDeleteCustomCard(card.id)}
-                >
-                  <Trash2 aria-hidden="true" size={16} />
-                </button>
-              ) : null}
-            </div>
-          );
-        })}
+              );
+            })}
+          </>
+        ) : (
+          <div className="deck-empty-state">まずデッキを選ぶとカードが表示されます。</div>
+        )}
       </aside>
 
       <main
         className={
-          isDetailRailVisible ? "practice-main rail-visible" : "practice-main"
+          [
+            "practice-main",
+            selectedCard && isPracticeOpen ? "" : "practice-main-single",
+            hasSelectedDeck ? "" : "practice-main-full",
+          ]
+            .filter(Boolean)
+            .join(" ")
         }
+        hidden={activeMode !== "learn"}
       >
-        <nav className="detail-toc-window" aria-label="詳細目次">
-          <button
-            aria-controls="detail-toc-links"
-            aria-expanded={isTocOpen}
-            className="toc-toggle"
-            onClick={() => setIsTocOpen((current) => !current)}
-          >
-            <Menu aria-hidden="true" size={18} />
-            <span>目次</span>
-            <small>{selectedDeck?.title ?? "All cards"}</small>
-          </button>
-          {isTocOpen ? (
-            <div className="toc-links" id="detail-toc-links">
-              {detailSections.map((section) => (
-                <a href={`#${section.id}`} key={section.id}>
-                  <span>{section.label}</span>
-                  <small>{section.meta}</small>
-                </a>
+        {!hasSelectedDeck ? (
+          <section className="deck-start-panel" aria-label="デッキ選択">
+            <div className="deck-start-heading">
+              <span className="prompt-kicker">DECK</span>
+              <h2>デッキを選んで開始</h2>
+              <p>カードと回答欄は、デッキを選ぶまで表示しません。</p>
+            </div>
+            <div className="deck-card-grid">
+              {decks.map((deck) => (
+                <button
+                  className="deck-card"
+                  key={deck.id}
+                  onClick={() => handleSelectDeck(deck.id)}
+                >
+                  <span>
+                    <strong>{deck.title}</strong>
+                    <small>{deck.description}</small>
+                  </span>
+                  <b>{deck.cardIds.length}</b>
+                </button>
               ))}
             </div>
-          ) : null}
-        </nav>
-        <div aria-hidden="true" className="toc-sentinel" ref={tocSentinelRef} />
-        <aside className="detail-rail" aria-label="詳細ナビ">
-          {detailSections.map((section) => (
-            <a href={`#${section.id}`} key={section.id}>
-              <span>{section.label}</span>
-              <small>{section.meta}</small>
-            </a>
-          ))}
-        </aside>
-
-        <section className="prompt-panel" id="scene-overview">
-          <div className="prompt-kicker">{selectedCard?.category}</div>
-          <h1>{selectedCard?.sceneJa}</h1>
-          <p className="prompt-en">{selectedCard?.promptEn}</p>
-          <p className="prompt-ja">{selectedCard?.promptJa}</p>
-          <div className="tag-row">
-            {selectedCard?.tags.map((tag) => <span key={tag}>{tag}</span>)}
-          </div>
-        </section>
-
-        <section className="work-panel">
-          <div className="level-tabs" aria-label="難易度" id="practice-levels">
-            {selectedCard?.levels.map((level) => (
-              <button
-                className={level.level === selectedLevel ? "active" : ""}
-                key={level.level}
-                onClick={() => {
-                  setSelectedLevel(level.level);
-                  setShowModel(false);
-                  setReview(null);
-                  setReviewError(null);
-                }}
-              >
-                {level.level}
-              </button>
-            ))}
-          </div>
-
-          <div className="level-detail">
-            <h2>{selectedLevelData?.name}</h2>
-            <p>{selectedLevelData?.constraints}</p>
-            <div className="practice-meta">
-              <span>{formattedLastPracticedAt ?? "この難易度は未練習"}</span>
-              {isDone ? <span className="status-pill done">完了</span> : null}
-              {needsReview ? <span className="status-pill review">要復習</span> : null}
-              <span className={`status-pill sync ${cloudSyncStatus}`}>
-                {cloudSyncLabel}
-              </span>
-            </div>
-          </div>
-
-          <div id="answer-practice">
-            <label className="answer-label" htmlFor="answer">
-              自分の回答
-            </label>
-            <textarea
-              id="answer"
-              value={answer}
-              onChange={(event) => {
-                setAnswer(event.target.value);
-                setLastPracticedAt(new Date().toISOString());
-                setReviewError(null);
-              }}
-              placeholder="例: I practiced ollies today."
-              rows={7}
-            />
-          </div>
-
-          <div className="action-row" id="practice-actions">
-            <span>{wordCount} words</span>
-            <div>
-              <label className="review-toggle">
-                <input
-                  checked={needsReview}
-                  onChange={(event) => {
-                    setNeedsReview(event.target.checked);
-                    setLastPracticedAt(new Date().toISOString());
-                  }}
-                  type="checkbox"
-                />
-                要復習
-              </label>
-              <button
-                className="secondary-button"
-                onClick={() => {
-                  setAnswer("");
-                  setShowModel(false);
-                  setIsDone(false);
-                  setNeedsReview(false);
-                  setLastPracticedAt(null);
-                  setReview(null);
-                  setReviewError(null);
-                }}
-              >
-                <RotateCcw aria-hidden="true" size={16} />
-                リセット
-              </button>
-              <button
-                className="secondary-button"
-                onClick={() => setShowModel((current) => !current)}
-              >
-                <Eye aria-hidden="true" size={16} />
-                模範回答
-              </button>
-              <button
-                className="secondary-button"
-                disabled={isReviewing}
-                onClick={handleAiReview}
-              >
-                <Sparkles aria-hidden="true" size={16} />
-                {isReviewing ? "添削中" : "AI添削"}
-              </button>
-              <button
-                className="primary-button"
-                onClick={() => {
-                  setIsDone(true);
-                  setLastPracticedAt(new Date().toISOString());
-                }}
-              >
-                <Check aria-hidden="true" size={16} />
-                完了
-              </button>
-            </div>
-          </div>
-
-          {showModel ? (
-            <div className="model-answer">
-              <h3>Model answer</h3>
-              <p className="model-en">{selectedLevelData?.answerEn}</p>
-              <p>{selectedLevelData?.answerJa}</p>
-              <small>{selectedLevelData?.reviewPoints}</small>
-            </div>
-          ) : null}
-
-          {reviewError ? <div className="error-note">{reviewError}</div> : null}
-
-          {review ? (
-            <div className="ai-review">
-              <div className="review-heading">
-                <h3>AI添削</h3>
-                <span>{review.score}/10</span>
+          </section>
+        ) : !selectedCard ? (
+          <section className="card-picker-panel" aria-label="カード選択">
+            <div className="card-picker-heading">
+              <span className="prompt-kicker">{selectedDeck?.title ?? "DECK"}</span>
+              <div className="picker-heading-row">
+                <h2>カードを1枚選ぶ</h2>
+                <button className="secondary-button compact-button" onClick={handleReturnToDecks}>
+                  デッキ
+                </button>
               </div>
-              <dl>
-                <div>
-                  <dt>よい点</dt>
-                  <dd>{review.goodPoint}</dd>
-                </div>
-                <div>
-                  <dt>修正文</dt>
-                  <dd>{review.fix}</dd>
-                </div>
-                <div>
-                  <dt>自然な言い方</dt>
-                  <dd>{review.naturalAnswer}</dd>
-                </div>
-                <div>
-                  <dt>覚える表現</dt>
-                  <dd>{review.phraseToRemember}</dd>
-                </div>
-                <div>
-                  <dt>場面との合い方</dt>
-                  <dd>{review.sceneFit}</dd>
-                </div>
-                <div>
-                  <dt>次の練習</dt>
-                  <dd>{review.nextPractice}</dd>
-                </div>
-              </dl>
+              <p>{visibleCards.length} cards</p>
             </div>
-          ) : null}
+            {visibleCards.length > 0 ? (
+              <div className="study-card-list">
+                {visibleCards.map((card) => {
+                  const isCustomCard =
+                    persistedCardIdSet.has(card.id) ||
+                    customCards.some((customCard) => customCard.id === card.id);
 
-          {isDone ? (
-            <div className="done-note">
-              {doneNote}
-            </div>
-          ) : null}
-        </section>
+                  return (
+                    <div className="study-card-entry" key={card.id}>
+                      <button
+                        className="study-card-choice"
+                        onClick={() => handleSelectCard(card)}
+                      >
+                        <span>{card.sceneJa}</span>
+                        <small>
+                          {isCustomCard ? `${card.category} / custom` : card.category}
+                        </small>
+                      </button>
+                      {canAddCards && isCustomCard ? (
+                        <button
+                          aria-label={`${card.sceneJa}を削除`}
+                          className="icon-button danger"
+                          onClick={() => handleDeleteCustomCard(card.id)}
+                        >
+                          <Trash2 aria-hidden="true" size={16} />
+                        </button>
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="done-note">このデッキにはカードがありません。</div>
+            )}
+          </section>
+        ) : (
+          <>
+            <section className="prompt-panel study-card-panel" id="scene-overview">
+              <div>
+                <div className="prompt-kicker">{selectedCard.category}</div>
+                <h1>{selectedCard.sceneJa}</h1>
+                <div className="tag-row">
+                  {selectedCard.tags.map((tag) => <span key={tag}>{tag}</span>)}
+                </div>
+              </div>
+              <div className="study-card-footer">
+                <div className="practice-meta">
+                  <span>{formattedLastPracticedAt ?? "未練習"}</span>
+                  {selectedCardSummary?.doneCount ? (
+                    <span className="status-pill done">
+                      {selectedCardSummary.doneCount}/{selectedCard.levels.length} 完了
+                    </span>
+                  ) : null}
+                  {selectedCardSummary?.hasReview ? (
+                    <span className="status-pill review">要復習</span>
+                  ) : null}
+                  <span className={`status-pill sync ${cloudSyncStatus}`}>
+                    {cloudSyncLabel}
+                  </span>
+                </div>
+                <div className="card-primary-actions">
+                  <button
+                    className="secondary-button"
+                    onClick={handleReturnToDecks}
+                  >
+                    デッキ
+                  </button>
+                  <button
+                    className="secondary-button"
+                    onClick={() => {
+                      setSelectedCardId("");
+                      setIsPracticeOpen(false);
+                    }}
+                  >
+                    カード一覧
+                  </button>
+                  <button
+                    className={isPracticeOpen ? "secondary-button" : "primary-button"}
+                    onClick={() => setIsPracticeOpen((current) => !current)}
+                  >
+                    {isPracticeOpen ? "回答欄を閉じる" : "回答する"}
+                  </button>
+                </div>
+              </div>
+            </section>
+
+            {isPracticeOpen ? (
+              <section className="work-panel">
+                <div className="level-tabs" aria-label="難易度" id="practice-levels">
+                  {selectedCard.levels.map((level) => (
+                    <button
+                      className={level.level === selectedLevel ? "active" : ""}
+                      key={level.level}
+                      onClick={() => {
+                        setSelectedLevel(level.level);
+                        setShowModel(false);
+                        setShowHints(false);
+                        setReview(null);
+                        setReviewError(null);
+                      }}
+                    >
+                      {level.level}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="level-detail">
+                  <h2>{selectedLevelData?.name}</h2>
+                  <p>{selectedLevelData?.constraints}</p>
+                  <div className="practice-meta">
+                    <span>{formattedLastPracticedAt ?? "この難易度は未練習"}</span>
+                    {isDone ? <span className="status-pill done">完了</span> : null}
+                    {needsReview ? <span className="status-pill review">要復習</span> : null}
+                    <span className={`status-pill sync ${cloudSyncStatus}`}>
+                      {cloudSyncLabel}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="hint-panel" id="practice-hints">
+                  <button
+                    aria-expanded={showHints}
+                    className="hint-toggle"
+                    onClick={() => setShowHints((current) => !current)}
+                  >
+                    <Lightbulb aria-hidden="true" size={16} />
+                    ヒント
+                  </button>
+                  {showHints ? (
+                    <div className="hint-body">
+                      <div>
+                        <strong>使える材料</strong>
+                        <p>{selectedLevelData?.reviewPoints || "動詞、形容詞、理由、質問を1つ足してみる。"}</p>
+                      </div>
+                      <div>
+                        <strong>補助</strong>
+                        <p>{selectedCard.promptEn}</p>
+                        <p>{selectedCard.promptJa}</p>
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+
+                <div id="answer-practice">
+                  <label className="answer-label" htmlFor="answer">
+                    自分の回答
+                  </label>
+                  <textarea
+                    id="answer"
+                    value={answer}
+                    onChange={(event) => {
+                      setAnswer(event.target.value);
+                      setLastPracticedAt(new Date().toISOString());
+                      setReviewError(null);
+                    }}
+                    placeholder="例: I practiced ollies today."
+                    rows={7}
+                  />
+                </div>
+
+                <div className="action-row" id="practice-actions">
+                  <span>{wordCount} words</span>
+                  <div>
+                    <label className="review-toggle">
+                      <input
+                        checked={needsReview}
+                        onChange={(event) => {
+                          setNeedsReview(event.target.checked);
+                          setLastPracticedAt(new Date().toISOString());
+                        }}
+                        type="checkbox"
+                      />
+                      要復習
+                    </label>
+                    <button
+                      className="secondary-button"
+                      onClick={() => {
+                        setAnswer("");
+                        setShowModel(false);
+                        setShowHints(false);
+                        setIsDone(false);
+                        setNeedsReview(false);
+                        setLastPracticedAt(null);
+                        setReview(null);
+                        setReviewError(null);
+                      }}
+                    >
+                      <RotateCcw aria-hidden="true" size={16} />
+                      リセット
+                    </button>
+                    <button
+                      className="secondary-button"
+                      onClick={() => setShowModel((current) => !current)}
+                    >
+                      <Eye aria-hidden="true" size={16} />
+                      模範回答
+                    </button>
+                    <button
+                      className="primary-button"
+                      disabled={isReviewing}
+                      onClick={handleAiReview}
+                    >
+                      <Sparkles aria-hidden="true" size={16} />
+                      {isReviewing ? "添削中" : "AI添削"}
+                    </button>
+                    <button
+                      className="secondary-button"
+                      onClick={() => {
+                        setIsDone(true);
+                        setLastPracticedAt(new Date().toISOString());
+                      }}
+                    >
+                      <Check aria-hidden="true" size={16} />
+                      完了だけ保存
+                    </button>
+                  </div>
+                </div>
+
+                {showModel ? (
+                  <div className="model-answer">
+                    <h3>Model answer</h3>
+                    <p className="model-en">{selectedLevelData?.answerEn}</p>
+                    <p>{selectedLevelData?.answerJa}</p>
+                    <small>{selectedLevelData?.reviewPoints}</small>
+                  </div>
+                ) : null}
+
+                {reviewError ? <div className="error-note">{reviewError}</div> : null}
+
+                {review ? (
+                  <div className="ai-review">
+                    <div className="review-heading">
+                      <h3>難易度への成立度</h3>
+                      <span>{review.score}/10</span>
+                    </div>
+                    <dl>
+                      {review.naturalAnswer ? (
+                        <div>
+                          <dt>自然な言い換え</dt>
+                          <dd>{review.naturalAnswer}</dd>
+                        </div>
+                      ) : null}
+                      {review.fix ? (
+                        <div>
+                          <dt>修正するなら</dt>
+                          <dd>{review.fix}</dd>
+                        </div>
+                      ) : null}
+                      {review.phraseToRemember ? (
+                        <div>
+                          <dt>次に足す表現</dt>
+                          <dd>{review.phraseToRemember}</dd>
+                        </div>
+                      ) : null}
+                      {review.nextPractice ? (
+                        <div>
+                          <dt>次の一手</dt>
+                          <dd>{review.nextPractice}</dd>
+                        </div>
+                      ) : null}
+                    </dl>
+                  </div>
+                ) : null}
+
+                {isDone ? (
+                  <div className="done-note">
+                    {doneNote}
+                  </div>
+                ) : null}
+              </section>
+            ) : null}
+          </>
+        )}
       </main>
+
+      {activeMode === "create" ? (
+        <main className="creation-main" aria-label="作成モード">
+          <section className="creation-panel">
+            <div className="creation-heading">
+              <span className="prompt-kicker">作成モード</span>
+              <h1>気づきを練習シチュエーションに変える</h1>
+              <p>
+                「この場面で何て言うんだろ」をラフに入力すると、AIが学習用カード案を作ります。
+              </p>
+            </div>
+            {canAddCards ? (
+              <div className="creation-layout">
+                <div className="card-builder create-form">
+                  <label>
+                    <span>気づき / 疑問</span>
+                    <textarea
+                      onChange={(event) => {
+                        setNewCardSceneJa(event.target.value);
+                        setCardGenerationError(null);
+                      }}
+                      placeholder="例: スケボーで、今日オーリーが全然安定しなかったって言いたい"
+                      rows={5}
+                      value={newCardSceneJa}
+                    />
+                  </label>
+                  <label>
+                    <span>テーマ</span>
+                    <input
+                      onChange={(event) => setNewCardCategory(event.target.value)}
+                      value={newCardCategory}
+                    />
+                  </label>
+                  <label>
+                    <span>タグ</span>
+                    <input
+                      onChange={(event) => setNewCardTags(event.target.value)}
+                      placeholder="skate;practice;feeling"
+                      value={newCardTags}
+                    />
+                  </label>
+                  <button
+                    className="primary-button"
+                    disabled={isGeneratingCard}
+                    onClick={handleGenerateCardDraft}
+                  >
+                    <Sparkles aria-hidden="true" size={16} />
+                    {isGeneratingCard ? "生成中" : "AIでカード案を作る"}
+                  </button>
+                  {cardGenerationError ? (
+                    <div className="error-note compact">{cardGenerationError}</div>
+                  ) : null}
+                  <div className="diagnostics-panel">
+                    <button
+                      className="secondary-button"
+                      disabled={isLoadingDiagnostics}
+                      onClick={handleLoadDiagnostics}
+                    >
+                      <ShieldCheck aria-hidden="true" size={16} />
+                      {isLoadingDiagnostics ? "確認中" : "設定診断"}
+                    </button>
+                    {diagnosticsError ? (
+                      <div className="error-note compact">{diagnosticsError}</div>
+                    ) : null}
+                    {diagnostics ? <DiagnosticsSummary diagnostics={diagnostics} /> : null}
+                  </div>
+                </div>
+
+                <div className="draft-preview">
+                  {draftCard ? (
+                    <>
+                      <div className="draft-heading">
+                        <h2>カード案</h2>
+                        <p>保存前にシチュエーションと補助情報を微修正できます。</p>
+                      </div>
+                      <label>
+                        <span>テーマ</span>
+                        <input
+                          onChange={(event) =>
+                            updateDraftCard({ category: event.target.value })
+                          }
+                          value={draftCard.category}
+                        />
+                      </label>
+                      <label>
+                        <span>シチュエーション</span>
+                        <textarea
+                          onChange={(event) =>
+                            updateDraftCard({ sceneJa: event.target.value })
+                          }
+                          rows={3}
+                          value={draftCard.sceneJa}
+                        />
+                      </label>
+                      <label>
+                        <span>英語補助</span>
+                        <textarea
+                          onChange={(event) =>
+                            updateDraftCard({ promptEn: event.target.value })
+                          }
+                          rows={2}
+                          value={draftCard.promptEn}
+                        />
+                      </label>
+                      <label>
+                        <span>日本語補助</span>
+                        <textarea
+                          onChange={(event) =>
+                            updateDraftCard({ promptJa: event.target.value })
+                          }
+                          rows={2}
+                          value={draftCard.promptJa}
+                        />
+                      </label>
+                      <label>
+                        <span>タグ</span>
+                        <input
+                          onChange={(event) =>
+                            updateDraftCard({ tags: parseTags(event.target.value) })
+                          }
+                          value={draftCard.tags.join(";")}
+                        />
+                      </label>
+                      <div className="draft-levels">
+                        {draftCard.levels.map((level) => (
+                          <div className="draft-level" key={level.level}>
+                            <strong>{level.level}</strong>
+                            <span>{level.name}</span>
+                            <small>{level.reviewPoints}</small>
+                          </div>
+                        ))}
+                      </div>
+                      <button
+                        className="primary-button"
+                        disabled={isSavingDraftCard}
+                        onClick={handleSaveDraftCard}
+                      >
+                        <Save aria-hidden="true" size={16} />
+                        {isSavingDraftCard ? "保存中" : "保存して学習に追加"}
+                      </button>
+                    </>
+                  ) : (
+                    <div className="empty-draft">
+                      <PencilLine aria-hidden="true" size={28} />
+                      <h2>AIカード案がここに表示されます</h2>
+                      <p>まず左側に、英語で言えなかった場面や気づきを入力してください。</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="done-note">
+                作成モードはowner権限で利用できます。学習モードで練習を続けてください。
+              </div>
+            )}
+          </section>
+        </main>
+      ) : null}
     </div>
   );
 }
@@ -1251,13 +1547,48 @@ function normalizePracticeState(value: unknown): PracticeState | null {
     lastPracticedAt:
       typeof value.lastPracticedAt === "string" ? value.lastPracticedAt : null,
     needsReview: value.needsReview === true,
+    review: normalizeReviewResult(value.review),
   };
 }
 
 function hasMeaningfulPracticeState(state: PracticeState): boolean {
   return Boolean(
-    state.answer.trim() || state.isDone || state.needsReview || state.lastPracticedAt,
+    state.answer.trim() ||
+      state.isDone ||
+      state.needsReview ||
+      state.lastPracticedAt ||
+      state.review,
   );
+}
+
+function normalizeReviewResult(value: unknown): ReviewResult | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  return {
+    score: clampReviewScore(value.score),
+    goodPoint: getString(value.goodPoint),
+    fix: getString(value.fix),
+    naturalAnswer: getString(value.naturalAnswer),
+    phraseToRemember: getString(value.phraseToRemember),
+    nextPractice: getString(value.nextPractice),
+    sceneFit: getString(value.sceneFit),
+  };
+}
+
+function getString(value: unknown): string {
+  return typeof value === "string" ? value : "";
+}
+
+function clampReviewScore(value: unknown): number {
+  const score = typeof value === "number" ? value : Number(value);
+
+  if (!Number.isFinite(score)) {
+    return 0;
+  }
+
+  return Math.max(0, Math.min(10, Math.round(score)));
 }
 
 function arePracticeStatesEqual(

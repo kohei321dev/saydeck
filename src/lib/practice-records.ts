@@ -1,4 +1,5 @@
 import { getSql } from "@/lib/db";
+import type { ReviewResult } from "@/lib/ai-review";
 
 export type PracticeStatus = "new" | "learned" | "review";
 
@@ -7,6 +8,7 @@ export type StoredPractice = {
   isDone: boolean;
   lastPracticedAt: string | null;
   needsReview: boolean;
+  review: ReviewResult | null;
 };
 
 export type PracticeRecord = StoredPractice & {
@@ -24,6 +26,7 @@ type PracticeRecordRow = {
   level: string;
   answer: string;
   checks: unknown;
+  review: unknown;
   status: PracticeStatus;
   created_at: Date | string;
   updated_at: Date | string;
@@ -77,12 +80,49 @@ function normalizeStateJson(value: unknown): PracticeStateJson {
   return parsed as PracticeStateJson;
 }
 
+function normalizeReview(value: unknown): ReviewResult | null {
+  const parsed = readJson(value);
+
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return null;
+  }
+
+  const source = parsed as Record<string, unknown>;
+
+  return {
+    score: clampScore(source.score),
+    goodPoint: getString(source.goodPoint),
+    fix: getString(source.fix),
+    naturalAnswer: getString(source.naturalAnswer),
+    phraseToRemember: getString(source.phraseToRemember),
+    nextPractice: getString(source.nextPractice),
+    sceneFit: getString(source.sceneFit),
+  };
+}
+
+function getString(value: unknown): string {
+  return typeof value === "string" ? value : "";
+}
+
+function clampScore(value: unknown): number {
+  const score = typeof value === "number" ? value : Number(value);
+
+  if (!Number.isFinite(score)) {
+    return 0;
+  }
+
+  return Math.max(0, Math.min(10, Math.round(score)));
+}
+
 /**
  * Determine the practice status from stored practice flags.
  *
  * @returns `review` if `needsReview` is true, `learned` if `isDone` is true, `new` otherwise.
  */
-function statusFromPractice({ isDone, needsReview }: StoredPractice): PracticeStatus {
+function statusFromPractice({
+  isDone,
+  needsReview,
+}: Pick<StoredPractice, "isDone" | "needsReview">): PracticeStatus {
   if (needsReview) {
     return "review";
   }
@@ -138,6 +178,7 @@ function rowToPracticeRecord(row: PracticeRecordRow): PracticeRecord {
     isDone,
     lastPracticedAt,
     needsReview,
+    review: normalizeReview(row.review),
     status: row.status,
     createdAt: toIsoString(row.created_at),
     updatedAt,
@@ -156,7 +197,7 @@ export async function getPracticeRecord({
 }: PracticeRecordKey): Promise<PracticeRecord | null> {
   const sql = getSql();
   const rows = await sql<PracticeRecordRow[]>`
-    select owner_login, item_id, level, answer, checks, status, created_at, updated_at
+    select owner_login, item_id, level, answer, checks, review, status, created_at, updated_at
     from practice_records
     where owner_login = ${ownerLogin}
       and mode = 'topic'
@@ -178,6 +219,7 @@ export async function getPracticeRecord({
  * @param isDone - `true` if the item is marked as done/learned
  * @param lastPracticedAt - ISO 8601 timestamp string of the last practice time, or `null`
  * @param needsReview - `true` if the item should be scheduled for review
+ * @param review - Latest AI review result, if one has been saved
  * @returns The saved PracticeRecord including normalized timestamps and the derived `status`
  */
 export async function upsertPracticeRecord({
@@ -188,9 +230,10 @@ export async function upsertPracticeRecord({
   isDone,
   lastPracticedAt,
   needsReview,
+  review,
 }: UpsertPracticeRecordInput): Promise<PracticeRecord> {
   const sql = getSql();
-  const status = statusFromPractice({ answer, isDone, lastPracticedAt, needsReview });
+  const status = statusFromPractice({ isDone, needsReview });
   const state = {
     isDone,
     lastPracticedAt,
@@ -204,6 +247,7 @@ export async function upsertPracticeRecord({
       level,
       answer,
       checks,
+      review,
       status,
       updated_at
     )
@@ -214,6 +258,7 @@ export async function upsertPracticeRecord({
       ${level},
       ${answer},
       ${sql.json(state)},
+      ${review ? sql.json(review) : null},
       ${status},
       now()
     )
@@ -221,9 +266,10 @@ export async function upsertPracticeRecord({
     do update set
       answer = excluded.answer,
       checks = excluded.checks,
+      review = excluded.review,
       status = excluded.status,
       updated_at = now()
-    returning owner_login, item_id, level, answer, checks, status, created_at, updated_at
+    returning owner_login, item_id, level, answer, checks, review, status, created_at, updated_at
   `;
 
   return rowToPracticeRecord(rows[0]);

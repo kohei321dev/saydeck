@@ -76,6 +76,7 @@ export async function reviewAnswerWithAi({
           content: [
             "あなたは英検3級レベルから日常英会話を伸ばす英語コーチです。",
             "目的は、スケボー中の自然な会話で使える短い英文を増やすことです。",
+            "点数は英語力そのものではなく、学習者が選んだ難易度に対する今回の回答の成立度として採点してください。",
             "説明は日本語で短く、回答例は英語で返してください。",
             "必ずJSONだけを返してください。Markdownやコードフェンスは不要です。",
           ].join("\n"),
@@ -153,12 +154,20 @@ function buildReviewPrompt({ answer, card, level }: ReviewInput): string {
     `カードID: ${card.id}`,
     `カテゴリ: ${card.category}`,
     `日本語シーン: ${card.sceneJa}`,
-    `英語シーン: ${card.promptEn}`,
-    `日本語指示: ${card.promptJa}`,
+    `英語補助: ${card.promptEn}`,
+    `日本語補助: ${card.promptJa}`,
     `対象レベル: ${level.level} (${level.name})`,
     `制約: ${level.constraints}`,
+    `難易度ルーブリック: ${getLevelRubric(level.level)}`,
     `模範回答: ${level.answerEn}`,
     `学習者の回答: ${answer}`,
+    "",
+    "採点方針:",
+    "- scoreは0から10の整数にする",
+    "- scoreは総合英語力ではなく、対象レベルに対する成立度にする",
+    "- 日本語補助を直訳できたかではなく、シーンに対して自然に使えそうかを見る",
+    "- fix、phraseToRemember、nextPracticeはnaturalAnswerと重複する場合は空文字にする",
+    "- L3/L4は固定単語数で機械的に減点しない",
     "",
     "返却JSONの形:",
     JSON.stringify({
@@ -171,6 +180,21 @@ function buildReviewPrompt({ answer, card, level }: ReviewInput): string {
       sceneFit: "今日の練習メニューを友達に伝える場面に合っています。",
     }),
   ].join("\n");
+}
+
+function getLevelRubric(level: string): string {
+  switch (level) {
+    case "L1":
+      return "動詞や動作を出せているか。完全文より、場面に合う動作の選択を重視する。";
+    case "L2":
+      return "動詞に加えて、状態や感情を表す形容詞/語句を足せているか。";
+    case "L3":
+      return "シチュエーションに対して自然な短い返答になっているか。";
+    case "L4":
+      return "理由、感想、相手への一言などを入れて、会話として使える返答になっているか。";
+    default:
+      return "選択された難易度に対して、場面に合う自然な返答になっているか。";
+  }
 }
 
 function parseJsonObject(content: string): unknown {
