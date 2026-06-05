@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 
 import {
   authOptions,
-  isDevAuthBypassEnabled,
+  isAuthBypassRequestEnabled,
   isOwnerSession,
   ownerGithubUsername,
 } from "@/lib/auth";
@@ -18,12 +18,12 @@ const validLevels = new Set(["L1", "L2", "L3", "L4"]);
 /**
  * Resolve the authenticated owner's GitHub login.
  *
- * When a development auth bypass is enabled, returns the configured owner GitHub username.
+ * When an auth bypass is enabled, returns the configured owner GitHub username.
  *
- * @returns The owner's GitHub login when the request is authenticated as the owner or when development auth bypass is enabled; `null` otherwise.
+ * @returns The owner's GitHub login when the request is authenticated as the owner or when an auth bypass is enabled; `null` otherwise.
  */
-async function getOwnerLogin(): Promise<string | null> {
-  if (isDevAuthBypassEnabled()) {
+async function getOwnerLogin(request: Request): Promise<string | null> {
+  if (isAuthBypassRequestEnabled(request)) {
     return ownerGithubUsername;
   }
 
@@ -160,7 +160,7 @@ function clampScore(value: unknown): number {
  * - `{ error: "DATABASE_URL is not configured" }` with HTTP 503 when the database is not configured.
  */
 export async function GET(request: Request) {
-  const ownerLogin = await getOwnerLogin();
+  const ownerLogin = await getOwnerLogin(request);
 
   if (!ownerLogin) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -195,7 +195,7 @@ export async function GET(request: Request) {
  * @returns A JSON response. On success: `{ record }` with the upserted practice record. On error: `{ error }` with an appropriate HTTP status (`401`, `400`, or `503`).
  */
 export async function PUT(request: Request) {
-  const ownerLogin = await getOwnerLogin();
+  const ownerLogin = await getOwnerLogin(request);
 
   if (!ownerLogin) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

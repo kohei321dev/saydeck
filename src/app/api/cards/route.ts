@@ -1,7 +1,11 @@
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 
-import { authOptions, isDevAuthBypassEnabled, isOwnerSession } from "@/lib/auth";
+import {
+  authOptions,
+  isAuthBypassRequestEnabled,
+  isOwnerSession,
+} from "@/lib/auth";
 import {
   isCardPersistenceConfigured,
   saveStoredSceneCard,
@@ -24,7 +28,7 @@ export async function POST(request: Request) {
     );
   }
 
-  if (!isDevAuthBypassEnabled()) {
+  if (!isAuthBypassRequestEnabled(request)) {
     const session = await getServerSession(authOptions);
 
     if (!session) {

@@ -8,7 +8,7 @@ import {
 import {
   authOptions,
   canUsePractice,
-  isDevAuthBypassEnabled,
+  isAuthBypassRequestEnabled,
 } from "@/lib/auth";
 import { getSceneCards } from "@/lib/scenes";
 
@@ -32,7 +32,7 @@ export async function POST(request: Request) {
     );
   }
 
-  if (!isDevAuthBypassEnabled()) {
+  if (!isAuthBypassRequestEnabled(request)) {
     const session = await getServerSession(authOptions);
 
     if (!session) {
