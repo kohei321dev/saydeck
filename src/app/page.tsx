@@ -1,5 +1,4 @@
 import { getServerSession } from "next-auth";
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { ScenePractice } from "@/components/scene-practice";
@@ -10,9 +9,7 @@ import {
   isAuthConfigured,
   isDevAuthBypassEnabled,
   isOwnerSession,
-  isPreviewAuthBypassCookieValue,
   ownerGithubUsername,
-  previewAuthCookieName,
 } from "@/lib/auth";
 import {
   getSampleSceneCards,
@@ -44,17 +41,8 @@ export default async function HomePage() {
   const persistedCardIds = storedCards.map((card) => card.id);
   const cardPersistenceConfigured = isCardPersistenceConfigured();
   const databaseConfigured = isDatabaseConfigured();
-  const cookieStore = await cookies();
-  const previewAuthBypassEnabled = isPreviewAuthBypassCookieValue(
-    cookieStore.get(previewAuthCookieName)?.value,
-  );
-  const authBypassMode = isDevAuthBypassEnabled()
-    ? "dev"
-    : previewAuthBypassEnabled
-      ? "preview"
-      : null;
 
-  if (authBypassMode) {
+  if (isDevAuthBypassEnabled()) {
     return (
       <div className="app-frame">
         <header className="topbar">
@@ -63,9 +51,7 @@ export default async function HomePage() {
             <span>話したいシチュエーションで使える英文を作る練習</span>
           </div>
           <div className="topbar-actions">
-            <span className="user-chip">
-              @{ownerGithubUsername} {authBypassMode}
-            </span>
+            <span className="user-chip">@{ownerGithubUsername} dev</span>
           </div>
         </header>
         <ScenePractice

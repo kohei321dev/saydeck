@@ -1,17 +1,13 @@
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 
-import {
-  authOptions,
-  isAuthBypassRequestEnabled,
-  isOwnerSession,
-} from "@/lib/auth";
+import { authOptions, isDevAuthBypassEnabled, isOwnerSession } from "@/lib/auth";
 import { getRuntimeDiagnostics } from "@/lib/runtime-diagnostics";
 
 export const runtime = "nodejs";
 
-export async function GET(request: Request) {
-  if (!isAuthBypassRequestEnabled(request)) {
+export async function GET() {
+  if (!isDevAuthBypassEnabled()) {
     const session = await getServerSession(authOptions);
 
     if (!session) {

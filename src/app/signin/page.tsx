@@ -1,6 +1,5 @@
 import { Suspense } from "react";
 import { getServerSession } from "next-auth";
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { SignInButtons } from "@/components/sign-in-button";
@@ -10,10 +9,7 @@ import {
   isAuthConfigured,
   isGitHubAuthConfigured,
   isGoogleAuthConfigured,
-  isPreviewAuthBypassConfigured,
-  isPreviewAuthBypassCookieValue,
   ownerGithubUsername,
-  previewAuthCookieName,
 } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
@@ -43,16 +39,8 @@ function getAuthErrorMessage(error?: string): string | null {
 
 async function SignInContent({ searchParams }: Props) {
   const params = await searchParams;
-  const cookieStore = await cookies();
-  const previewAuthBypassActive = isPreviewAuthBypassCookieValue(
-    cookieStore.get(previewAuthCookieName)?.value,
-  );
   const needsSetup = params.setup === "1" || !isAuthConfigured();
   const authErrorMessage = getAuthErrorMessage(params.error);
-
-  if (previewAuthBypassActive) {
-    redirect("/");
-  }
 
   if (!needsSetup) {
     const session = await getServerSession(authOptions);
@@ -88,12 +76,6 @@ async function SignInContent({ searchParams }: Props) {
               <li>AUTH_SECRET</li>
               <li>OWNER_GITHUB_USERNAME=kohei321dev</li>
             </ul>
-            {isPreviewAuthBypassConfigured() ? (
-              <p className="done-note">
-                Preview認証バイパスが設定されています。保護されたPreviewで
-                `/api/preview-auth?token=...` にアクセスするとowner確認できます。
-              </p>
-            ) : null}
           </>
         ) : (
           <SignInButtons

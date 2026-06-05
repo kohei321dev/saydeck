@@ -2,7 +2,6 @@ import {
   isAuthConfigured,
   isGitHubAuthConfigured,
   isGoogleAuthConfigured,
-  isPreviewAuthBypassConfigured,
   ownerGithubUsername,
 } from "@/lib/auth";
 import {
@@ -24,8 +23,6 @@ export type RuntimeDiagnostics = {
     googleConfigured: boolean;
     nextAuthUrlHost: string | null;
     ownerGithubUsername: string;
-    previewBypassConfigured: boolean;
-    vercelEnv: string | null;
   };
   cards: {
     persistenceConfigured: boolean;
@@ -55,8 +52,6 @@ export async function getRuntimeDiagnostics(): Promise<RuntimeDiagnostics> {
       googleConfigured: isGoogleAuthConfigured(),
       nextAuthUrlHost: getNextAuthUrlHost(),
       ownerGithubUsername,
-      previewBypassConfigured: isPreviewAuthBypassConfigured(),
-      vercelEnv: process.env.VERCEL_ENV || null,
     },
     cards: {
       persistenceConfigured: isCardPersistenceConfigured(),

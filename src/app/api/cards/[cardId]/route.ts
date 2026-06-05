@@ -1,20 +1,16 @@
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 
-import {
-  authOptions,
-  isAuthBypassRequestEnabled,
-  isOwnerSession,
-} from "@/lib/auth";
+import { authOptions, isDevAuthBypassEnabled, isOwnerSession } from "@/lib/auth";
 import { deleteStoredSceneCard, MissingCardStoreError } from "@/lib/card-store";
 
 export const runtime = "nodejs";
 
 export async function DELETE(
-  request: Request,
+  _request: Request,
   context: { params: Promise<{ cardId: string }> },
 ) {
-  if (!isAuthBypassRequestEnabled(request)) {
+  if (!isDevAuthBypassEnabled()) {
     const session = await getServerSession(authOptions);
 
     if (!session) {
