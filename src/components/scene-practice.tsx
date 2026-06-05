@@ -1390,6 +1390,10 @@ function DiagnosticsSummary({
           isReady={diagnostics.auth.googleConfigured}
           label="Google"
         />
+        <DiagnosticsRow
+          isReady={diagnostics.auth.previewBypassConfigured}
+          label="Preview bypass"
+        />
         <DiagnosticsRow isReady={diagnostics.database.configured} label="Database" />
         <DiagnosticsRow isReady={diagnostics.ai.apiKeyConfigured} label="AI key" />
         <DiagnosticsRow
@@ -1409,6 +1413,10 @@ function DiagnosticsSummary({
         <div>
           <dt>NEXTAUTH_URL</dt>
           <dd>{diagnostics.auth.nextAuthUrlHost ?? "未設定"}</dd>
+        </div>
+        <div>
+          <dt>Vercel env</dt>
+          <dd>{diagnostics.auth.vercelEnv ?? "未設定"}</dd>
         </div>
         <div>
           <dt>Card store</dt>
