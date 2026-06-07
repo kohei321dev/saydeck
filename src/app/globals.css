@@ -1002,6 +1002,8 @@ button:focus-visible {
 
 .model-answer,
 .ai-review,
+.practice-history-panel,
+.saved-notes-panel,
 .done-note,
 .error-note {
   background: var(--panel-strong);
@@ -1085,9 +1087,15 @@ button:disabled {
   background: #f8fbf8;
 }
 
+.practice-history-panel,
+.saved-notes-panel {
+  background: #fffefa;
+}
+
 .review-heading {
   align-items: center;
   display: flex;
+  gap: 12px;
   justify-content: space-between;
 }
 
@@ -1101,6 +1109,92 @@ button:disabled {
   color: white;
   font-weight: 700;
   padding: 6px 10px;
+}
+
+.review-heading .status-pill {
+  border-radius: 999px;
+  padding: 6px 10px;
+}
+
+.note-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.note-entry {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 6px;
+  padding-top: 10px;
+}
+
+.note-entry:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.note-entry-heading {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.note-entry-heading strong,
+.note-entry-heading span {
+  font-size: 13px;
+}
+
+.note-entry-heading span {
+  color: var(--accent-strong);
+  font-weight: 700;
+}
+
+.note-entry p {
+  line-height: 1.6;
+  margin: 0;
+}
+
+.note-entry small {
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.review-details {
+  border-top: 1px dashed var(--line);
+  color: var(--foreground);
+  margin-top: 4px;
+  padding-top: 8px;
+}
+
+.review-details summary {
+  color: var(--accent-strong);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.review-details dl {
+  display: grid;
+  gap: 8px;
+  margin: 10px 0 0;
+}
+
+.review-details dl > div {
+  display: grid;
+  gap: 3px;
+}
+
+.review-details dt {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.review-details dd {
+  line-height: 1.55;
+  margin: 0;
 }
 
 .ai-review dl {

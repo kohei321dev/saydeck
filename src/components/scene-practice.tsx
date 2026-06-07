@@ -45,6 +45,29 @@ type PracticeState = {
 
 type PracticeStates = Record<string, PracticeState>;
 
+type PracticeAttempt = {
+  id: string;
+  cardId: string;
+  level: string;
+  answer: string;
+  review: ReviewResult | null;
+  score: number | null;
+  practicedAt: string;
+};
+
+type SavedNote = {
+  id: string;
+  cardId: string;
+  level: string;
+  sceneJa: string;
+  answer: string;
+  review: ReviewResult | null;
+  score: number | null;
+  tags: string[];
+  sourceAttemptId: string | null;
+  savedAt: string;
+};
+
 type CloudSyncStatus = "local" | "loading" | "saving" | "saved" | "error";
 
 type ActiveMode = "learn" | "create";
@@ -61,7 +84,21 @@ type CloudPracticeResponse = {
   error?: string;
 };
 
+type CloudAttemptResponse = {
+  attempt?: PracticeAttempt;
+  attempts?: PracticeAttempt[];
+  error?: string;
+};
+
+type CloudNotesResponse = {
+  note?: SavedNote;
+  notes?: SavedNote[];
+  error?: string;
+};
+
 const practiceStorageKey = "scene-builder.practice-state.v1";
+const practiceAttemptsStorageKey = "scene-builder.practice-attempts.v1";
+const savedNotesStorageKey = "scene-builder.saved-notes.v1";
 
 /**
  * Render the scene practice UI with local persistence, optional cloud sync,
@@ -119,6 +156,14 @@ export function ScenePractice({
   const [reviewError, setReviewError] = useState<string | null>(null);
   const [isReviewing, setIsReviewing] = useState(false);
   const [practiceStates, setPracticeStates] = useState<PracticeStates>({});
+  const [practiceAttempts, setPracticeAttempts] = useState<PracticeAttempt[]>([]);
+  const [savedNotes, setSavedNotes] = useState<SavedNote[]>([]);
+  const [noteStatus, setNoteStatus] = useState<CloudSyncStatus>(
+    canUseCloudSync ? "loading" : "local",
+  );
+  const [noteError, setNoteError] = useState<string | null>(null);
+  const [isSavingNote, setIsSavingNote] = useState(false);
+  const [lastAttemptId, setLastAttemptId] = useState<string | null>(null);
   const practiceStatesRef = useRef<PracticeStates>({});
   const [hasLoadedPracticeStates, setHasLoadedPracticeStates] = useState(false);
   const [loadedPracticeKey, setLoadedPracticeKey] = useState("");
@@ -170,6 +215,27 @@ export function ScenePractice({
   const selectedCardSummary = selectedCard
     ? getCardPracticeSummary(selectedCard, practiceStates)
     : null;
+  const selectedAttempts = useMemo(
+    () =>
+      selectedCard && selectedLevelData
+        ? practiceAttempts
+            .filter(
+              (attempt) =>
+                attempt.cardId === selectedCard.id &&
+                attempt.level === selectedLevelData.level,
+            )
+            .slice(0, 5)
+        : [],
+    [practiceAttempts, selectedCard, selectedLevelData],
+  );
+  const selectedNotes = useMemo(
+    () =>
+      selectedCard
+        ? savedNotes.filter((note) => note.cardId === selectedCard.id).slice(0, 4)
+        : [],
+    [savedNotes, selectedCard],
+  );
+  const noteSyncLabel = getCloudSyncLabel(noteStatus);
 
   useEffect(() => {
     if (!canAddCards) {
@@ -201,6 +267,8 @@ export function ScenePractice({
 
   useEffect(() => {
     setPracticeStates(readPracticeStates());
+    setPracticeAttempts(readPracticeAttempts());
+    setSavedNotes(readSavedNotes());
     setHasLoadedPracticeStates(true);
   }, []);
 
@@ -336,6 +404,87 @@ export function ScenePractice({
   }, [hasLoadedPracticeStates, practiceStates]);
 
   useEffect(() => {
+    if (!hasLoadedPracticeStates) {
+      return;
+    }
+
+    writePracticeAttempts(practiceAttempts);
+  }, [hasLoadedPracticeStates, practiceAttempts]);
+
+  useEffect(() => {
+    if (!hasLoadedPracticeStates) {
+      return;
+    }
+
+    writeSavedNotes(savedNotes);
+  }, [hasLoadedPracticeStates, savedNotes]);
+
+  useEffect(() => {
+    if (!canUseCloudSync || !hasLoadedPracticeStates) {
+      setNoteStatus("local");
+      return;
+    }
+
+    let isCancelled = false;
+
+    setNoteStatus("loading");
+    fetch("/api/notes")
+      .then(async (response) => {
+        const payload = (await response.json().catch(() => ({}))) as CloudNotesResponse;
+
+        if (!response.ok) {
+          throw new Error(payload.error || "ノートの読み込みに失敗しました。");
+        }
+
+        if (!isCancelled && payload.notes) {
+          setSavedNotes((current) => mergeSavedNotes(payload.notes ?? [], current));
+          setNoteStatus("saved");
+        }
+      })
+      .catch(() => {
+        if (!isCancelled) {
+          setNoteStatus("error");
+        }
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [canUseCloudSync, hasLoadedPracticeStates]);
+
+  useEffect(() => {
+    if (!canUseCloudSync || !hasLoadedPracticeStates) {
+      return;
+    }
+
+    let isCancelled = false;
+
+    fetch("/api/practice/attempts")
+      .then(async (response) => {
+        const payload = (await response.json().catch(() => ({}))) as CloudAttemptResponse;
+
+        if (!response.ok) {
+          throw new Error(payload.error || "練習履歴の読み込みに失敗しました。");
+        }
+
+        if (!isCancelled && payload.attempts) {
+          setPracticeAttempts((current) =>
+            mergePracticeAttempts(payload.attempts ?? [], current),
+          );
+        }
+      })
+      .catch(() => {
+        if (!isCancelled) {
+          setCloudSyncStatus("error");
+        }
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [canUseCloudSync, hasLoadedPracticeStates]);
+
+  useEffect(() => {
     if (
       !canUseCloudSync ||
       !selectedPracticeKey ||
@@ -440,15 +589,141 @@ export function ScenePractice({
         throw new Error(payload.error || "AI添削に失敗しました。");
       }
 
+      const practicedAt = new Date().toISOString();
       setReview(payload.review);
       setIsDone(true);
-      setLastPracticedAt(new Date().toISOString());
+      setLastPracticedAt(practicedAt);
+      void recordPracticeAttempt({
+        answer: trimmedAnswer,
+        practicedAt,
+        review: payload.review,
+      });
     } catch (error) {
       setReviewError(
         error instanceof Error ? error.message : "AI添削に失敗しました。",
       );
     } finally {
       setIsReviewing(false);
+    }
+  }
+
+  async function recordPracticeAttempt({
+    answer: attemptAnswer,
+    practicedAt,
+    review: attemptReview,
+  }: {
+    answer: string;
+    practicedAt: string;
+    review: ReviewResult | null;
+  }) {
+    if (!selectedCard || !selectedLevelData) {
+      return null;
+    }
+
+    const attempt: PracticeAttempt = {
+      id: createClientId("attempt"),
+      answer: attemptAnswer,
+      cardId: selectedCard.id,
+      level: selectedLevelData.level,
+      practicedAt,
+      review: attemptReview,
+      score: attemptReview?.score ?? null,
+    };
+
+    setPracticeAttempts((current) => mergePracticeAttempts([attempt], current));
+    setLastAttemptId(attempt.id);
+
+    if (!canUseCloudSync) {
+      return attempt;
+    }
+
+    try {
+      const response = await fetch("/api/practice/attempts", {
+        body: JSON.stringify(attempt),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+      });
+      const payload = (await response.json().catch(() => ({}))) as CloudAttemptResponse;
+
+      if (!response.ok || !payload.attempt) {
+        throw new Error(payload.error || "練習履歴のクラウド保存に失敗しました。");
+      }
+
+      setPracticeAttempts((current) =>
+        mergePracticeAttempts([payload.attempt as PracticeAttempt], current),
+      );
+    } catch {
+      setCloudSyncStatus("error");
+    }
+
+    return attempt;
+  }
+
+  async function handleSaveCurrentNote() {
+    if (!selectedCard || !selectedLevelData) {
+      return;
+    }
+
+    const trimmedAnswer = answer.trim();
+
+    if (!trimmedAnswer) {
+      setNoteError("ノートに保存する回答を入力してください。");
+      return;
+    }
+
+    const savedAt = new Date().toISOString();
+    const note: SavedNote = {
+      id: createClientId("note"),
+      answer: trimmedAnswer,
+      cardId: selectedCard.id,
+      level: selectedLevelData.level,
+      review,
+      savedAt,
+      sceneJa: selectedCard.sceneJa,
+      score: review?.score ?? null,
+      sourceAttemptId: lastAttemptId,
+      tags: selectedCard.tags.slice(0, 4),
+    };
+
+    setIsSavingNote(true);
+    setNoteError(null);
+    setSavedNotes((current) => mergeSavedNotes([note], current));
+
+    if (!canUseCloudSync) {
+      setNoteStatus("local");
+      setIsSavingNote(false);
+      return;
+    }
+
+    setNoteStatus("saving");
+
+    try {
+      const response = await fetch("/api/notes", {
+        body: JSON.stringify(note),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+      });
+      const payload = (await response.json().catch(() => ({}))) as CloudNotesResponse;
+
+      if (!response.ok || !payload.note) {
+        throw new Error(payload.error || "ノートのクラウド保存に失敗しました。");
+      }
+
+      setSavedNotes((current) => mergeSavedNotes([payload.note as SavedNote], current));
+      setNoteStatus("saved");
+    } catch (error) {
+      setNoteStatus("error");
+      setNoteError(
+        error instanceof Error
+          ? error.message
+          : "ノートはlocalStorageに保存しました。クラウド保存は失敗しました。",
+      );
+    } finally {
+      setIsSavingNote(false);
     }
   }
 
@@ -798,6 +1073,28 @@ export function ScenePractice({
                 </button>
               ))}
             </div>
+            {savedNotes.length > 0 ? (
+              <div className="saved-notes-panel inline-notes">
+                <div className="review-heading">
+                  <h3>最近の保存ノート</h3>
+                  <span className={`status-pill sync ${noteStatus}`}>
+                    {noteSyncLabel}
+                  </span>
+                </div>
+                <div className="note-list">
+                  {savedNotes.slice(0, 5).map((note) => (
+                    <article className="note-entry" key={note.id}>
+                      <div className="note-entry-heading">
+                        <strong>{note.sceneJa || note.cardId}</strong>
+                        {note.score !== null ? <span>{note.score}/10</span> : null}
+                      </div>
+                      <p>{note.answer}</p>
+                      <small>{note.level} / {formatSavedAt(note.savedAt)}</small>
+                    </article>
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </section>
         ) : !selectedCard ? (
           <section className="card-picker-panel" aria-label="カード選択">
@@ -905,6 +1202,7 @@ export function ScenePractice({
                       className={level.level === selectedLevel ? "active" : ""}
                       key={level.level}
                       onClick={() => {
+                        setLastAttemptId(null);
                         setSelectedLevel(level.level);
                         setShowModel(false);
                         setShowHints(false);
@@ -1018,13 +1316,27 @@ export function ScenePractice({
                     </button>
                     <button
                       className="secondary-button"
-                      onClick={() => {
+                      onClick={async () => {
+                        const practicedAt = new Date().toISOString();
                         setIsDone(true);
-                        setLastPracticedAt(new Date().toISOString());
+                        setLastPracticedAt(practicedAt);
+                        await recordPracticeAttempt({
+                          answer: answer.trim(),
+                          practicedAt,
+                          review,
+                        });
                       }}
                     >
                       <Check aria-hidden="true" size={16} />
                       完了だけ保存
+                    </button>
+                    <button
+                      className="secondary-button"
+                      disabled={isSavingNote}
+                      onClick={handleSaveCurrentNote}
+                    >
+                      <Save aria-hidden="true" size={16} />
+                      {isSavingNote ? "保存中" : "ノートに保存"}
                     </button>
                   </div>
                 </div>
@@ -1072,6 +1384,63 @@ export function ScenePractice({
                         </div>
                       ) : null}
                     </dl>
+                  </div>
+                ) : null}
+
+                {noteError ? <div className="error-note">{noteError}</div> : null}
+
+                {selectedAttempts.length > 0 ? (
+                  <div className="practice-history-panel">
+                    <div className="review-heading">
+                      <h3>この難易度の履歴</h3>
+                      <span>{selectedAttempts.length}</span>
+                    </div>
+                    <div className="note-list">
+                      {selectedAttempts.map((attempt) => (
+                        <article className="note-entry" key={attempt.id}>
+                          <div className="note-entry-heading">
+                            <strong>{formatSavedAt(attempt.practicedAt)}</strong>
+                            {attempt.score !== null ? <span>{attempt.score}/10</span> : null}
+                          </div>
+                          <p>{attempt.answer || "完了のみ記録"}</p>
+                          {attempt.review?.naturalAnswer ? (
+                            <small>{attempt.review.naturalAnswer}</small>
+                          ) : null}
+                          {attempt.review ? (
+                            <ReviewDetails review={attempt.review} />
+                          ) : null}
+                        </article>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+
+                {selectedNotes.length > 0 ? (
+                  <div className="saved-notes-panel">
+                    <div className="review-heading">
+                      <h3>保存済みノート</h3>
+                      <span className={`status-pill sync ${noteStatus}`}>
+                        {noteSyncLabel}
+                      </span>
+                    </div>
+                    <div className="note-list">
+                      {selectedNotes.map((note) => (
+                        <article className="note-entry" key={note.id}>
+                          <div className="note-entry-heading">
+                            <strong>{note.level} / {formatSavedAt(note.savedAt)}</strong>
+                            {note.score !== null ? <span>{note.score}/10</span> : null}
+                          </div>
+                          <p>{note.answer}</p>
+                          {note.review?.naturalAnswer ? (
+                            <small>{note.review.naturalAnswer}</small>
+                          ) : null}
+                          {note.review?.phraseToRemember ? (
+                            <small>{note.review.phraseToRemember}</small>
+                          ) : null}
+                          {note.review ? <ReviewDetails review={note.review} /> : null}
+                        </article>
+                      ))}
+                    </div>
                   </div>
                 ) : null}
 
@@ -1441,6 +1810,52 @@ function DiagnosticsRow({
   );
 }
 
+function ReviewDetails({ review }: { review: ReviewResult }) {
+  return (
+    <details className="review-details">
+      <summary>添削詳細</summary>
+      <dl>
+        {review.goodPoint ? (
+          <div>
+            <dt>よい点</dt>
+            <dd>{review.goodPoint}</dd>
+          </div>
+        ) : null}
+        {review.fix ? (
+          <div>
+            <dt>修正</dt>
+            <dd>{review.fix}</dd>
+          </div>
+        ) : null}
+        {review.naturalAnswer ? (
+          <div>
+            <dt>自然な回答</dt>
+            <dd>{review.naturalAnswer}</dd>
+          </div>
+        ) : null}
+        {review.phraseToRemember ? (
+          <div>
+            <dt>覚えたい表現</dt>
+            <dd>{review.phraseToRemember}</dd>
+          </div>
+        ) : null}
+        {review.nextPractice ? (
+          <div>
+            <dt>次の練習</dt>
+            <dd>{review.nextPractice}</dd>
+          </div>
+        ) : null}
+        {review.sceneFit ? (
+          <div>
+            <dt>場面への合い方</dt>
+            <dd>{review.sceneFit}</dd>
+          </div>
+        ) : null}
+      </dl>
+    </details>
+  );
+}
+
 /**
  * Map a cloud synchronization status to a Japanese label for UI display.
  *
@@ -1524,6 +1939,63 @@ function writePracticeStates(states: PracticeStates) {
   }
 }
 
+function readPracticeAttempts(): PracticeAttempt[] {
+  try {
+    const rawValue = window.localStorage.getItem(practiceAttemptsStorageKey);
+
+    if (!rawValue) {
+      return [];
+    }
+
+    return normalizePracticeAttempts(JSON.parse(rawValue));
+  } catch {
+    return [];
+  }
+}
+
+function writePracticeAttempts(attempts: PracticeAttempt[]) {
+  try {
+    if (attempts.length === 0) {
+      window.localStorage.removeItem(practiceAttemptsStorageKey);
+      return;
+    }
+
+    window.localStorage.setItem(
+      practiceAttemptsStorageKey,
+      JSON.stringify(attempts.slice(0, 80)),
+    );
+  } catch {
+    // localStorage may be unavailable in restricted browser contexts.
+  }
+}
+
+function readSavedNotes(): SavedNote[] {
+  try {
+    const rawValue = window.localStorage.getItem(savedNotesStorageKey);
+
+    if (!rawValue) {
+      return [];
+    }
+
+    return normalizeSavedNotes(JSON.parse(rawValue));
+  } catch {
+    return [];
+  }
+}
+
+function writeSavedNotes(notes: SavedNote[]) {
+  try {
+    if (notes.length === 0) {
+      window.localStorage.removeItem(savedNotesStorageKey);
+      return;
+    }
+
+    window.localStorage.setItem(savedNotesStorageKey, JSON.stringify(notes.slice(0, 80)));
+  } catch {
+    // localStorage may be unavailable in restricted browser contexts.
+  }
+}
+
 function normalizePracticeStates(value: unknown): PracticeStates {
   if (!isRecord(value)) {
     return {};
@@ -1548,6 +2020,87 @@ function normalizePracticeState(value: unknown): PracticeState | null {
       typeof value.lastPracticedAt === "string" ? value.lastPracticedAt : null,
     needsReview: value.needsReview === true,
     review: normalizeReviewResult(value.review),
+  };
+}
+
+function normalizePracticeAttempts(value: unknown): PracticeAttempt[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map(normalizePracticeAttempt)
+    .filter((attempt): attempt is PracticeAttempt => Boolean(attempt))
+    .sort((a, b) => b.practicedAt.localeCompare(a.practicedAt));
+}
+
+function normalizePracticeAttempt(value: unknown): PracticeAttempt | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const id = getString(value.id);
+  const cardId = getString(value.cardId);
+  const level = getString(value.level);
+  const practicedAt = getString(value.practicedAt);
+
+  if (!id || !cardId || !level || !isValidDateString(practicedAt)) {
+    return null;
+  }
+
+  const review = normalizeReviewResult(value.review);
+
+  return {
+    id,
+    answer: getString(value.answer),
+    cardId,
+    level,
+    practicedAt,
+    review,
+    score: typeof value.score === "number" ? value.score : review?.score ?? null,
+  };
+}
+
+function normalizeSavedNotes(value: unknown): SavedNote[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map(normalizeSavedNote)
+    .filter((note): note is SavedNote => Boolean(note))
+    .sort((a, b) => b.savedAt.localeCompare(a.savedAt));
+}
+
+function normalizeSavedNote(value: unknown): SavedNote | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const id = getString(value.id);
+  const cardId = getString(value.cardId);
+  const level = getString(value.level);
+  const savedAt = getString(value.savedAt);
+
+  if (!id || !cardId || !level || !isValidDateString(savedAt)) {
+    return null;
+  }
+
+  const review = normalizeReviewResult(value.review);
+
+  return {
+    id,
+    answer: getString(value.answer),
+    cardId,
+    level,
+    review,
+    savedAt,
+    sceneJa: getString(value.sceneJa),
+    score: typeof value.score === "number" ? value.score : review?.score ?? null,
+    sourceAttemptId: getString(value.sourceAttemptId) || null,
+    tags: Array.isArray(value.tags)
+      ? value.tags.filter((tag): tag is string => typeof tag === "string").slice(0, 8)
+      : [],
   };
 }
 
@@ -1598,6 +2151,33 @@ function arePracticeStatesEqual(
   return JSON.stringify(current) === JSON.stringify(next);
 }
 
+function mergePracticeAttempts(
+  incoming: PracticeAttempt[],
+  current: PracticeAttempt[],
+): PracticeAttempt[] {
+  const attempts = new Map<string, PracticeAttempt>();
+
+  for (const attempt of [...incoming, ...current]) {
+    attempts.set(attempt.id, attempt);
+  }
+
+  return [...attempts.values()]
+    .sort((a, b) => b.practicedAt.localeCompare(a.practicedAt))
+    .slice(0, 80);
+}
+
+function mergeSavedNotes(incoming: SavedNote[], current: SavedNote[]): SavedNote[] {
+  const notes = new Map<string, SavedNote>();
+
+  for (const note of [...incoming, ...current]) {
+    notes.set(note.id, note);
+  }
+
+  return [...notes.values()]
+    .sort((a, b) => b.savedAt.localeCompare(a.savedAt))
+    .slice(0, 80);
+}
+
 function mergeClientSceneCards(...cardGroups: SceneCard[][]): SceneCard[] {
   const cards = new Map<string, SceneCard>();
 
@@ -1625,6 +2205,31 @@ function formatLastPracticedAt(value: string | null): string | null {
     dateStyle: "short",
     timeStyle: "short",
   }).format(date)}`;
+}
+
+function formatSavedAt(value: string): string {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "日時不明";
+  }
+
+  return new Intl.DateTimeFormat("ja-JP", {
+    dateStyle: "short",
+    timeStyle: "short",
+  }).format(date);
+}
+
+function createClientId(prefix: string): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return `${prefix}_${crypto.randomUUID()}`;
+  }
+
+  return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2)}`;
+}
+
+function isValidDateString(value: string): boolean {
+  return Boolean(value) && !Number.isNaN(new Date(value).getTime());
 }
 
 function parseTags(value: string): string[] {
