@@ -33,7 +33,7 @@ https://scene-builder-tau.vercel.app
 - `docs/product-brief.md`: 学習課題、MVP、実現可能性
 - `docs/adr/`: 設計判断の記録
 - `docs/prompt-templates/`: AIに問題生成や添削を頼むためのテンプレート
-- `db/migrations/0002-scene-cards.sql`: スケボー会話向けサンプルカード
+- `db/migrations/`: Neon/Postgres用schema、サンプルカード、練習履歴、保存ノート
 - `data/diary-prompts.csv`: 短い英語日記の練習プロンプト
 - `data/vocabulary.csv`: 使い回したい語彙・表現
 
@@ -86,8 +86,11 @@ NeonなどのPostgresに以下のmigrationを順番に適用し、Vercel Product
 
 1. `db/migrations/0001-practice-records.sql`
 2. `db/migrations/0002-scene-cards.sql`
+3. `db/migrations/0003-practice-attempts-and-saved-notes.sql`
 
-`DATABASE_URL` が未設定の場合、学習状態は従来どおりブラウザのlocalStorageに保存されます。
+`0003` は、練習ごとの履歴 `practice_attempts` と見返し用ノート `saved_notes` のDB保存に必要です。
+
+`DATABASE_URL` が未設定の場合、学習状態、練習履歴、保存ノートはブラウザのlocalStorageに保存されます。
 
 ## License
 

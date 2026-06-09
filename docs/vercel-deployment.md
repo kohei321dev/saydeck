@@ -91,9 +91,12 @@ For Preview environments:
 3. Apply migrations to the Neon database in order:
    - `db/migrations/0001-practice-records.sql`
    - `db/migrations/0002-scene-cards.sql`
+   - `db/migrations/0003-practice-attempts-and-saved-notes.sql`
 4. Redeploy the Vercel project after setting `DATABASE_URL`.
 
-If `DATABASE_URL` is not set, sample cards cannot be loaded from Neon and the app continues to use browser `localStorage` only for practice records.
+`0003` creates `practice_attempts` and `saved_notes`, which are required for DB-backed practice history and saved notes.
+
+If `DATABASE_URL` is not set, sample cards cannot be loaded from Neon and the app continues to use browser `localStorage` only for practice records, practice attempts, and saved notes.
 
 ## Access Rules
 
