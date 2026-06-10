@@ -607,6 +607,27 @@ export function ScenePractice({
     }
   }
 
+  async function handleCompleteOnly() {
+    const trimmedAnswer = answer.trim();
+
+    if (!trimmedAnswer) {
+      setReviewError(
+        "回答を入力してから保存してください。空の完了履歴は作成しません。",
+      );
+      return;
+    }
+
+    const practicedAt = new Date().toISOString();
+    setReviewError(null);
+    setIsDone(true);
+    setLastPracticedAt(practicedAt);
+    await recordPracticeAttempt({
+      answer: trimmedAnswer,
+      practicedAt,
+      review,
+    });
+  }
+
   async function recordPracticeAttempt({
     answer: attemptAnswer,
     practicedAt,
@@ -1316,16 +1337,7 @@ export function ScenePractice({
                     </button>
                     <button
                       className="secondary-button"
-                      onClick={async () => {
-                        const practicedAt = new Date().toISOString();
-                        setIsDone(true);
-                        setLastPracticedAt(practicedAt);
-                        await recordPracticeAttempt({
-                          answer: answer.trim(),
-                          practicedAt,
-                          review,
-                        });
-                      }}
+                      onClick={handleCompleteOnly}
                     >
                       <Check aria-hidden="true" size={16} />
                       完了だけ保存
