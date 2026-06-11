@@ -1,4 +1,4 @@
-import { getSql } from "@/lib/db";
+import { getSql, isDatabaseConfigured } from "@/lib/db";
 import type { ReviewResult } from "@/lib/ai-review";
 
 export type PracticeAttempt = {
@@ -26,6 +26,11 @@ export type SavedNote = {
   sourceAttemptId: string | null;
   savedAt: string;
   createdAt: string;
+};
+
+export type PracticeStorageReadiness = {
+  practiceAttemptsReady: boolean;
+  savedNotesReady: boolean;
 };
 
 type PracticeAttemptRow = {
@@ -77,6 +82,40 @@ export type CreateSavedNoteInput = {
   sourceAttemptId: string | null;
   savedAt: string;
 };
+
+export async function getPracticeStorageReadiness(): Promise<PracticeStorageReadiness> {
+  if (!isDatabaseConfigured()) {
+    return {
+      practiceAttemptsReady: false,
+      savedNotesReady: false,
+    };
+  }
+
+  try {
+    const sql = getSql();
+    const rows = await sql<
+      {
+        practice_attempts_ready: boolean;
+        saved_notes_ready: boolean;
+      }[]
+    >`
+      select
+        to_regclass('public.practice_attempts') is not null as practice_attempts_ready,
+        to_regclass('public.saved_notes') is not null as saved_notes_ready
+    `;
+
+    return {
+      practiceAttemptsReady: rows[0]?.practice_attempts_ready === true,
+      savedNotesReady: rows[0]?.saved_notes_ready === true,
+    };
+  } catch (error) {
+    console.error("Failed to check practice storage readiness.", error);
+    return {
+      practiceAttemptsReady: false,
+      savedNotesReady: false,
+    };
+  }
+}
 
 export async function createPracticeAttempt({
   id,

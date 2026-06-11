@@ -1752,7 +1752,7 @@ function formatDeckTitle(value: string): string {
  * Render a diagnostics summary listing service readiness and configuration values.
  *
  * @param diagnostics - Runtime diagnostics snapshot used to populate readiness rows and configuration fields
- * @returns A JSX element containing a definition list of readiness indicators (Auth, GitHub, Google, Database, AI key) and related values (model, reasoning effort, NEXTAUTH_URL host)
+ * @returns A JSX element containing a definition list of readiness indicators and related configuration values.
  */
 function DiagnosticsSummary({
   diagnostics,
@@ -1777,7 +1777,28 @@ function DiagnosticsSummary({
           isReady={
             diagnostics.cards.persistenceConfigured && diagnostics.cards.schemaReady
           }
-          label="Storage"
+          label="scene_cards"
+          notReadyLabel={diagnostics.cards.persistenceConfigured ? "未準備" : "未設定"}
+        />
+        <DiagnosticsRow
+          isReady={
+            diagnostics.practiceStorage.persistenceConfigured &&
+            diagnostics.practiceStorage.practiceAttemptsReady
+          }
+          label="practice_attempts"
+          notReadyLabel={
+            diagnostics.practiceStorage.persistenceConfigured ? "未準備" : "未設定"
+          }
+        />
+        <DiagnosticsRow
+          isReady={
+            diagnostics.practiceStorage.persistenceConfigured &&
+            diagnostics.practiceStorage.savedNotesReady
+          }
+          label="saved_notes"
+          notReadyLabel={
+            diagnostics.practiceStorage.persistenceConfigured ? "未準備" : "未設定"
+          }
         />
         <div>
           <dt>Model</dt>
@@ -1801,23 +1822,28 @@ function DiagnosticsSummary({
 }
 
 /**
- * Renders a labeled status row that displays readiness as "OK" or "未設定".
+ * Renders a labeled status row that displays readiness as "OK" or a sanitized fallback label.
  *
  * @param isReady - Whether the item is ready; controls text and CSS class.
  * @param label - The label text shown for the row.
+ * @param notReadyLabel - The text shown when the row is not ready.
  * @returns A definition-row element (`<dt>`/`<dd>`) with a readiness pill styled via `"ok"` or `"warn"`.
  */
 function DiagnosticsRow({
   isReady,
   label,
+  notReadyLabel = "未設定",
 }: {
   isReady: boolean;
   label: string;
+  notReadyLabel?: string;
 }) {
   return (
     <div>
       <dt>{label}</dt>
-      <dd className={isReady ? "ok" : "warn"}>{isReady ? "OK" : "未設定"}</dd>
+      <dd className={isReady ? "ok" : "warn"}>
+        {isReady ? "OK" : notReadyLabel}
+      </dd>
     </div>
   );
 }

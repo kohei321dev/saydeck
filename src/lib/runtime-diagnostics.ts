@@ -10,6 +10,7 @@ import {
   isCardPersistenceConfigured,
 } from "@/lib/card-store";
 import { isDatabaseConfigured } from "@/lib/db";
+import { getPracticeStorageReadiness } from "@/lib/practice-notes";
 
 export type RuntimeDiagnostics = {
   ai: {
@@ -32,6 +33,11 @@ export type RuntimeDiagnostics = {
   database: {
     configured: boolean;
   };
+  practiceStorage: {
+    persistenceConfigured: boolean;
+    practiceAttemptsReady: boolean;
+    savedNotesReady: boolean;
+  };
 };
 
 /**
@@ -40,6 +46,9 @@ export type RuntimeDiagnostics = {
  * @returns A `RuntimeDiagnostics` object containing `ai`, `auth`, and `database` sections that reflect the process environment and helper-detected configuration status.
  */
 export async function getRuntimeDiagnostics(): Promise<RuntimeDiagnostics> {
+  const databaseConfigured = isDatabaseConfigured();
+  const practiceStorageReadiness = await getPracticeStorageReadiness();
+
   return {
     ai: {
       apiKeyConfigured: Boolean(process.env.GROK_API_KEY || process.env.XAI_API_KEY),
@@ -59,7 +68,12 @@ export async function getRuntimeDiagnostics(): Promise<RuntimeDiagnostics> {
       storeLocation: getCardStoreLocation(),
     },
     database: {
-      configured: isDatabaseConfigured(),
+      configured: databaseConfigured,
+    },
+    practiceStorage: {
+      persistenceConfigured: databaseConfigured,
+      practiceAttemptsReady: practiceStorageReadiness.practiceAttemptsReady,
+      savedNotesReady: practiceStorageReadiness.savedNotesReady,
     },
   };
 }
