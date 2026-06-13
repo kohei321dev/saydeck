@@ -6,7 +6,7 @@ declare module "next-auth" {
       authProvider?: string;
       githubLogin?: string;
       githubId?: string;
-      role?: "owner";
+      role?: "owner" | "viewer";
     } & DefaultSession["user"];
   }
 }
@@ -16,6 +16,6 @@ declare module "next-auth/jwt" {
     authProvider?: string;
     githubLogin?: string;
     githubId?: string;
-    role?: "owner";
+    role?: "owner" | "viewer";
   }
 }

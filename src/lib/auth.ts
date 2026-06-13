@@ -7,7 +7,7 @@ export const ownerGithubUsername =
 const githubClientId = process.env.GITHUB_CLIENT_ID || "";
 const githubClientSecret = process.env.GITHUB_CLIENT_SECRET || "";
 
-export type UserRole = "owner";
+export type UserRole = "owner" | "viewer";
 
 const providers: NextAuthOptions["providers"] = [];
 
@@ -44,6 +44,8 @@ export const authOptions: NextAuthOptions = {
 
       if (token.githubLogin === ownerGithubUsername) {
         token.role = "owner";
+      } else if (token.githubLogin) {
+        token.role = "viewer";
       } else {
         token.role = undefined;
       }
@@ -66,8 +68,12 @@ export function isOwnerSession(session: Session | null): boolean {
   return session?.user?.role === "owner";
 }
 
+export function isViewerSession(session: Session | null): boolean {
+  return session?.user?.role === "viewer";
+}
+
 export function canUsePractice(session: Session | null): boolean {
-  return isOwnerSession(session);
+  return isOwnerSession(session) || isViewerSession(session);
 }
 
 export function isAuthConfigured(): boolean {

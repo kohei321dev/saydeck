@@ -77,7 +77,7 @@ async function SignInContent({ searchParams }: Props) {
       <section className="auth-panel">
         <h1>Scene Builder</h1>
         <p>
-          @{ownerGithubUsername} のGitHubログインで利用できます。
+          GitHubログインで利用できます。@{ownerGithubUsername} はowner、それ以外はviewerです。
         </p>
         {authErrorMessage ? <p className="error-note">{authErrorMessage}</p> : null}
         {!needsSetup && missingProviderNames.length > 0 ? (

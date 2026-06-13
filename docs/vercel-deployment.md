@@ -4,9 +4,9 @@
 
 [事実] This app uses NextAuth with GitHub OAuth.
 
-[事実] GitHub sign-in is accepted only when the GitHub `login` matches `GITHUB_OWNER`, which defaults to `kohei321dev`.
+[事実] GitHub sign-in grants `owner` when the GitHub `login` matches `GITHUB_OWNER`, which defaults to `kohei321dev`; other GitHub logins are treated as `viewer`.
 
-[事実] Grok review and card generation call xAI from server-side API routes. The browser never receives `GROK_API_KEY`.
+[事実] Owner AI calls use `OWNER_AI_KEY` from server-side API routes. Viewer AI review uses `VIEWER_AI_KEY`. The browser never receives either API key.
 
 [事実] Sample scene cards, owner-generated scene cards, and Owner practice records can be stored in Postgres through `DATABASE_URL`. ADR 0008 selects Neon Postgres as the first cloud database target.
 
@@ -74,7 +74,10 @@ AUTH_SECRET=<cryptographically-random-secret>
 GITHUB_CLIENT_ID=<github-oauth-client-id>
 GITHUB_CLIENT_SECRET=<github-oauth-client-secret>
 GITHUB_OWNER=kohei321dev
-GROK_API_KEY=<grok-or-xai-api-key>
+OWNER_AI_KEY=<owner-grok-api-key>
+OWNER_AI_MODEL=grok-4.3
+VIEWER_AI_KEY=<viewer-claude-api-key>
+VIEWER_AI_MODEL=claude-haiku-4-5-20251001
 DATABASE_URL=<neon-postgres-connection-string>
 ```
 
@@ -102,6 +105,7 @@ If `DATABASE_URL` is not set, sample cards cannot be loaded from Neon and the ap
 
 - The learning app redirects to `/signin` unless the user has an accepted GitHub session.
 - Owner-only actions require GitHub login matching `GITHUB_OWNER`.
+- Viewer login can read cards, answer practice prompts, and run AI review with Claude Haiku.
 - `/api/practice` returns `401` unless the current session is owner.
 - `/api/practice` returns `503` if `DATABASE_URL` is not configured.
 
@@ -120,7 +124,10 @@ the learning app after provider authentication.
    - `GITHUB_CLIENT_SECRET`
    - `GITHUB_OWNER=kohei321dev`
    - `DATABASE_URL`
-   - `GROK_API_KEY`
+   - `OWNER_AI_KEY`
+   - `OWNER_AI_MODEL=grok-4.3`
+   - `VIEWER_AI_KEY`
+   - `VIEWER_AI_MODEL=claude-haiku-4-5-20251001`
 5. Confirm the `/signin` page shows GitHub OAuth as enabled before testing provider login.
 
 Do not paste client secrets, tokens, or raw provider error payloads into issues

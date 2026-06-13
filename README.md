@@ -63,11 +63,14 @@ Vercel Environment Variablesに次を設定します。
 - `AUTH_SECRET`
 - `GITHUB_CLIENT_ID`
 - `GITHUB_CLIENT_SECRET`
-- `GROK_API_KEY`
+- `OWNER_AI_KEY`
+- `OWNER_AI_MODEL=grok-4.3`
+- `VIEWER_AI_KEY`
+- `VIEWER_AI_MODEL=claude-haiku-4-5-20251001`
 
-`GITHUB_OWNER` と一致するGitHub loginはownerとして利用できます。
+`GITHUB_OWNER` と一致するGitHub loginはownerとして利用できます。それ以外のGitHub loginはviewerとしてカード閲覧、回答入力、HaikuによるAI添削を利用できます。
 
-ownerログイン後、カード追加パネルの「設定診断」からAuth、GitHub、Database、AI key、AI model、カード保存先の設定状態を確認できます。secret値そのものは表示しません。
+ownerログイン後、カード追加パネルの「設定診断」からAuth、GitHub、Database、owner AI key、owner AI model、カード保存先の設定状態を確認できます。secret値そのものは表示しません。
 
 サンプルカードとOwnerがAIで生成したカードは、Neon/Postgresの `scene_cards` から読み込みます。Owner生成カードも同じテーブルへ保存されるため、再読み込み後や別ブラウザでOwnerログインした場合も表示されます。`DATABASE_URL` が未設定、またはmigration未適用の場合、カード追加は失敗します。
 
