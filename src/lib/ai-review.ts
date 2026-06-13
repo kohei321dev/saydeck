@@ -1,4 +1,8 @@
 import type { SceneCard } from "@/lib/scenes";
+import {
+  getOwnerAiConfig,
+  getViewerAiConfig,
+} from "@/lib/ai-config";
 
 export type ReviewResult = {
   score: number;
@@ -14,7 +18,10 @@ type ReviewInput = {
   answer: string;
   card: SceneCard;
   level: SceneCard["levels"][number];
+  role: "owner" | "viewer";
 };
+
+type ReviewPromptInput = Omit<ReviewInput, "role">;
 
 type XaiResponsesApiResponse = {
   output_text?: string;
@@ -30,12 +37,15 @@ type XaiResponsesApiResponse = {
   };
 };
 
-export class MissingAiApiKeyError extends Error {
-  constructor() {
-    super("GROK_API_KEY is not configured.");
-    this.name = "MissingAiApiKeyError";
-  }
-}
+type AnthropicMessagesApiResponse = {
+  content?: Array<{
+    type?: string;
+    text?: string;
+  }>;
+  error?: {
+    message?: string;
+  };
+};
 
 const fallbackReview: ReviewResult = {
   score: 0,
@@ -48,38 +58,41 @@ const fallbackReview: ReviewResult = {
 };
 
 export function isAiReviewConfigured(): boolean {
-  return Boolean(getAiApiKey());
+  return Boolean(process.env.OWNER_AI_KEY || process.env.VIEWER_AI_KEY);
 }
 
 export async function reviewAnswerWithAi({
   answer,
   card,
   level,
+  role,
 }: ReviewInput): Promise<ReviewResult> {
-  const apiKey = getAiApiKey();
-
-  if (!apiKey) {
-    throw new MissingAiApiKeyError();
+  if (role === "viewer") {
+    return reviewAnswerWithClaude({ answer, card, level });
   }
+
+  return reviewAnswerWithGrok({ answer, card, level });
+}
+
+async function reviewAnswerWithGrok({
+  answer,
+  card,
+  level,
+}: Omit<ReviewInput, "role">): Promise<ReviewResult> {
+  const config = getOwnerAiConfig();
 
   const response = await fetch("https://api.x.ai/v1/responses", {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${apiKey}`,
+      Authorization: `Bearer ${config.apiKey}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: process.env.GROK_MODEL || process.env.XAI_MODEL || "grok-4.3",
+      model: config.model,
       input: [
         {
           role: "system",
-          content: [
-            "あなたは英検3級レベルから日常英会話を伸ばす英語コーチです。",
-            "目的は、スケボー中の自然な会話で使える短い英文を増やすことです。",
-            "点数は英語力そのものではなく、学習者が選んだ難易度に対する今回の回答の成立度として採点してください。",
-            "説明は日本語で短く、回答例は英語で返してください。",
-            "必ずJSONだけを返してください。Markdownやコードフェンスは不要です。",
-          ].join("\n"),
+          content: buildReviewSystemPrompt(),
         },
         {
           role: "user",
@@ -88,7 +101,7 @@ export async function reviewAnswerWithAi({
       ],
       max_output_tokens: 700,
       reasoning: {
-        effort: getReasoningEffort(),
+        effort: config.reasoningEffort,
       },
       store: false,
       temperature: 0.2,
@@ -112,19 +125,50 @@ export async function reviewAnswerWithAi({
   return normalizeReviewResult(parseJsonObject(content));
 }
 
-function getReasoningEffort(): "none" | "low" | "medium" | "high" {
-  const effort = process.env.GROK_REASONING_EFFORT || process.env.XAI_REASONING_EFFORT;
+async function reviewAnswerWithClaude({
+  answer,
+  card,
+  level,
+}: Omit<ReviewInput, "role">): Promise<ReviewResult> {
+  const config = getViewerAiConfig();
 
-  if (
-    effort === "none" ||
-    effort === "low" ||
-    effort === "medium" ||
-    effort === "high"
-  ) {
-    return effort;
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "anthropic-version": "2023-06-01",
+      "content-type": "application/json",
+      "x-api-key": config.apiKey,
+    },
+    body: JSON.stringify({
+      model: config.model,
+      max_tokens: config.maxTokens,
+      system: buildReviewSystemPrompt(),
+      messages: [
+        {
+          role: "user",
+          content: buildReviewPrompt({ answer, card, level }),
+        },
+      ],
+      temperature: 0.2,
+    }),
+  });
+
+  const data = (await response.json().catch(() => ({}))) as
+    AnthropicMessagesApiResponse;
+
+  if (!response.ok) {
+    throw new Error(
+      data.error?.message || `AI review request failed. status=${response.status}`,
+    );
   }
 
-  return "none";
+  const content = getClaudeResponseText(data);
+
+  if (!content) {
+    throw new Error("AI review response was empty.");
+  }
+
+  return normalizeReviewResult(parseJsonObject(content));
 }
 
 function getResponseText(data: XaiResponsesApiResponse): string | undefined {
@@ -143,11 +187,24 @@ function getResponseText(data: XaiResponsesApiResponse): string | undefined {
   return undefined;
 }
 
-function getAiApiKey(): string | undefined {
-  return process.env.GROK_API_KEY || process.env.XAI_API_KEY;
+function getClaudeResponseText(
+  data: AnthropicMessagesApiResponse,
+): string | undefined {
+  return data.content?.find((content) => content.type === "text" && content.text)
+    ?.text;
 }
 
-function buildReviewPrompt({ answer, card, level }: ReviewInput): string {
+function buildReviewSystemPrompt(): string {
+  return [
+    "あなたは英検3級レベルから日常英会話を伸ばす英語コーチです。",
+    "目的は、スケボー中の自然な会話で使える短い英文を増やすことです。",
+    "点数は英語力そのものではなく、学習者が選んだ難易度に対する今回の回答の成立度として採点してください。",
+    "説明は日本語で短く、回答例は英語で返してください。",
+    "必ずJSONだけを返してください。Markdownやコードフェンスは不要です。",
+  ].join("\n");
+}
+
+function buildReviewPrompt({ answer, card, level }: ReviewPromptInput): string {
   return [
     "次の条件で学習者の英文をレビューしてください。",
     "",

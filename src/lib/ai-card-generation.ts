@@ -1,4 +1,5 @@
 import type { SceneCard } from "@/lib/scenes";
+import { getOwnerAiConfig } from "@/lib/ai-config";
 
 export type GenerateCardInput = {
   category: string;
@@ -38,7 +39,7 @@ type GeneratedLevelPayload = {
 
 export class MissingCardGenerationApiKeyError extends Error {
   constructor() {
-    super("GROK_API_KEY is not configured.");
+    super("OWNER_AI_KEY is not configured.");
     this.name = "MissingCardGenerationApiKeyError";
   }
 }
@@ -48,20 +49,22 @@ export async function generateSceneCardWithAi({
   sceneJa,
   tags,
 }: GenerateCardInput): Promise<SceneCard> {
-  const apiKey = getAiApiKey();
+  let config: ReturnType<typeof getOwnerAiConfig>;
 
-  if (!apiKey) {
+  try {
+    config = getOwnerAiConfig();
+  } catch {
     throw new MissingCardGenerationApiKeyError();
   }
 
   const response = await fetch("https://api.x.ai/v1/responses", {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${apiKey}`,
+      Authorization: `Bearer ${config.apiKey}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: process.env.GROK_MODEL || process.env.XAI_MODEL || "grok-4.3",
+      model: config.model,
       input: [
         {
           role: "system",
@@ -78,7 +81,7 @@ export async function generateSceneCardWithAi({
       ],
       max_output_tokens: 1200,
       reasoning: {
-        effort: getReasoningEffort(),
+        effort: config.reasoningEffort,
       },
       store: false,
     }),
@@ -246,25 +249,6 @@ function getResponseText(data: XaiResponsesApiResponse): string | undefined {
   }
 
   return undefined;
-}
-
-function getReasoningEffort(): "none" | "low" | "medium" | "high" {
-  const effort = process.env.GROK_REASONING_EFFORT || process.env.XAI_REASONING_EFFORT;
-
-  if (
-    effort === "none" ||
-    effort === "low" ||
-    effort === "medium" ||
-    effort === "high"
-  ) {
-    return effort;
-  }
-
-  return "none";
-}
-
-function getAiApiKey(): string | undefined {
-  return process.env.GROK_API_KEY || process.env.XAI_API_KEY;
 }
 
 function parseJsonObject(content: string): unknown {

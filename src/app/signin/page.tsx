@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { getServerSession } from "next-auth";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { SignInButtons } from "@/components/sign-in-button";
@@ -8,7 +9,6 @@ import {
   canUsePractice,
   isAuthConfigured,
   isGitHubAuthConfigured,
-  isGoogleAuthConfigured,
   ownerGithubUsername,
 } from "@/lib/auth";
 
@@ -37,10 +37,28 @@ function getAuthErrorMessage(error?: string): string | null {
   return messages[error] ?? `ログインに失敗しました: ${error}`;
 }
 
+async function getRequestOrigin(): Promise<string | null> {
+  const headerStore = await headers();
+  const host = headerStore.get("x-forwarded-host") ?? headerStore.get("host");
+
+  if (!host) {
+    return null;
+  }
+
+  const protocol = headerStore.get("x-forwarded-proto") ?? "https";
+  return `${protocol}://${host}`;
+}
+
 async function SignInContent({ searchParams }: Props) {
   const params = await searchParams;
+  const authOrigin = await getRequestOrigin();
   const needsSetup = params.setup === "1" || !isAuthConfigured();
   const authErrorMessage = getAuthErrorMessage(params.error);
+  const githubConfigured = isGitHubAuthConfigured();
+  const callbackUrl = authOrigin ? `${authOrigin}/` : "/";
+  const missingProviderNames = [
+    githubConfigured ? null : "GitHub",
+  ].filter((name): name is string => Boolean(name));
 
   if (!needsSetup) {
     const session = await getServerSession(authOptions);
@@ -59,28 +77,47 @@ async function SignInContent({ searchParams }: Props) {
       <section className="auth-panel">
         <h1>Scene Builder</h1>
         <p>
-          @{ownerGithubUsername} はGitHubログインでownerとして利用できます。
-          Googleログインユーザーはguestとしてカード練習とAI添削を利用できます。
+          GitHubログインで利用できます。@{ownerGithubUsername} はowner、それ以外はviewerです。
         </p>
         {authErrorMessage ? <p className="error-note">{authErrorMessage}</p> : null}
+        {!needsSetup && missingProviderNames.length > 0 ? (
+          <p className="error-note">
+            ProductionのOAuth設定で {missingProviderNames.join(" / ")} が未有効です。
+            Vercel Production envとOAuth callback URLを確認してください。
+          </p>
+        ) : null}
+        <dl className="auth-status-list">
+          <div>
+            <dt>GitHub OAuth</dt>
+            <dd>{githubConfigured ? "有効" : "未設定"}</dd>
+          </div>
+          <div>
+            <dt>GitHub owner</dt>
+            <dd>@{ownerGithubUsername}</dd>
+          </div>
+        </dl>
+        {authOrigin ? (
+          <div className="callback-list">
+            <span>OAuth callback URL</span>
+            <code>{authOrigin}/api/auth/callback/github</code>
+          </div>
+        ) : null}
         {needsSetup ? (
           <>
             <p>
-              VercelにGitHub/Google OAuth用の環境変数を設定するとログインできます。
+              Vercel ProductionにGitHub OAuth用の環境変数を設定するとログインできます。
             </p>
             <ul className="setup-list">
-              <li>AUTH_GITHUB_ID</li>
-              <li>AUTH_GITHUB_SECRET</li>
-              <li>AUTH_GOOGLE_ID</li>
-              <li>AUTH_GOOGLE_SECRET</li>
+              <li>GITHUB_CLIENT_ID</li>
+              <li>GITHUB_CLIENT_SECRET</li>
               <li>AUTH_SECRET</li>
-              <li>OWNER_GITHUB_USERNAME=kohei321dev</li>
+              <li>GITHUB_OWNER=kohei321dev</li>
             </ul>
           </>
         ) : (
           <SignInButtons
-            allowGitHub={isGitHubAuthConfigured()}
-            allowGoogle={isGoogleAuthConfigured()}
+            allowGitHub={githubConfigured}
+            callbackUrl={callbackUrl}
           />
         )}
       </section>

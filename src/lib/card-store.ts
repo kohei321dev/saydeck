@@ -1,4 +1,5 @@
 import { getSql, isDatabaseConfigured } from "@/lib/db";
+import { devSceneCards } from "@/lib/dev-scene-cards";
 import type { SceneCard } from "@/lib/scenes";
 
 const maxStoredCards = 500;
@@ -51,6 +52,10 @@ export async function isCardStoreReady(): Promise<boolean> {
 
 export async function getSampleSceneCards(): Promise<SceneCard[]> {
   if (!isCardPersistenceConfigured()) {
+    if (isDevSeedEnabled()) {
+      return devSceneCards;
+    }
+
     return [];
   }
 
@@ -60,6 +65,10 @@ export async function getSampleSceneCards(): Promise<SceneCard[]> {
     console.error("Failed to read sample scene cards.", error);
     return [];
   }
+}
+
+function isDevSeedEnabled(): boolean {
+  return process.env.NODE_ENV !== "production";
 }
 
 export async function getStoredSceneCards(): Promise<SceneCard[]> {

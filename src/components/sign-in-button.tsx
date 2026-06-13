@@ -1,45 +1,33 @@
 "use client";
 
 import { signIn, signOut } from "next-auth/react";
-import { Github, LogOut, Mail } from "lucide-react";
+import { Github, LogOut } from "lucide-react";
 import { useState } from "react";
 
 type SignInButtonsProps = {
   allowGitHub: boolean;
-  allowGoogle: boolean;
+  callbackUrl: string;
 };
 
-export function SignInButtons({ allowGitHub, allowGoogle }: SignInButtonsProps) {
-  const [loadingProvider, setLoadingProvider] = useState<"github" | "google" | null>(
-    null,
-  );
+export function SignInButtons({
+  allowGitHub,
+  callbackUrl,
+}: SignInButtonsProps) {
+  const [isLoading, setIsLoading] = useState(false);
 
   return (
     <div className="auth-button-stack">
       {allowGitHub ? (
         <button
           className="primary-button"
-          disabled={Boolean(loadingProvider)}
+          disabled={isLoading}
           onClick={() => {
-            setLoadingProvider("github");
-            void signIn("github", { callbackUrl: "/" });
+            setIsLoading(true);
+            void signIn("github", { callbackUrl });
           }}
         >
           <Github aria-hidden="true" size={18} />
-          {loadingProvider === "github" ? "GitHubへ移動中" : "GitHubでログイン"}
-        </button>
-      ) : null}
-      {allowGoogle ? (
-        <button
-          className="secondary-button"
-          disabled={Boolean(loadingProvider)}
-          onClick={() => {
-            setLoadingProvider("google");
-            void signIn("google", { callbackUrl: "/" });
-          }}
-        >
-          <Mail aria-hidden="true" size={18} />
-          {loadingProvider === "google" ? "Googleへ移動中" : "Googleでゲストログイン"}
+          {isLoading ? "GitHubへ移動中" : "GitHubでログイン"}
         </button>
       ) : null}
     </div>

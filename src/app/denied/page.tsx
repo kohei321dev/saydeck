@@ -14,7 +14,6 @@ export default async function DeniedPage() {
         <h1>Access denied</h1>
         <p>
           owner権限は @{ownerGithubUsername} のGitHubログインだけに付与されます。
-          Googleログインのguestはカード練習画面を利用できます。
           現在のログイン: {session?.user?.email ?? session?.user?.githubLogin ?? "unknown"}
         </p>
         <SignOutButton />
