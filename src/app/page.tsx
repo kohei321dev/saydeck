@@ -1,4 +1,5 @@
 import { getServerSession } from "next-auth";
+import Image from "next/image";
 import { redirect } from "next/navigation";
 
 import { ScenePractice } from "@/components/scene-practice";
@@ -47,11 +48,19 @@ export default async function HomePage() {
       <div className="app-frame">
         <header className="topbar">
           <div className="brand">
+            <Image
+              alt=""
+              aria-hidden="true"
+              className="brand-icon"
+              height={28}
+              src="/icon.svg"
+              width={28}
+            />
             <strong>Scene Builder</strong>
-            <span>話したいシチュエーションで使える英文を作る練習</span>
           </div>
           <div className="topbar-actions">
             <span className="user-chip">@{ownerGithubUsername} dev</span>
+            <SignOutButton />
           </div>
         </header>
         <ScenePractice
@@ -85,12 +94,20 @@ export default async function HomePage() {
     <div className="app-frame">
       <header className="topbar">
         <div className="brand">
+          <Image
+            alt=""
+            aria-hidden="true"
+            className="brand-icon"
+            height={28}
+            src="/icon.svg"
+            width={28}
+          />
           <strong>Scene Builder</strong>
-          <span>話したいシチュエーションで使える英文を作る練習</span>
         </div>
         <div className="topbar-actions">
           <span className="user-chip">
-            @{session.user.githubLogin ?? session.user.email ?? "unknown"} owner
+            @{session.user.githubLogin ?? session.user.email ?? "unknown"}{" "}
+            {session.user.role ?? "viewer"}
           </span>
           <SignOutButton />
         </div>
