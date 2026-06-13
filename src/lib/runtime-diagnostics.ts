@@ -1,3 +1,4 @@
+import { getOwnerAiModelLabel, isOwnerAiConfigured } from "@/lib/ai-config";
 import {
   isAuthConfigured,
   isGitHubAuthConfigured,
@@ -48,9 +49,9 @@ export async function getRuntimeDiagnostics(): Promise<RuntimeDiagnostics> {
 
   return {
     ai: {
-      apiKeyConfigured: Boolean(process.env.GROK_API_KEY),
-      model: process.env.GROK_MODEL || "grok-4.3",
-      reasoningEffort: getReasoningEffort(),
+      apiKeyConfigured: isOwnerAiConfigured(),
+      model: getOwnerAiModelLabel(),
+      reasoningEffort: "none",
     },
     auth: {
       configured: isAuthConfigured(),
@@ -71,19 +72,4 @@ export async function getRuntimeDiagnostics(): Promise<RuntimeDiagnostics> {
       savedNotesReady: practiceStorageReadiness.savedNotesReady,
     },
   };
-}
-
-function getReasoningEffort(): "none" | "low" | "medium" | "high" {
-  const effort = process.env.GROK_REASONING_EFFORT;
-
-  if (
-    effort === "none" ||
-    effort === "low" ||
-    effort === "medium" ||
-    effort === "high"
-  ) {
-    return effort;
-  }
-
-  return "none";
 }

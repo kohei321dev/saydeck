@@ -1,14 +1,13 @@
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 
-import {
-  MissingAiApiKeyError,
-  reviewAnswerWithAi,
-} from "@/lib/ai-review";
+import { AiModelNotAllowedError, MissingAiApiKeyError } from "@/lib/ai-config";
+import { reviewAnswerWithAi } from "@/lib/ai-review";
 import {
   authOptions,
   canUsePractice,
   isDevAuthBypassEnabled,
+  isOwnerSession,
 } from "@/lib/auth";
 import { getSceneCards } from "@/lib/scenes";
 
@@ -24,6 +23,7 @@ type ReviewRequestBody = {
 
 export async function POST(request: Request) {
   const contentLength = Number(request.headers.get("content-length") || 0);
+  let aiRole: "owner" | "viewer" = "owner";
 
   if (contentLength > 8_000) {
     return NextResponse.json(
@@ -48,6 +48,8 @@ export async function POST(request: Request) {
         { status: 403 },
       );
     }
+
+    aiRole = isOwnerSession(session) ? "owner" : "viewer";
   }
 
   const body = (await request.json().catch(() => null)) as ReviewRequestBody | null;
@@ -89,12 +91,21 @@ export async function POST(request: Request) {
   }
 
   try {
-    const review = await reviewAnswerWithAi({ answer, card, level });
+    const review = await reviewAnswerWithAi({ answer, card, level, role: aiRole });
     return NextResponse.json({ review });
   } catch (error) {
     if (error instanceof MissingAiApiKeyError) {
       return NextResponse.json(
-        { error: "GROK_API_KEYが設定されていません。" },
+        { error: "AI keyが設定されていません。" },
+        { status: 503 },
+      );
+    }
+
+    if (error instanceof AiModelNotAllowedError) {
+      console.error(error);
+
+      return NextResponse.json(
+        { error: "許可されていないAI modelが設定されています。" },
         { status: 503 },
       );
     }

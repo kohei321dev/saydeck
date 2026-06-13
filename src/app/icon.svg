@@ -1,43 +1,32 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
   <title id="title">Scene Builder icon</title>
-  <desc id="desc">A large transparent Scene Builder icon with a scene card, English blocks, and a skateboard line.</desc>
+  <desc id="desc">A modern rounded speech bubble icon with three dots.</desc>
   <defs>
-    <linearGradient id="card" x1="78" x2="430" y1="40" y2="452" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#FFFDF7"/>
-      <stop offset="0.68" stop-color="#EEF6F0"/>
-      <stop offset="1" stop-color="#DDEAE2"/>
+    <linearGradient id="bubble" x1="96" x2="416" y1="104" y2="408" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1f6f5b"/>
+      <stop offset="1" stop-color="#375a8c"/>
     </linearGradient>
-    <linearGradient id="tab" x1="78" x2="434" y1="52" y2="166" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#30D5A0"/>
-      <stop offset="1" stop-color="#54A4FF"/>
-    </linearGradient>
-    <linearGradient id="deck" x1="68" x2="432" y1="422" y2="352" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#17221E"/>
-      <stop offset="1" stop-color="#2A4B42"/>
-    </linearGradient>
-    <filter id="shadow" x="28" y="16" width="456" height="480" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse">
-      <feDropShadow dx="0" dy="18" flood-color="#06100D" flood-opacity="0.24" stdDeviation="14"/>
+    <filter id="shadow" x="40" y="48" width="432" height="416" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="18" flood-color="#1f2520" flood-opacity="0.18" stdDeviation="18"/>
     </filter>
   </defs>
 
+  <rect width="512" height="512" rx="112" fill="#f4f7f5"/>
+
   <g filter="url(#shadow)">
-    <path d="M105 42H371C405 42 430 67 430 101V365C430 399 405 424 371 424H105C71 424 46 399 46 365V101C46 67 71 42 105 42Z" fill="#17221E"/>
-    <path d="M112 58H376C401 58 420 77 420 102V358C420 383 401 402 376 402H112C87 402 68 383 68 358V102C68 77 87 58 112 58Z" fill="url(#card)"/>
-    <path d="M112 58H376C401 58 420 77 420 102V156H68V102C68 77 87 58 112 58Z" fill="url(#tab)"/>
-    <path d="M112 110H192" stroke="#17221E" stroke-linecap="round" stroke-width="18"/>
-    <path d="M226 110H356" stroke="#17221E" stroke-linecap="round" stroke-opacity="0.42" stroke-width="18"/>
-
-    <path d="M122 216H236" stroke="#17221E" stroke-linecap="round" stroke-width="24"/>
-    <path d="M122 274H350" stroke="#17221E" stroke-linecap="round" stroke-opacity="0.78" stroke-width="24"/>
-    <path d="M122 332H284" stroke="#17221E" stroke-linecap="round" stroke-opacity="0.42" stroke-width="24"/>
-
-    <path d="M307 200C351 200 385 229 385 266C385 303 351 332 307 332H291L254 367V332H242C198 332 164 303 164 266C164 229 198 200 242 200H307Z" fill="#17221E"/>
-    <path d="M222 258H318" stroke="#30D5A0" stroke-linecap="round" stroke-width="20"/>
-    <path d="M222 292H284" stroke="#54A4FF" stroke-linecap="round" stroke-width="20"/>
+    <path
+      d="M128 112H384C420 112 448 140 448 176V296C448 332 420 360 384 360H280L205 418C196 425 184 418 184 407V360H128C92 360 64 332 64 296V176C64 140 92 112 128 112Z"
+      fill="url(#bubble)"
+    />
+    <path
+      d="M128 112H384C420 112 448 140 448 176V296C448 332 420 360 384 360H280L205 418C196 425 184 418 184 407V360H128C92 360 64 332 64 296V176C64 140 92 112 128 112Z"
+      fill="none"
+      stroke="#15483d"
+      stroke-opacity="0.18"
+      stroke-width="10"
+    />
+    <circle cx="192" cy="238" r="24" fill="#fffefa"/>
+    <circle cx="256" cy="238" r="24" fill="#fffefa"/>
+    <circle cx="320" cy="238" r="24" fill="#fffefa"/>
   </g>
-
-  <path d="M58 434C122 461 252 457 428 409" fill="none" stroke="#17221E" stroke-linecap="round" stroke-width="28"/>
-  <path d="M84 430C160 448 274 438 402 404" fill="none" stroke="url(#deck)" stroke-linecap="round" stroke-width="16"/>
-  <path d="M152 446C152 465 137 480 118 480C99 480 84 465 84 446C84 427 99 412 118 412C137 412 152 427 152 446Z" fill="#FFFDF7" stroke="#30D5A0" stroke-width="14"/>
-  <path d="M418 397C418 416 403 431 384 431C365 431 350 416 350 397C350 378 365 363 384 363C403 363 418 378 418 397Z" fill="#FFFDF7" stroke="#54A4FF" stroke-width="14"/>
 </svg>

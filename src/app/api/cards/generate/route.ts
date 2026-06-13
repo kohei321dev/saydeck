@@ -85,7 +85,7 @@ export async function POST(request: Request) {
   } catch (error) {
     if (error instanceof MissingCardGenerationApiKeyError) {
       return NextResponse.json(
-        { error: "GROK_API_KEYが設定されていません。" },
+        { error: "OWNER_AI_KEYまたはOWNER_AI_MODELが正しく設定されていません。" },
         { status: 503 },
       );
     }
