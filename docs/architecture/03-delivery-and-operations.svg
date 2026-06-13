@@ -36,8 +36,8 @@
 
   <rect class="green" x="390" y="170" width="250" height="145"/>
   <text class="h" x="420" y="210">Local verification</text>
-  <text class="mono" x="420" y="240">DEV_AUTH_BYPASS=1</text>
-  <text class="mono" x="420" y="262">npm run dev</text>
+  <text class="mono" x="420" y="240">op run --env-file=.env.local</text>
+  <text class="mono" x="420" y="262">or DEV_AUTH_BYPASS=1</text>
   <text class="s" x="420" y="290">http://localhost:3000</text>
 
   <rect class="box" x="730" y="170" width="220" height="130"/>
@@ -66,7 +66,7 @@
   <text class="h" x="420" y="460">Secrets / env</text>
   <text class="mono" x="420" y="490">AUTH_SECRET</text>
   <text class="mono" x="420" y="512">GITHUB_CLIENT_* </text>
-  <text class="mono" x="420" y="534">GROK_API_KEY</text>
+  <text class="mono" x="420" y="534">OWNER_AI_KEY / VIEWER_AI_KEY</text>
   <text class="mono" x="420" y="556">DATABASE_URL</text>
 
   <rect class="purple" x="70" y="420" width="230" height="150"/>

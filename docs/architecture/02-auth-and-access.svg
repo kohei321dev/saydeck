@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1440" height="920" viewBox="0 0 1440 920" role="img" aria-labelledby="title desc">
   <title id="title">Scene Builder Auth And Access Flow</title>
-  <desc id="desc">GitHub OAuth, owner login, non-owner denied route, and local development bypass access paths.</desc>
+  <desc id="desc">GitHub OAuth, owner and viewer roles, local OAuth, and local development bypass access paths.</desc>
   <defs>
     <style>
       .bg{fill:#f7f8fb}
@@ -26,7 +26,7 @@
 
   <rect class="bg" width="1440" height="920"/>
   <text class="title" x="48" y="60">Auth And Access Flow</text>
-  <text class="t" x="48" y="90">利用ユーザー ID による owner 窓口、それ以外の SSO 手段、local server 確認経路</text>
+  <text class="t" x="48" y="90">GitHub login による owner/viewer role 判定、local OAuth、local server 確認経路</text>
 
   <rect class="box" x="70" y="180" width="200" height="120"/>
   <text class="h" x="100" y="220">Browser</text>
@@ -54,33 +54,33 @@
   <text class="mono" x="1060" y="338">callback /api/auth/callback/github</text>
 
   <rect class="amber" x="700" y="455" width="260" height="130"/>
-  <text class="h" x="730" y="495">Owner check</text>
+  <text class="h" x="730" y="495">Role check</text>
   <text class="mono" x="730" y="523">profile.login == GITHUB_OWNER</text>
-  <text class="s" x="730" y="550">sets token.role = owner</text>
+  <text class="s" x="730" y="550">owner match, else viewer</text>
 
   <rect class="green" x="1040" y="450" width="230" height="145"/>
   <text class="h" x="1070" y="490">Owner access</text>
-  <text class="s" x="1070" y="518">use practice app</text>
-  <text class="s" x="1070" y="540">AI review</text>
+  <text class="s" x="1070" y="518">practice app</text>
+  <text class="s" x="1070" y="540">Grok AI review</text>
   <text class="s" x="1070" y="562">card generation</text>
-  <text class="s" x="1070" y="584">Neon-backed writes</text>
+  <text class="s" x="1070" y="584">diagnostics / cloud sync</text>
 
   <rect class="red" x="700" y="660" width="260" height="120"/>
-  <text class="h" x="730" y="700">Not owner</text>
-  <text class="mono" x="730" y="728">/denied</text>
-  <text class="s" x="730" y="752">valid SSO, rejected app role</text>
+  <text class="h" x="730" y="700">Viewer access</text>
+  <text class="mono" x="730" y="728">token.role = viewer</text>
+  <text class="s" x="730" y="752">practice + Claude review</text>
 
   <rect class="green" x="70" y="520" width="260" height="155"/>
-  <text class="h" x="100" y="560">Local dev bypass</text>
+  <text class="h" x="100" y="560">Local dev modes</text>
   <text class="mono" x="100" y="590">DEV_AUTH_BYPASS=1</text>
-  <text class="mono" x="100" y="612">npm run dev</text>
-  <text class="s" x="100" y="642">enabled only when</text>
+  <text class="mono" x="100" y="612">op run --env-file=.env.local</text>
+  <text class="s" x="100" y="642">bypass or real local OAuth</text>
   <text class="mono" x="100" y="664">NODE_ENV != production</text>
 
   <rect class="box" x="385" y="540" width="220" height="115"/>
-  <text class="h" x="415" y="580">Dev owner session</text>
+  <text class="h" x="415" y="580">Local session</text>
   <text class="mono" x="415" y="608">@GITHUB_OWNER dev</text>
-  <text class="s" x="415" y="632">local UI verification</text>
+  <text class="s" x="415" y="632">or GitHub OAuth dev app</text>
 
   <rect class="amber" x="1040" y="665" width="260" height="130"/>
   <text class="h" x="1070" y="705">Other SSO means</text>
@@ -105,16 +105,16 @@
   <path class="arrow" d="M820 370 V455"/>
   <path class="arrow" d="M960 520 H1040"/>
   <rect class="label" x="990" y="490" width="50" height="26"/>
-  <text class="s" x="1000" y="508">match</text>
+  <text class="s" x="1000" y="508">owner</text>
 
   <path class="no" d="M830 585 V660"/>
   <rect class="label" x="850" y="610" width="70" height="26"/>
-  <text class="s" x="861" y="628">no match</text>
+  <text class="s" x="861" y="628">viewer</text>
 
   <path class="dash" d="M200 300 V520"/>
   <path class="dash" d="M330 598 H385"/>
   <path class="dash" d="M605 598 C740 620 875 590 1040 560"/>
 
   <path class="dash" d="M960 735 H1040"/>
-  <text class="s" x="48" y="860">[判断] GitHub 以外の SSO を追加する場合は、provider 追加だけでなく role 判定、callback URL、secret、denied policy を同じ変更で更新する。</text>
+  <text class="s" x="48" y="860">[判断] GitHub 以外の SSO を追加する場合は、provider 追加だけでなく role 判定、callback URL、secret、viewer policy を同じ変更で更新する。</text>
 </svg>

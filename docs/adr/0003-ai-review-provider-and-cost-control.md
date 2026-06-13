@@ -95,3 +95,21 @@ Browser
 - xAI account FAQ says Grok and xAI API billing are separate: https://docs.x.ai/developers/faq/accounts
 - GroqCloud uses `GROQ_API_KEY` and supports AI SDK integration: https://console.groq.com/docs/quickstart
 - GroqCloud spend limits can cap organization-wide API usage: https://console.groq.com/docs/spend-limits
+
+## Addendum: owner/viewer AI provider split
+
+- Date: 2026-06-13
+- Status: Accepted implementation update
+
+[事実] 実装は、owner と viewer でAI providerとAPI keyを分離した。
+
+- owner AI: `OWNER_AI_KEY` + `OWNER_AI_MODEL`
+- viewer AI: `VIEWER_AI_KEY` + `VIEWER_AI_MODEL`
+- owner model allowlist: `grok-4.3`
+- viewer model allowlist: `claude-haiku-4-5-20251001`
+- owner Grok reasoning effortはenvに出さず、code上で `none` 固定にする
+- viewer Claude max tokensはenvに出さず、code上で `700` 固定にする
+
+[判断] modelやreasoning設定を広くenv化せず、allowlistと固定値でfail closedする。理由は、env誤設定で意図しないmodelへ流す事故を避けるため。
+
+[判断] viewer AI reviewはowner用Grok keyを使わない。viewer用Claude keyを別に持ち、漏洩・利用量・停止範囲をownerから分離する。
