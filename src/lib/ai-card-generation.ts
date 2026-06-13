@@ -61,7 +61,7 @@ export async function generateSceneCardWithAi({
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: process.env.GROK_MODEL || process.env.XAI_MODEL || "grok-4.3",
+      model: process.env.GROK_MODEL || "grok-4.3",
       input: [
         {
           role: "system",
@@ -249,7 +249,7 @@ function getResponseText(data: XaiResponsesApiResponse): string | undefined {
 }
 
 function getReasoningEffort(): "none" | "low" | "medium" | "high" {
-  const effort = process.env.GROK_REASONING_EFFORT || process.env.XAI_REASONING_EFFORT;
+  const effort = process.env.GROK_REASONING_EFFORT;
 
   if (
     effort === "none" ||
@@ -264,7 +264,7 @@ function getReasoningEffort(): "none" | "low" | "medium" | "high" {
 }
 
 function getAiApiKey(): string | undefined {
-  return process.env.GROK_API_KEY || process.env.XAI_API_KEY;
+  return process.env.GROK_API_KEY;
 }
 
 function parseJsonObject(content: string): unknown {

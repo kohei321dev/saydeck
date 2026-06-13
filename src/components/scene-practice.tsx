@@ -1767,10 +1767,6 @@ function DiagnosticsSummary({
           isReady={diagnostics.auth.githubConfigured}
           label="GitHub"
         />
-        <DiagnosticsRow
-          isReady={diagnostics.auth.googleConfigured}
-          label="Google"
-        />
         <DiagnosticsRow isReady={diagnostics.database.configured} label="Database" />
         <DiagnosticsRow isReady={diagnostics.ai.apiKeyConfigured} label="AI key" />
         <DiagnosticsRow
@@ -1809,8 +1805,8 @@ function DiagnosticsSummary({
           <dd>{diagnostics.ai.reasoningEffort}</dd>
         </div>
         <div>
-          <dt>NEXTAUTH_URL</dt>
-          <dd>{diagnostics.auth.nextAuthUrlHost ?? "未設定"}</dd>
+          <dt>GitHub owner</dt>
+          <dd>@{diagnostics.auth.ownerGithubUsername}</dd>
         </div>
         <div>
           <dt>Card store</dt>

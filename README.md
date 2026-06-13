@@ -46,6 +46,8 @@ DEV_AUTH_BYPASS=1 npm run dev
 
 `DEV_AUTH_BYPASS=1` はローカル確認用です。`NODE_ENV=production` では無効になります。
 
+`DATABASE_URL` が未設定のローカル開発では、動作確認用の固定カードが毎回読み込まれます。ProductionではこのDEVカードは表示されません。
+
 ## GitHub Login Setup
 
 GitHub OAuth Appを作り、callback URLに次を設定します。
@@ -56,33 +58,22 @@ https://your-vercel-url/api/auth/callback/github
 
 Vercel Environment Variablesに次を設定します。
 
-- `AUTH_GITHUB_ID`
-- `AUTH_GITHUB_SECRET`
-- `AUTH_SECRET`
-- `NEXTAUTH_URL=https://your-vercel-url`
-- `OWNER_GITHUB_USERNAME=kohei321dev`
-- `AUTH_GOOGLE_ID`
-- `AUTH_GOOGLE_SECRET`
-- `GROK_API_KEY`
-- `GROK_MODEL=grok-4.3`
-- `GROK_REASONING_EFFORT=none`
+- `GITHUB_OWNER=kohei321dev`
 - `DATABASE_URL`
+- `AUTH_SECRET`
+- `GITHUB_CLIENT_ID`
+- `GITHUB_CLIENT_SECRET`
+- `GROK_API_KEY`
 
-`OWNER_GITHUB_USERNAME` と一致するGitHub loginはownerとして利用できます。Googleログインユーザーはguestとしてカード閲覧、回答、AI添削を利用できます。
+`GITHUB_OWNER` と一致するGitHub loginはownerとして利用できます。
 
-Google OAuth Clientには次のcallback URLを設定します。
-
-```text
-https://your-vercel-url/api/auth/callback/google
-```
-
-ownerログイン後、カード追加パネルの「設定診断」からAuth、Google、Database、AI key、AI model、`NEXTAUTH_URL`、カード保存先の設定状態を確認できます。secret値そのものは表示しません。
+ownerログイン後、カード追加パネルの「設定診断」からAuth、GitHub、Database、AI key、AI model、カード保存先の設定状態を確認できます。secret値そのものは表示しません。
 
 サンプルカードとOwnerがAIで生成したカードは、Neon/Postgresの `scene_cards` から読み込みます。Owner生成カードも同じテーブルへ保存されるため、再読み込み後や別ブラウザでOwnerログインした場合も表示されます。`DATABASE_URL` が未設定、またはmigration未適用の場合、カード追加は失敗します。
 
 ## Neon Postgres
 
-NeonなどのPostgresに以下のmigrationを順番に適用し、Vercel Production/Previewに `DATABASE_URL` を設定します。
+NeonなどのPostgresに以下のmigrationを順番に適用し、Vercel Productionに `DATABASE_URL` を設定します。
 
 1. `db/migrations/0001-practice-records.sql`
 2. `db/migrations/0002-scene-cards.sql`

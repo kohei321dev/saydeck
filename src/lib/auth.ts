@@ -1,20 +1,13 @@
 import type { NextAuthOptions, Session } from "next-auth";
 import GitHubProvider from "next-auth/providers/github";
-import GoogleProvider from "next-auth/providers/google";
 
 export const ownerGithubUsername =
-  process.env.OWNER_GITHUB_USERNAME?.trim() || "kohei321dev";
+  process.env.GITHUB_OWNER?.trim() || "kohei321dev";
 
-const githubClientId =
-  process.env.AUTH_GITHUB_ID || process.env.GITHUB_ID || "";
-const githubClientSecret =
-  process.env.AUTH_GITHUB_SECRET || process.env.GITHUB_SECRET || "";
-const googleClientId =
-  process.env.AUTH_GOOGLE_ID || process.env.GOOGLE_CLIENT_ID || "";
-const googleClientSecret =
-  process.env.AUTH_GOOGLE_SECRET || process.env.GOOGLE_CLIENT_SECRET || "";
+const githubClientId = process.env.GITHUB_CLIENT_ID || "";
+const githubClientSecret = process.env.GITHUB_CLIENT_SECRET || "";
 
-export type UserRole = "owner" | "guest";
+export type UserRole = "owner";
 
 const providers: NextAuthOptions["providers"] = [];
 
@@ -23,15 +16,6 @@ if (githubClientId && githubClientSecret) {
     GitHubProvider({
       clientId: githubClientId,
       clientSecret: githubClientSecret,
-    }),
-  );
-}
-
-if (googleClientId && googleClientSecret) {
-  providers.push(
-    GoogleProvider({
-      clientId: googleClientId,
-      clientSecret: googleClientSecret,
     }),
   );
 }
@@ -45,7 +29,7 @@ export const authOptions: NextAuthOptions = {
     signIn: "/signin",
     error: "/signin",
   },
-  secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET,
+  secret: process.env.AUTH_SECRET,
   callbacks: {
     async jwt({ token, account, profile }) {
       if (account?.provider) {
@@ -58,16 +42,8 @@ export const authOptions: NextAuthOptions = {
         token.githubLogin = githubProfile.login;
       }
 
-      if (profile && account?.provider === "google") {
-        const googleProfile = profile as { sub?: string; email?: string };
-        token.googleId = googleProfile.sub;
-        token.googleEmail = googleProfile.email;
-      }
-
       if (token.githubLogin === ownerGithubUsername) {
         token.role = "owner";
-      } else if (token.authProvider === "google") {
-        token.role = "guest";
       } else {
         token.role = undefined;
       }
@@ -78,8 +54,6 @@ export const authOptions: NextAuthOptions = {
       if (session.user) {
         session.user.githubId = token.githubId;
         session.user.githubLogin = token.githubLogin;
-        session.user.googleId = token.googleId;
-        session.user.googleEmail = token.googleEmail;
         session.user.authProvider = token.authProvider;
         session.user.role = token.role;
       }
@@ -92,33 +66,16 @@ export function isOwnerSession(session: Session | null): boolean {
   return session?.user?.role === "owner";
 }
 
-export function isGuestSession(session: Session | null): boolean {
-  return session?.user?.role === "guest";
-}
-
 export function canUsePractice(session: Session | null): boolean {
-  return isOwnerSession(session) || isGuestSession(session);
+  return isOwnerSession(session);
 }
 
 export function isAuthConfigured(): boolean {
-  return Boolean(
-    (process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET) &&
-      (isGitHubAuthConfigured() || isGoogleAuthConfigured()),
-  );
+  return Boolean(process.env.AUTH_SECRET && isGitHubAuthConfigured());
 }
 
 export function isGitHubAuthConfigured(): boolean {
-  return Boolean(
-    (process.env.AUTH_GITHUB_ID || process.env.GITHUB_ID) &&
-      (process.env.AUTH_GITHUB_SECRET || process.env.GITHUB_SECRET),
-  );
-}
-
-export function isGoogleAuthConfigured(): boolean {
-  return Boolean(
-    (process.env.AUTH_GOOGLE_ID || process.env.GOOGLE_CLIENT_ID) &&
-      (process.env.AUTH_GOOGLE_SECRET || process.env.GOOGLE_CLIENT_SECRET),
-  );
+  return Boolean(process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET);
 }
 
 export function isDevAuthBypassEnabled(): boolean {
