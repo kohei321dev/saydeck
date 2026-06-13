@@ -1,7 +1,6 @@
 import {
   isAuthConfigured,
   isGitHubAuthConfigured,
-  isGoogleAuthConfigured,
   ownerGithubUsername,
 } from "@/lib/auth";
 import {
@@ -21,8 +20,6 @@ export type RuntimeDiagnostics = {
   auth: {
     configured: boolean;
     githubConfigured: boolean;
-    googleConfigured: boolean;
-    nextAuthUrlHost: string | null;
     ownerGithubUsername: string;
   };
   cards: {
@@ -51,15 +48,13 @@ export async function getRuntimeDiagnostics(): Promise<RuntimeDiagnostics> {
 
   return {
     ai: {
-      apiKeyConfigured: Boolean(process.env.GROK_API_KEY || process.env.XAI_API_KEY),
-      model: process.env.GROK_MODEL || process.env.XAI_MODEL || "grok-4.3",
+      apiKeyConfigured: Boolean(process.env.GROK_API_KEY),
+      model: process.env.GROK_MODEL || "grok-4.3",
       reasoningEffort: getReasoningEffort(),
     },
     auth: {
       configured: isAuthConfigured(),
       githubConfigured: isGitHubAuthConfigured(),
-      googleConfigured: isGoogleAuthConfigured(),
-      nextAuthUrlHost: getNextAuthUrlHost(),
       ownerGithubUsername,
     },
     cards: {
@@ -79,7 +74,7 @@ export async function getRuntimeDiagnostics(): Promise<RuntimeDiagnostics> {
 }
 
 function getReasoningEffort(): "none" | "low" | "medium" | "high" {
-  const effort = process.env.GROK_REASONING_EFFORT || process.env.XAI_REASONING_EFFORT;
+  const effort = process.env.GROK_REASONING_EFFORT;
 
   if (
     effort === "none" ||
@@ -91,18 +86,4 @@ function getReasoningEffort(): "none" | "low" | "medium" | "high" {
   }
 
   return "none";
-}
-
-function getNextAuthUrlHost(): string | null {
-  const value = process.env.NEXTAUTH_URL;
-
-  if (!value) {
-    return null;
-  }
-
-  try {
-    return new URL(value).host;
-  } catch {
-    return "invalid-url";
-  }
 }

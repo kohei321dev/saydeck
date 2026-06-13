@@ -74,6 +74,79 @@ button {
   gap: 10px;
 }
 
+.auth-status-list {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 0;
+  margin: 18px 0;
+  overflow: hidden;
+}
+
+.auth-status-list div {
+  align-items: center;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(120px, max-content) minmax(0, 1fr);
+  padding: 10px 12px;
+}
+
+.auth-status-list div + div {
+  border-top: 1px solid var(--line);
+}
+
+.auth-status-list dt {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.auth-status-list dd {
+  color: var(--foreground);
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 0;
+  text-align: right;
+  word-break: keep-all;
+}
+
+.callback-list {
+  background: #f8faf9;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  margin-bottom: 18px;
+  padding: 12px;
+}
+
+.callback-list span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.callback-list code {
+  color: var(--accent-strong);
+  display: block;
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 520px) {
+  .auth-status-list div {
+    align-items: start;
+    gap: 4px;
+    grid-template-columns: 1fr;
+  }
+
+  .auth-status-list dd {
+    text-align: left;
+  }
+}
+
 .user-chip {
   border: 1px solid var(--line);
   border-radius: 999px;

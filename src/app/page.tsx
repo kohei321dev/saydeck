@@ -28,7 +28,7 @@ export const dynamic = "force-dynamic";
  * If authentication is not configured, redirects to "/signin?setup=1".
  * If no session is present, redirects to "/signin".
  * If the session cannot use practice, redirects to "/denied".
- * Otherwise returns the main app frame showing the user's role and a configured ScenePractice (owner vs guest) with cloud sync enabled only for owners when a database is configured.
+ * Otherwise returns the main app frame showing the owner session and a configured ScenePractice with cloud sync enabled when a database is configured.
  *
  * @returns The page's JSX element.
  */
@@ -79,7 +79,7 @@ export default async function HomePage() {
     redirect("/denied");
   }
 
-  const role = isOwnerSession(session) ? "owner" : "guest";
+  const isOwner = isOwnerSession(session);
 
   return (
     <div className="app-frame">
@@ -90,19 +90,17 @@ export default async function HomePage() {
         </div>
         <div className="topbar-actions">
           <span className="user-chip">
-            {role === "owner"
-              ? `@${session.user.githubLogin} owner`
-              : `${session.user.email ?? session.user.googleEmail ?? "guest"} guest`}
+            @{session.user.githubLogin ?? session.user.email ?? "unknown"} owner
           </span>
           <SignOutButton />
         </div>
       </header>
       <ScenePractice
         cardPersistenceConfigured={cardPersistenceConfigured}
-        canAddCards={role === "owner"}
-        canUseCloudSync={role === "owner" && databaseConfigured}
+        canAddCards={isOwner}
+        canUseCloudSync={isOwner && databaseConfigured}
         cards={cards}
-        persistedCardIds={role === "owner" ? persistedCardIds : []}
+        persistedCardIds={isOwner ? persistedCardIds : []}
       />
     </div>
   );
