@@ -1,0 +1,154 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="960" viewBox="0 0 1440 960" role="img" aria-labelledby="title desc">
+  <title id="title">Scene Builder Runtime Overview</title>
+  <desc id="desc">User access, Next.js application, server routes, Grok API, and Neon Postgres runtime connections.</desc>
+  <defs>
+    <style>
+      .bg{fill:#f7f8fb}
+      .band{fill:#ffffff;stroke:#d6dbe6;stroke-width:2}
+      .box{fill:#ffffff;stroke:#273142;stroke-width:2;rx:8}
+      .soft{fill:#eef7f2;stroke:#2f7d55;stroke-width:2;rx:8}
+      .warn{fill:#fff7e6;stroke:#a16207;stroke-width:2;rx:8}
+      .blue{fill:#eef5ff;stroke:#2563eb;stroke-width:2;rx:8}
+      .pink{fill:#fff1f2;stroke:#be123c;stroke-width:2;rx:8}
+      .db{fill:#f5f3ff;stroke:#6d28d9;stroke-width:2}
+      .title{font-family:Arial, sans-serif;font-size:30px;font-weight:700;fill:#111827}
+      .h{font-family:Arial, sans-serif;font-size:20px;font-weight:700;fill:#111827}
+      .t{font-family:Arial, sans-serif;font-size:16px;fill:#1f2937}
+      .s{font-family:Arial, sans-serif;font-size:13px;fill:#4b5563}
+      .mono{font-family:Consolas, monospace;font-size:13px;fill:#374151}
+      .arrow{stroke:#273142;stroke-width:2.5;fill:none;marker-end:url(#arrow)}
+      .dash{stroke:#64748b;stroke-width:2;fill:none;stroke-dasharray:7 6;marker-end:url(#arrow)}
+      .label{fill:#ffffff;stroke:#cbd5e1;stroke-width:1;rx:5}
+    </style>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#273142"/>
+    </marker>
+  </defs>
+
+  <rect class="bg" width="1440" height="960"/>
+  <text class="title" x="48" y="60">Scene Builder Runtime Overview</text>
+  <text class="t" x="48" y="90">ユーザー利用アクセス、Next.js server-side API、Grok API、Neon/Postgres の接続関係</text>
+
+  <rect class="band" x="40" y="125" width="240" height="720" rx="10"/>
+  <text class="h" x="64" y="165">User / Browser</text>
+  <rect class="box" x="64" y="195" width="190" height="110"/>
+  <text class="h" x="84" y="230">Learner UI</text>
+  <text class="s" x="84" y="258">topic card</text>
+  <text class="s" x="84" y="280">answer input</text>
+  <text class="s" x="84" y="302">review result</text>
+  <rect class="soft" x="64" y="345" width="190" height="130"/>
+  <text class="h" x="84" y="380">User can do</text>
+  <text class="s" x="84" y="408">write short English</text>
+  <text class="s" x="84" y="430">switch L1-L4</text>
+  <text class="s" x="84" y="452">save progress/notes</text>
+  <text class="s" x="84" y="474">request AI review</text>
+  <rect class="warn" x="64" y="520" width="190" height="115"/>
+  <text class="h" x="84" y="555">Owner only</text>
+  <text class="s" x="84" y="583">generate cards</text>
+  <text class="s" x="84" y="605">persist cards</text>
+  <text class="s" x="84" y="627">cloud sync writes</text>
+
+  <rect class="band" x="315" y="125" width="470" height="720" rx="10"/>
+  <text class="h" x="340" y="165">Vercel Production / Next.js App</text>
+  <text class="mono" x="340" y="190">https://scene-builder-tau.vercel.app</text>
+
+  <rect class="blue" x="350" y="225" width="390" height="115"/>
+  <text class="h" x="374" y="260">App Router UI</text>
+  <text class="mono" x="374" y="286">src/app/page.tsx</text>
+  <text class="s" x="374" y="312">loads sample + owner cards, gates access</text>
+
+  <rect class="box" x="350" y="375" width="178" height="100"/>
+  <text class="h" x="372" y="410">/api/review</text>
+  <text class="s" x="372" y="438">AI coaching review</text>
+  <text class="s" x="372" y="460">returns review JSON</text>
+
+  <rect class="box" x="562" y="375" width="178" height="100"/>
+  <text class="h" x="584" y="410">/api/cards/*</text>
+  <text class="s" x="584" y="438">save/generate card</text>
+  <text class="s" x="584" y="460">owner-gated writes</text>
+
+  <rect class="box" x="350" y="515" width="178" height="110"/>
+  <text class="h" x="372" y="550">/api/practice</text>
+  <text class="s" x="372" y="578">read/upsert record</text>
+  <text class="s" x="372" y="600">owner cloud sync</text>
+
+  <rect class="box" x="562" y="515" width="178" height="110"/>
+  <text class="h" x="584" y="550">notes/attempts</text>
+  <text class="s" x="584" y="578">practice attempts</text>
+  <text class="s" x="584" y="600">saved notes</text>
+
+  <rect class="pink" x="350" y="675" width="390" height="95"/>
+  <text class="h" x="374" y="710">Server-side secrets</text>
+  <text class="mono" x="374" y="736">AUTH_SECRET, GROK_API_KEY, DATABASE_URL</text>
+  <text class="s" x="374" y="758">never sent to browser</text>
+
+  <rect class="band" x="825" y="125" width="260" height="720" rx="10"/>
+  <text class="h" x="850" y="165">Grok / xAI API</text>
+  <rect class="box" x="850" y="220" width="210" height="155"/>
+  <text class="h" x="872" y="255">Responses API</text>
+  <text class="mono" x="872" y="282">api.x.ai/v1/responses</text>
+  <text class="s" x="872" y="310">model: GROK_MODEL</text>
+  <text class="s" x="872" y="332">default: grok-4.3</text>
+  <text class="s" x="872" y="354">store: false</text>
+
+  <rect class="soft" x="850" y="430" width="210" height="125"/>
+  <text class="h" x="872" y="465">Review returns</text>
+  <text class="s" x="872" y="493">score, goodPoint, fix</text>
+  <text class="s" x="872" y="515">naturalAnswer</text>
+  <text class="s" x="872" y="537">phrase, nextPractice</text>
+
+  <rect class="soft" x="850" y="600" width="210" height="125"/>
+  <text class="h" x="872" y="635">Card returns</text>
+  <text class="s" x="872" y="663">sceneJa, prompts</text>
+  <text class="s" x="872" y="685">tags</text>
+  <text class="s" x="872" y="707">L1-L4 levels</text>
+
+  <rect class="band" x="1130" y="125" width="260" height="720" rx="10"/>
+  <text class="h" x="1155" y="165">Neon / Postgres</text>
+  <path class="db" d="M1160 225 h190 v55 c0 25-190 25-190 0z"/>
+  <ellipse class="db" cx="1255" cy="225" rx="95" ry="28"/>
+  <text class="h" x="1195" y="264">scene_cards</text>
+  <text class="s" x="1188" y="304">sample cards</text>
+  <text class="s" x="1188" y="326">owner-generated cards</text>
+
+  <path class="db" d="M1160 405 h190 v55 c0 25-190 25-190 0z"/>
+  <ellipse class="db" cx="1255" cy="405" rx="95" ry="28"/>
+  <text class="h" x="1178" y="444">practice_records</text>
+  <text class="s" x="1188" y="484">answer, status</text>
+  <text class="s" x="1188" y="506">latest review JSON</text>
+
+  <path class="db" d="M1160 585 h190 v55 c0 25-190 25-190 0z"/>
+  <ellipse class="db" cx="1255" cy="585" rx="95" ry="28"/>
+  <text class="h" x="1178" y="624">attempts / notes</text>
+  <text class="s" x="1188" y="664">practice_attempts</text>
+  <text class="s" x="1188" y="686">saved_notes</text>
+
+  <path class="arrow" d="M255 250 H350"/>
+  <rect class="label" x="280" y="222" width="62" height="26"/>
+  <text class="s" x="291" y="240">HTTPS</text>
+
+  <path class="arrow" d="M528 425 H850"/>
+  <rect class="label" x="640" y="397" width="110" height="26"/>
+  <text class="s" x="654" y="415">review prompt</text>
+
+  <path class="arrow" d="M740 425 H850"/>
+  <path class="arrow" d="M740 425 C805 520 805 650 850 662"/>
+  <rect class="label" x="750" y="548" width="84" height="26"/>
+  <text class="s" x="764" y="566">card prompt</text>
+
+  <path class="arrow" d="M740 270 C900 250 1000 250 1160 253"/>
+  <rect class="label" x="900" y="222" width="105" height="26"/>
+  <text class="s" x="914" y="240">read cards</text>
+
+  <path class="arrow" d="M740 425 C940 400 1000 250 1160 253"/>
+  <path class="arrow" d="M528 570 C790 550 955 442 1160 433"/>
+  <path class="arrow" d="M650 570 C850 610 1000 614 1160 613"/>
+  <rect class="label" x="915" y="500" width="130" height="26"/>
+  <text class="s" x="928" y="518">DATABASE_URL</text>
+
+  <path class="dash" d="M160 635 C190 735 275 770 350 730"/>
+  <rect class="label" x="185" y="720" width="138" height="26"/>
+  <text class="s" x="198" y="738">localStorage fallback</text>
+
+  <text class="s" x="48" y="900">[事実] Grok API calls and Neon writes are server-side. Browser receives app UI and JSON results, not provider secrets.</text>
+</svg>

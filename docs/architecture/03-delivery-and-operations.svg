@@ -1,0 +1,118 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="960" viewBox="0 0 1440 960" role="img" aria-labelledby="title desc">
+  <title id="title">Scene Builder Delivery And Operations Flow</title>
+  <desc id="desc">GitHub branch strategy, local verification, Vercel production deployment, database migrations, and future scheduled jobs.</desc>
+  <defs>
+    <style>
+      .bg{fill:#f7f8fb}
+      .box{fill:#ffffff;stroke:#273142;stroke-width:2;rx:8}
+      .blue{fill:#eef5ff;stroke:#2563eb;stroke-width:2;rx:8}
+      .green{fill:#ecfdf5;stroke:#047857;stroke-width:2;rx:8}
+      .red{fill:#fff1f2;stroke:#be123c;stroke-width:2;rx:8}
+      .amber{fill:#fff7e6;stroke:#a16207;stroke-width:2;rx:8}
+      .purple{fill:#f5f3ff;stroke:#6d28d9;stroke-width:2;rx:8}
+      .title{font-family:Arial, sans-serif;font-size:30px;font-weight:700;fill:#111827}
+      .h{font-family:Arial, sans-serif;font-size:20px;font-weight:700;fill:#111827}
+      .t{font-family:Arial, sans-serif;font-size:16px;fill:#1f2937}
+      .s{font-family:Arial, sans-serif;font-size:13px;fill:#4b5563}
+      .mono{font-family:Consolas, monospace;font-size:13px;fill:#374151}
+      .arrow{stroke:#273142;stroke-width:2.5;fill:none;marker-end:url(#arrow)}
+      .dash{stroke:#64748b;stroke-width:2;fill:none;stroke-dasharray:7 6;marker-end:url(#arrow)}
+      .stop{stroke:#be123c;stroke-width:2.5;fill:none;marker-end:url(#arrow)}
+      .label{fill:#ffffff;stroke:#cbd5e1;stroke-width:1;rx:5}
+    </style>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#273142"/>
+    </marker>
+  </defs>
+
+  <rect class="bg" width="1440" height="960"/>
+  <text class="title" x="48" y="60">Delivery And Operations Flow</text>
+  <text class="t" x="48" y="90">GitHub branch 戦略、Vercel Production、local server 検証、将来の一括修正/定時ジョブ適用点</text>
+
+  <rect class="blue" x="70" y="170" width="230" height="130"/>
+  <text class="h" x="100" y="210">Work branch</text>
+  <text class="mono" x="100" y="240">fix/*, docs/*</text>
+  <text class="s" x="100" y="268">small reviewable changes</text>
+
+  <rect class="green" x="390" y="170" width="250" height="145"/>
+  <text class="h" x="420" y="210">Local verification</text>
+  <text class="mono" x="420" y="240">DEV_AUTH_BYPASS=1</text>
+  <text class="mono" x="420" y="262">npm run dev</text>
+  <text class="s" x="420" y="290">http://localhost:3000</text>
+
+  <rect class="box" x="730" y="170" width="220" height="130"/>
+  <text class="h" x="760" y="210">Pull Request</text>
+  <text class="s" x="760" y="240">review docs/code</text>
+  <text class="s" x="760" y="262">no mandatory Preview</text>
+
+  <rect class="blue" x="1040" y="170" width="220" height="130"/>
+  <text class="h" x="1070" y="210">main</text>
+  <text class="s" x="1070" y="240">production branch</text>
+  <text class="s" x="1070" y="262">merge target</text>
+
+  <rect class="purple" x="1040" y="395" width="250" height="165"/>
+  <text class="h" x="1070" y="435">Vercel Production</text>
+  <text class="mono" x="1070" y="464">deploymentEnabled.main=true</text>
+  <text class="mono" x="1070" y="486">deploymentEnabled.*=false</text>
+  <text class="s" x="1070" y="516">env changes require redeploy</text>
+
+  <rect class="red" x="710" y="395" width="260" height="150"/>
+  <text class="h" x="740" y="435">Preview disabled</text>
+  <text class="s" x="740" y="465">branch / PR Preview is not</text>
+  <text class="s" x="740" y="487">the required UI check path</text>
+  <text class="s" x="740" y="517">avoids OAuth callback drift</text>
+
+  <rect class="amber" x="390" y="420" width="250" height="150"/>
+  <text class="h" x="420" y="460">Secrets / env</text>
+  <text class="mono" x="420" y="490">AUTH_SECRET</text>
+  <text class="mono" x="420" y="512">GITHUB_CLIENT_* </text>
+  <text class="mono" x="420" y="534">GROK_API_KEY</text>
+  <text class="mono" x="420" y="556">DATABASE_URL</text>
+
+  <rect class="purple" x="70" y="420" width="230" height="150"/>
+  <text class="h" x="100" y="460">DB migration</text>
+  <text class="mono" x="100" y="490">db/migrations/*.sql</text>
+  <text class="s" x="100" y="520">apply to Neon in order</text>
+  <text class="s" x="100" y="542">manual today</text>
+
+  <rect class="box" x="70" y="680" width="320" height="150"/>
+  <text class="h" x="100" y="720">Future patch path</text>
+  <text class="s" x="100" y="750">schema/data/code changes start on branch</text>
+  <text class="s" x="100" y="772">local verification before PR</text>
+  <text class="s" x="100" y="794">merge to main deploys production</text>
+
+  <rect class="box" x="470" y="680" width="340" height="150"/>
+  <text class="h" x="500" y="720">Future scheduled jobs</text>
+  <text class="s" x="500" y="750">not implemented as infrastructure today</text>
+  <text class="s" x="500" y="772">candidate: Vercel Cron or GitHub Actions</text>
+  <text class="s" x="500" y="794">must define secret source and DB write scope</text>
+
+  <rect class="box" x="890" y="680" width="340" height="150"/>
+  <text class="h" x="920" y="720">Operational guardrails</text>
+  <text class="s" x="920" y="750">no real secrets in repo</text>
+  <text class="s" x="920" y="772">Production OAuth only on formal domain</text>
+  <text class="s" x="920" y="794">redeploy after env changes</text>
+
+  <path class="arrow" d="M300 235 H390"/>
+  <path class="arrow" d="M640 235 H730"/>
+  <path class="arrow" d="M950 235 H1040"/>
+  <path class="arrow" d="M1150 300 V395"/>
+
+  <path class="stop" d="M840 300 V395"/>
+  <rect class="label" x="866" y="332" width="98" height="26"/>
+  <text class="s" x="878" y="350">not primary</text>
+
+  <path class="dash" d="M515 315 V420"/>
+  <path class="dash" d="M300 495 H390"/>
+  <path class="dash" d="M640 495 H1040"/>
+  <rect class="label" x="708" y="468" width="110" height="26"/>
+  <text class="s" x="722" y="486">Vercel env</text>
+
+  <path class="dash" d="M185 570 C200 625 210 650 230 680"/>
+  <path class="dash" d="M515 570 C575 630 620 650 640 680"/>
+  <path class="dash" d="M1165 560 V680"/>
+  <path class="dash" d="M300 755 H470"/>
+  <path class="dash" d="M810 755 H890"/>
+
+  <text class="s" x="48" y="900">[判断] Cron/Actions を追加する時は、main merge で配布されるコード、Vercel env、Neon migration、実行権限を 1 つの運用単位として設計する。</text>
+</svg>
