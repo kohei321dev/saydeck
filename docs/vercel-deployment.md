@@ -59,17 +59,78 @@ Preview deploymentを再度使う必要が出た場合は、固定Preview/Stagin
 
 [事実] GitHub OAuth AppのAuthorization callback URLは完全一致で検証される。
 
+[事実] NextAuthのProduction canonical URLは `NEXTAUTH_URL` で固定する。
+`NEXTAUTH_URL` とOAuth provider側のcallback URLが別のdomainを指すと、
+provider認証後にcallback mismatchまたは意図しないredirectが起きる。
+
 [事実] Vercel Preview URLやdeployment URLはbranch、PR、commitごとに変わる場合がある。そのURLをGitHub OAuth Appへ登録していない場合、GitHub sign-inは `redirect_uri` mismatchで失敗する。
 
-[判断] GitHub owner sign-in、未ログインredirect、権限外accountの `/denied` はProduction正式ドメインだけを検証対象にする。
+[判断] GitHub owner sign-in、Google guest sign-in、未ログインredirect、権限外accountの `/denied` はProduction正式ドメインだけを検証対象にする。
 
 PRごと、commitごとの一時Preview URLをProduction用GitHub OAuth Appへ都度登録しない。Production用OAuth clientはProduction正式ドメイン用として扱う。
+
+## Production OAuth Verification Checklist
+
+Use the Production formal domain as the only OAuth browser verification target:
+
+```text
+https://scene-builder-tau.vercel.app
+```
+
+Do not use PR Preview URLs, commit deployment URLs, or branch deployment URLs
+for OAuth provider verification.
+
+### Before PR
+
+- Run the app locally with `DEV_AUTH_BYPASS=1 npm run dev`.
+- Confirm the learning app renders at `http://localhost:3000`.
+- Confirm `/signin?setup=1` explains missing OAuth setup when local OAuth env
+  vars are intentionally absent.
+- Do not change Production OAuth provider settings for a PR-only check.
+- Do not copy Production secrets into Preview or local `.env` files for UI-only
+  verification.
+
+### After Merge To Production
+
+- Confirm Vercel Production env includes `NEXTAUTH_URL` and that it exactly
+  matches the Production formal domain.
+- Confirm the GitHub OAuth App callback URL exactly matches:
+  `https://scene-builder-tau.vercel.app/api/auth/callback/github`.
+- If Google OAuth is enabled in the release, confirm the Google OAuth callback
+  URL exactly matches:
+  `https://scene-builder-tau.vercel.app/api/auth/callback/google`.
+- Open `/api/auth/providers` on the Production domain and confirm only the
+  intended providers are listed.
+- Sign in with the GitHub owner account and confirm the app opens with owner
+  actions available.
+- Sign out, then open the Production root in a fresh session and confirm the
+  unauthenticated user redirects to `/signin`.
+- Sign in with a non-owner GitHub account and confirm the account can use the
+  viewer learning flow but cannot use owner-only actions.
+- If Google OAuth is listed in `/api/auth/providers`, sign in with a guest
+  Google account and confirm the intended guest/viewer behavior. If Google is
+  not listed, record the item as not applicable for that release rather than
+  treating it as a pass.
+- Confirm an account that should not have practice access reaches `/denied`.
+
+### Callback Mismatch Triage
+
+When provider authentication fails before returning to the app, check these
+places without pasting secrets or raw provider payloads into issues:
+
+- Vercel Production env: `NEXTAUTH_URL`
+- Vercel Production env: provider client ID and secret are present
+- GitHub OAuth App: Authorization callback URL
+- Google OAuth client: Authorized redirect URI, if Google OAuth is enabled
+- Browser URL after failure: provider name and error category only
+- Production `/api/auth/providers`: provider is present only when intended
 
 ## Environment Variables
 
 Set these in Vercel Project Settings > Environment Variables for Production.
 
 ```text
+NEXTAUTH_URL=https://scene-builder-tau.vercel.app
 AUTH_SECRET=<cryptographically-random-secret>
 GITHUB_CLIENT_ID=<github-oauth-client-id>
 GITHUB_CLIENT_SECRET=<github-oauth-client-secret>
@@ -119,6 +180,7 @@ the learning app after provider authentication.
 3. Confirm GitHub callback URL is
    `https://scene-builder-tau.vercel.app/api/auth/callback/github`.
 4. Confirm Vercel Production env has these keys set, then redeploy:
+   - `NEXTAUTH_URL=https://scene-builder-tau.vercel.app`
    - `AUTH_SECRET`
    - `GITHUB_CLIENT_ID`
    - `GITHUB_CLIENT_SECRET`
