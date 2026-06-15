@@ -4,6 +4,7 @@
 - Related ADR: `docs/adr/0009-scene-builder-ux-architecture.md`
 - Related Interview: `docs/uiux/scene-builder-ux-brainstorming.md`
 - Related Issue: #22
+- Related Operations Policy: #34
 
 ## Purpose
 
@@ -136,7 +137,8 @@ MVPの結果表示は軽くする。
 - スコア推移グラフ
 - 復習間隔アルゴリズム
 - 新しい認証方式
-- Preview OAuth redirect問題の修正
+- Production正式ドメインでのOAuth確認
+- ローカルサーバーでのPR作成前後のUI確認
 - PWA/native app化
 - 大規模なrouting分割
 

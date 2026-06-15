@@ -120,7 +120,8 @@ create table practice_records (
 ## Operations
 
 - Vercel Productionに `DATABASE_URL` を設定する
-- Previewでログイン検証する場合は、Preview用OAuth callbackも別途用意する
+- GitHub/Google OAuthの本番確認はProduction正式ドメインで行う
+- PR作成前後のUI確認はPreviewではなくローカルサーバーで行う
 - migration SQLはrepoに保存するが、secret値は保存しない
 - 初期は単一Ownerのみを前提にする
 - DB障害時はlocalStorage fallbackで学習画面を継続できるようにする
