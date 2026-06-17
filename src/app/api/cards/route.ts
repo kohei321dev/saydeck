@@ -6,6 +6,7 @@ import {
   isCardPersistenceConfigured,
   saveStoredSceneCard,
 } from "@/lib/card-store";
+import { logServerError } from "@/lib/log-redaction";
 import type { SceneCard } from "@/lib/scenes";
 
 export const runtime = "nodejs";
@@ -71,7 +72,7 @@ export async function POST(request: Request) {
       },
     });
   } catch (error) {
-    console.error("Failed to save scene card.", error);
+    logServerError("Failed to save scene card.", error);
 
     return NextResponse.json(
       {

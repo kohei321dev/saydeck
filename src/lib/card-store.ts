@@ -1,5 +1,6 @@
 import { getSql, isDatabaseConfigured } from "@/lib/db";
 import { devSceneCards } from "@/lib/dev-scene-cards";
+import { logServerError } from "@/lib/log-redaction";
 import type { SceneCard } from "@/lib/scenes";
 
 const maxStoredCards = 500;
@@ -45,7 +46,7 @@ export async function isCardStoreReady(): Promise<boolean> {
     `;
     return rows[0]?.exists === true;
   } catch (error) {
-    console.error("Failed to check scene card store readiness.", error);
+    logServerError("Failed to check scene card store readiness.", error);
     return false;
   }
 }
@@ -62,7 +63,7 @@ export async function getSampleSceneCards(): Promise<SceneCard[]> {
   try {
     return await getSceneCardsBySource("sample");
   } catch (error) {
-    console.error("Failed to read sample scene cards.", error);
+    logServerError("Failed to read sample scene cards.", error);
     return [];
   }
 }
@@ -79,7 +80,7 @@ export async function getStoredSceneCards(): Promise<SceneCard[]> {
   try {
     return await getSceneCardsBySource("owner");
   } catch (error) {
-    console.error("Failed to read owner scene cards.", error);
+    logServerError("Failed to read owner scene cards.", error);
     return [];
   }
 }

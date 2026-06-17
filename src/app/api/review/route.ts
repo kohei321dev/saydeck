@@ -9,6 +9,7 @@ import {
   isDevAuthBypassEnabled,
   isOwnerSession,
 } from "@/lib/auth";
+import { logServerError } from "@/lib/log-redaction";
 import { getSceneCards } from "@/lib/scenes";
 
 export const runtime = "nodejs";
@@ -102,7 +103,7 @@ export async function POST(request: Request) {
     }
 
     if (error instanceof AiModelNotAllowedError) {
-      console.error(error);
+      logServerError("AI review model is not allowed.", error, { aiRole });
 
       return NextResponse.json(
         { error: "許可されていないAI modelが設定されています。" },
@@ -110,7 +111,7 @@ export async function POST(request: Request) {
       );
     }
 
-    console.error(error);
+    logServerError("AI review failed.", error, { aiRole });
 
     return NextResponse.json(
       { error: "AI添削に失敗しました。少し時間を置いて再実行してください。" },
