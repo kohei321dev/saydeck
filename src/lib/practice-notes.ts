@@ -1,4 +1,5 @@
 import { getSql, isDatabaseConfigured } from "@/lib/db";
+import { logServerError } from "@/lib/log-redaction";
 import type { ReviewResult } from "@/lib/ai-review";
 
 export type PracticeAttempt = {
@@ -109,7 +110,7 @@ export async function getPracticeStorageReadiness(): Promise<PracticeStorageRead
       savedNotesReady: rows[0]?.saved_notes_ready === true,
     };
   } catch (error) {
-    console.error("Failed to check practice storage readiness.", error);
+    logServerError("Failed to check practice storage readiness.", error);
     return {
       practiceAttemptsReady: false,
       savedNotesReady: false,

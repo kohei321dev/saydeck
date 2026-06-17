@@ -10,6 +10,7 @@ import {
   isCardPersistenceConfigured,
   saveStoredSceneCard,
 } from "@/lib/card-store";
+import { logServerError } from "@/lib/log-redaction";
 
 export const runtime = "nodejs";
 
@@ -90,7 +91,7 @@ export async function POST(request: Request) {
       );
     }
 
-    console.error(error);
+    logServerError("Failed to generate scene card.", error);
 
     return NextResponse.json(
       {
@@ -128,7 +129,7 @@ export async function POST(request: Request) {
       },
     });
   } catch (error) {
-    console.error("Failed to save generated scene card.", error);
+    logServerError("Failed to save generated scene card.", error);
 
     return NextResponse.json(
       {

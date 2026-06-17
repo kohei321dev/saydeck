@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 
 import { authOptions, isDevAuthBypassEnabled, isOwnerSession } from "@/lib/auth";
 import { deleteStoredSceneCard, MissingCardStoreError } from "@/lib/card-store";
+import { logServerError } from "@/lib/log-redaction";
 
 export const runtime = "nodejs";
 
@@ -41,7 +42,7 @@ export async function DELETE(
       );
     }
 
-    console.error(error);
+    logServerError("Failed to delete scene card.", error);
 
     return NextResponse.json(
       { error: "カード削除に失敗しました。少し時間を置いて再実行してください。" },
