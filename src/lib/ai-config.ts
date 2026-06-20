@@ -10,6 +10,8 @@ export type ViewerAiConfig = {
   maxTokens: 700;
 };
 
+const defaultOwnerModel = "grok-4.3";
+const defaultViewerModel = "claude-haiku-4-5-20251001";
 const allowedOwnerModels = new Set(["grok-4.3"]);
 const allowedViewerModels = new Set(["claude-haiku-4-5-20251001"]);
 
@@ -29,7 +31,7 @@ export class AiModelNotAllowedError extends Error {
 
 export function getOwnerAiConfig(): OwnerAiConfig {
   const apiKey = process.env.OWNER_AI_KEY?.trim();
-  const model = process.env.OWNER_AI_MODEL?.trim() || "";
+  const model = process.env.OWNER_AI_MODEL?.trim() || defaultOwnerModel;
 
   if (!apiKey) {
     throw new MissingAiApiKeyError("owner");
@@ -41,7 +43,7 @@ export function getOwnerAiConfig(): OwnerAiConfig {
 
   return {
     apiKey,
-    model: "grok-4.3",
+    model: defaultOwnerModel,
     reasoningEffort: "none",
   };
 }
@@ -60,7 +62,7 @@ export function getViewerAiConfig(): ViewerAiConfig {
 
   return {
     apiKey,
-    model: "claude-haiku-4-5-20251001",
+    model: defaultViewerModel,
     maxTokens: 700,
   };
 }
@@ -74,7 +76,7 @@ export function isViewerAiConfigured(): boolean {
 }
 
 export function getOwnerAiModelLabel(): string {
-  return process.env.OWNER_AI_MODEL?.trim() || "(unset)";
+  return process.env.OWNER_AI_MODEL?.trim() || defaultOwnerModel;
 }
 
 export function getViewerAiModelLabel(): string {
