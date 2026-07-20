@@ -6,9 +6,9 @@ import { redirect } from "next/navigation";
 import { SignInButtons } from "@/components/sign-in-button";
 import {
   authOptions,
-  canUsePractice,
   isAuthConfigured,
   isGitHubAuthConfigured,
+  isOwnerSession,
   ownerGithubUsername,
 } from "@/lib/auth";
 
@@ -63,8 +63,8 @@ async function SignInContent({ searchParams }: Props) {
   if (!needsSetup) {
     const session = await getServerSession(authOptions);
 
-    if (session && canUsePractice(session)) {
-      redirect("/");
+    if (session && isOwnerSession(session)) {
+      redirect("/input");
     }
 
     if (session) {
@@ -77,7 +77,7 @@ async function SignInContent({ searchParams }: Props) {
       <section className="auth-panel">
         <h1>SayDeck</h1>
         <p>
-          GitHubログインで利用できます。@{ownerGithubUsername} はowner、それ以外はviewerです。
+          GitHub ownerアカウントで利用できます。
         </p>
         {authErrorMessage ? <p className="error-note">{authErrorMessage}</p> : null}
         {!needsSetup && missingProviderNames.length > 0 ? (

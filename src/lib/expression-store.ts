@@ -2,10 +2,9 @@ import { createHash } from "node:crypto";
 
 import { getSql, isDatabaseConfigured } from "@/lib/db";
 import { putPrivateBinary } from "@/lib/binary-store";
+import { defaultGenerationProfiles } from "@/lib/generation-profiles";
 import {
   getTtsConfig,
-  isTtsConfigured,
-  MissingTtsApiKeyError,
   synthesizeAmericanEnglish,
   TtsProviderError,
 } from "@/lib/tts-provider";
@@ -13,6 +12,7 @@ import type {
   AudioAsset,
   ExpressionEntry,
   ExpressionEntryDetail,
+  GenerationProfile,
   GenerationResult,
   SentenceCard,
   SentenceVariant,
@@ -117,10 +117,24 @@ type AudioAssetRow = {
   provider: string;
   model: string;
   voice: string;
+  locale: string;
   speed: number | string;
   format: string;
   status: AudioAsset["status"];
   error_code: string | null;
+  created_at: Date | string;
+  updated_at: Date | string;
+};
+
+type GenerationProfileRow = {
+  owner_login: string;
+  code: GenerationProfile["code"];
+  name: string;
+  min_words: number;
+  max_words: number;
+  max_sentences: number;
+  required_features: string[] | null;
+  instruction: string;
   created_at: Date | string;
   updated_at: Date | string;
 };
@@ -131,6 +145,43 @@ function requireDatabase() {
   }
 
   return getSql();
+}
+
+export async function listGenerationProfiles(ownerLogin: string): Promise<GenerationProfile[]> {
+  const sql = requireDatabase();
+  const rows = await sql<GenerationProfileRow[]>`
+    select owner_login, code, name, min_words, max_words, max_sentences,
+      required_features, instruction, created_at, updated_at
+    from generation_profiles
+    where owner_login = ${ownerLogin}
+    order by code asc
+  `;
+
+  if (rows.length === 4) return rows.map(toGenerationProfile);
+
+  const defaults = defaultGenerationProfiles(ownerLogin);
+  await sql.begin(async (transaction) => {
+    for (const profile of defaults) {
+      await transaction`
+        insert into generation_profiles (
+          owner_login, code, name, min_words, max_words, max_sentences,
+          required_features, instruction
+        ) values (
+          ${profile.ownerLogin}, ${profile.code}, ${profile.name}, ${profile.minWords},
+          ${profile.maxWords}, ${profile.maxSentences}, ${transaction.json(profile.requiredFeatures)}, ${profile.instruction}
+        ) on conflict (owner_login, code) do nothing
+      `;
+    }
+  });
+
+  const seeded = await sql<GenerationProfileRow[]>`
+    select owner_login, code, name, min_words, max_words, max_sentences,
+      required_features, instruction, created_at, updated_at
+    from generation_profiles
+    where owner_login = ${ownerLogin}
+    order by code asc
+  `;
+  return seeded.length === 4 ? seeded.map(toGenerationProfile) : defaults;
 }
 
 export async function createExpressionEntry(
@@ -405,13 +456,6 @@ export async function approveExpressionEntry(input: {
     where owner_login = ${input.ownerLogin} and id = ${input.entryId}
   `;
 
-  // DEV fallback: browser speech keeps the capture flow usable without a
-  // server-side TTS credential. These rows are intentionally not marked
-  // audio_ready and can never satisfy the APKG media gate.
-  if (!isTtsConfigured() && process.env.NODE_ENV !== "production") {
-    await insertBrowserSpeechAssets(sql, input.ownerLogin, validIds);
-  }
-
   const saved = await getExpressionEntry(input.ownerLogin, input.entryId);
 
   if (!saved) {
@@ -424,7 +468,7 @@ export async function approveExpressionEntry(input: {
 export async function registerSentenceVariantAudio(input: {
   ownerLogin: string;
   variantId: string;
-}): Promise<{ entry: ExpressionEntryDetail; mode: "provider" | "browser" }> {
+}): Promise<void> {
   const sql = requireDatabase();
   const rows = await sql<{
     id: string;
@@ -449,21 +493,39 @@ export async function registerSentenceVariantAudio(input: {
     throw new SentenceVariantNotFoundError();
   }
 
-  if (!isTtsConfigured()) {
-    if (process.env.NODE_ENV !== "production") {
-      await insertBrowserSpeechAssets(sql, input.ownerLogin, [variant.id]);
-      const entry = await getExpressionEntry(input.ownerLogin, variant.entry_id);
-      if (!entry) throw new Error("Expression entry was not found.");
-      return { entry, mode: "browser" };
-    }
-    throw new MissingTtsApiKeyError();
-  }
-
   const config = getTtsConfig();
   const sources = [
     { kind: "word" as const, text: variant.key_expression },
     { kind: "sentence" as const, text: variant.english },
   ];
+  const expectedHashes = new Map(sources.map((source) => [source.kind, textHash(source.kind, source.text, config)]));
+  const existingAssets = await sql<Array<{
+    kind: "word" | "sentence";
+    text_hash: string;
+    provider: string;
+    locale: string;
+    status: "pending" | "ready" | "failed" | "stale";
+  }>>`
+    select kind, text_hash, provider, locale, status
+    from audio_assets
+    where owner_login = ${input.ownerLogin} and variant_id = ${variant.id}
+  `;
+  const hasReusableAudio = sources.every((source) => existingAssets.some((asset) =>
+    asset.kind === source.kind
+      && asset.status === "ready"
+      && asset.provider === "openai-compatible"
+      && asset.locale === config.locale
+      && asset.text_hash === expectedHashes.get(source.kind),
+  ));
+
+  if (hasReusableAudio) {
+    await sql`
+      update sentence_variants
+      set status = 'audio_ready', updated_at = now()
+      where owner_login = ${input.ownerLogin} and id = ${variant.id}
+    `;
+    return;
+  }
 
   await sql`
     update sentence_variants
@@ -473,17 +535,17 @@ export async function registerSentenceVariantAudio(input: {
   await sql`
     insert into audio_assets (
       id, owner_login, variant_id, kind, blob_path, text_hash,
-      provider, model, voice, speed, format, status
+      provider, model, voice, locale, speed, format, status
     )
     values
       (${`audio_${variant.id}_word`}, ${input.ownerLogin}, ${variant.id}, 'word', '',
-        ${textHash("word", variant.key_expression, config)}, 'openai-compatible', ${config.model}, ${config.voice}, ${config.speed}, 'wav', 'pending'),
+        ${textHash("word", variant.key_expression, config)}, 'openai-compatible', ${config.model}, ${config.voice}, ${config.locale}, ${config.speed}, 'wav', 'pending'),
       (${`audio_${variant.id}_sentence`}, ${input.ownerLogin}, ${variant.id}, 'sentence', '',
-        ${textHash("sentence", variant.english, config)}, 'openai-compatible', ${config.model}, ${config.voice}, ${config.speed}, 'wav', 'pending')
+        ${textHash("sentence", variant.english, config)}, 'openai-compatible', ${config.model}, ${config.voice}, ${config.locale}, ${config.speed}, 'wav', 'pending')
     on conflict (owner_login, variant_id, kind) do update set
       blob_path = excluded.blob_path, text_hash = excluded.text_hash,
       provider = excluded.provider, model = excluded.model,
-      voice = excluded.voice, speed = excluded.speed, format = excluded.format,
+      voice = excluded.voice, locale = excluded.locale, speed = excluded.speed, format = excluded.format,
       status = 'pending', error_code = null, updated_at = now()
   `;
 
@@ -504,7 +566,7 @@ export async function registerSentenceVariantAudio(input: {
         update audio_assets
         set blob_path = ${audio.storage.blobPath}, text_hash = ${audio.hash},
           provider = 'openai-compatible', model = ${audio.config.model},
-          voice = ${audio.config.voice}, speed = ${audio.config.speed},
+          voice = ${audio.config.voice}, locale = ${audio.config.locale}, speed = ${audio.config.speed},
           format = 'wav', status = 'ready', error_code = null, updated_at = now()
         where owner_login = ${input.ownerLogin}
           and variant_id = ${variant.id}
@@ -540,77 +602,15 @@ export async function registerSentenceVariantAudio(input: {
     throw new AudioRegistrationError(errorCode, "音声ファイルの登録に失敗しました。");
   }
 
-  const entry = await getExpressionEntry(input.ownerLogin, variant.entry_id);
-  if (!entry) throw new Error("Expression entry was not found.");
-  return { entry, mode: "provider" };
-}
-
-export async function getAudioAssetForOwner(
-  ownerLogin: string,
-  assetId: string,
-): Promise<AudioAsset | null> {
-  const sql = requireDatabase();
-  const rows = await sql<AudioAssetRow[]>`
-    select id, owner_login, variant_id, kind, blob_path, text_hash,
-      provider, model, voice, speed, format, status, error_code,
-      created_at, updated_at
-    from audio_assets
-    where owner_login = ${ownerLogin} and id = ${assetId}
-    limit 1
-  `;
-  return rows[0] ? toAudioAsset(rows[0]) : null;
-}
-
-async function insertBrowserSpeechAssets(
-  sql: ReturnType<typeof getSql>,
-  ownerLogin: string,
-  variantIds: string[],
-): Promise<void> {
-  await sql`
-    insert into audio_assets (
-      id, owner_login, variant_id, kind, blob_path, text_hash,
-      provider, model, voice, speed, format, status
-    )
-    select
-      'audio_' || v.id || '_word', v.owner_login, v.id, 'word',
-      'browser-speech://' || v.id || '/word', md5(v.key_expression),
-      'browser-speech', 'SpeechSynthesis', 'en-US', 1.0, 'wav', 'ready'
-    from sentence_variants v
-    where v.owner_login = ${ownerLogin} and v.id = any(${sql.array(variantIds)})
-    on conflict (owner_login, variant_id, kind) do update set
-      blob_path = excluded.blob_path, text_hash = excluded.text_hash,
-      provider = excluded.provider, model = excluded.model,
-      voice = excluded.voice, status = excluded.status,
-      error_code = null, updated_at = now()
-    where audio_assets.provider = 'browser-speech'
-  `;
-  await sql`
-    insert into audio_assets (
-      id, owner_login, variant_id, kind, blob_path, text_hash,
-      provider, model, voice, speed, format, status
-    )
-    select
-      'audio_' || v.id || '_sentence', v.owner_login, v.id, 'sentence',
-      'browser-speech://' || v.id || '/sentence', md5(v.english),
-      'browser-speech', 'SpeechSynthesis', 'en-US', 1.0, 'wav', 'ready'
-    from sentence_variants v
-    where v.owner_login = ${ownerLogin} and v.id = any(${sql.array(variantIds)})
-    on conflict (owner_login, variant_id, kind) do update set
-      blob_path = excluded.blob_path, text_hash = excluded.text_hash,
-      provider = excluded.provider, model = excluded.model,
-      voice = excluded.voice, status = excluded.status,
-      error_code = null, updated_at = now()
-    where audio_assets.provider = 'browser-speech'
-  `;
 }
 
 function textHash(
   kind: "word" | "sentence",
   text: string,
-  config: { model: string; voice: string; speed: number },
+  config: { model: string; voice: string; locale: string; speed: number },
 ): string {
   return createHash("sha256")
-    .update(JSON.stringify({ kind, text, model: config.model, voice: config.voice, speed: config.speed, format: "wav" }))
+    .update(JSON.stringify({ kind, text, model: config.model, voice: config.voice, locale: config.locale, speed: config.speed, format: "wav" }))
     .digest("hex");
 }
 
@@ -649,7 +649,7 @@ async function readDetails(
   const audioAssets = variants.length
     ? await sql<AudioAssetRow[]>`
         select id, owner_login, variant_id, kind, blob_path, text_hash,
-          provider, model, voice, speed, format, status, error_code,
+          provider, model, voice, locale, speed, format, status, error_code,
           created_at, updated_at
         from audio_assets
         where owner_login = ${ownerLogin}
@@ -704,6 +704,21 @@ function toEntry(row: ExpressionEntryRow): ExpressionEntry {
   };
 }
 
+function toGenerationProfile(row: GenerationProfileRow): GenerationProfile {
+  return {
+    ownerLogin: row.owner_login,
+    code: row.code,
+    name: row.name,
+    minWords: row.min_words,
+    maxWords: row.max_words,
+    maxSentences: row.max_sentences,
+    requiredFeatures: row.required_features ?? [],
+    instruction: row.instruction,
+    createdAt: toIso(row.created_at),
+    updatedAt: toIso(row.updated_at),
+  };
+}
+
 function toCard(row: SentenceCardRow): SentenceCard {
   return {
     id: row.id,
@@ -749,6 +764,7 @@ function toAudioAsset(row: AudioAssetRow): AudioAsset {
     provider: row.provider,
     model: row.model,
     voice: row.voice,
+    locale: row.locale,
     speed: Number(row.speed),
     format: row.format,
     status: row.status,

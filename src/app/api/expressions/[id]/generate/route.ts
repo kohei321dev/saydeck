@@ -9,6 +9,7 @@ import {
 import {
   ExpressionDatabaseUnavailableError,
   getExpressionEntry,
+  listGenerationProfiles,
   saveGenerationResult,
 } from "@/lib/expression-store";
 import { logServerError } from "@/lib/log-redaction";
@@ -16,7 +17,7 @@ import { logServerError } from "@/lib/log-redaction";
 export const runtime = "nodejs";
 
 export async function POST(
-  _request: Request,
+  request: Request,
   context: { params: Promise<{ id: string }> },
 ) {
   const ownerLogin = await getExpressionOwnerLogin();
@@ -29,6 +30,11 @@ export async function POST(
   }
 
   const id = decodeURIComponent((await context.params).id).trim();
+  const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
+  const segmentIntents = Array.isArray(body.segmentIntents)
+    ? body.segmentIntents.filter((value): value is string => typeof value === "string")
+      .map((value) => value.trim()).filter(Boolean).slice(0, 4)
+    : undefined;
 
   try {
     const entry = await getExpressionEntry(ownerLogin, id);
@@ -40,11 +46,14 @@ export async function POST(
       );
     }
 
+    const profiles = await listGenerationProfiles(ownerLogin);
     const result = await generateExpressionWithAi({
       inputJa: entry.inputJa,
       situationJa: entry.situationJa,
       genreSlug: entry.genreSlug,
       situationTags: entry.situationTags,
+      segmentIntents,
+      profiles,
     });
     const saved = await saveGenerationResult({
       ownerLogin,

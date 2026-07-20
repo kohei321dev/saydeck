@@ -5,7 +5,7 @@
 
 ## Purpose
 
-SayDeckのログは、障害調査に必要な原因分類だけを残し、secret、個人情報、学習回答の本文を保存しない。
+SayDeckのログは、障害調査に必要な原因分類だけを残し、secret、個人情報、日本語入力や生成本文を保存しない。
 
 ## Log Fields
 
@@ -25,7 +25,7 @@ SayDeckのログは、障害調査に必要な原因分類だけを残し、secr
 - OAuth client secret、provider raw payload
 - `DATABASE_URL` とDB接続文字列
 - raw request body
-- AI添削対象の回答文
+- 日本語入力と生成対象の英文
 - AI providerへのprompt全文
 - AI providerのraw response全文
 - private URL、secretを含むURL、認証付きURL
@@ -41,9 +41,9 @@ server-sideの障害ログは `logServerError` を使う。`console.error(error)
 - secretらしい文字列や認証付きURLを `[redacted]` に置き換える
 - ネストの深さと配列長を制限する
 
-## AI Review Data
+## AI Generation Data
 
-学習者の回答文、カード生成入力、AI prompt、AI response全文は通常ログに残さない。
+日本語入力、カード生成入力、AI prompt、AI response全文は通常ログに残さない。
 
 debugのために本文が必要な場合も、まず再現用の最小入力を人間が作り、production user inputをそのまま保存しない。samplingやopt-inで詳細ログを追加する場合は、保存先、保持期間、削除方法を同じPRで決める。
 

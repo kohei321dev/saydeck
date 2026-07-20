@@ -98,6 +98,7 @@ export type AudioAsset = {
   provider: string;
   model: string;
   voice: string;
+  locale: string;
   speed: number;
   format: string;
   status: AudioAssetStatus;

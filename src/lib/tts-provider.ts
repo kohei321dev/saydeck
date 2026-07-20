@@ -2,10 +2,9 @@
  * Server-side TTS adapter.
  *
  * The text-generation provider and the audio provider are intentionally
- * separate.  Production uses an OpenAI-compatible speech endpoint and keeps
- * the credential on the server only.  DEV can continue to use browser speech
- * when no TTS credential is configured, but that fallback never produces an
- * Anki-ready audio asset.
+ * separate. Production uses an OpenAI-compatible speech endpoint and keeps
+ * the credential on the server only. APKG audio is always generated as en-US
+ * server-side media; browser speech is not an export fallback.
  */
 
 export type TtsConfig = {
@@ -13,6 +12,7 @@ export type TtsConfig = {
   baseUrl: string;
   model: string;
   voice: string;
+  locale: "en-US";
   speed: number;
 };
 
@@ -57,6 +57,7 @@ export function getTtsConfig(): TtsConfig {
     baseUrl: (process.env.SAYDECK_TTS_BASE_URL?.trim() || "https://api.openai.com/v1").replace(/\/$/, ""),
     model: process.env.SAYDECK_TTS_MODEL?.trim() || "tts-1",
     voice: process.env.SAYDECK_TTS_VOICE?.trim() || "alloy",
+    locale: "en-US",
     speed: Number.isFinite(speedValue) && speedValue > 0 && speedValue <= 4 ? speedValue : 1,
   };
 }
@@ -88,6 +89,7 @@ export async function synthesizeAmericanEnglish(text: string): Promise<{
       body: JSON.stringify({
         model: config.model,
         voice: config.voice,
+        locale: config.locale,
         input: normalizedText,
         response_format: "wav",
         speed: config.speed,
