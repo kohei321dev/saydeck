@@ -12,6 +12,12 @@
 
 ADR本体は `docs/adr/` に集約する。機能別メモ、Issue、PRからADR番号へリンクする。
 
+## 現行プロダクト判断
+
+- `docs/adr/0013-expression-production-and-apkg-only.md`: INPUT / LISTS / EXPORT、アプリ内学習の廃止、APKG-only export
+- `docs/adr/0011-rename-to-saydeck.md`: SayDeckへの名称変更
+- `docs/adr/0010-expression-capture-and-anki-export.md`: expression domainとAnki contract（学習統合・TSV・手動音声導線はADR 0013で置換）
+
 ## 書くタイミング
 
 次のいずれかに該当する場合は、Issueまたは実装ブランチを進める前にADRを作る。

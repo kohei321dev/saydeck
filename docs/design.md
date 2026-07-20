@@ -4,44 +4,46 @@
 - Date: 2026-07-20
 - Requirements: `docs/requirements.md`
 - Anki contract: `docs/specifications/anki-export.md`
+- Decision: `docs/adr/0013-expression-production-and-apkg-only.md`
 
 ## 1. アーキテクチャ判断
 
-これは全面リライトではなく、既存の練習機能と認証・Neon接続を残した部分的リアーキテクチャである。
+SayDeckを、英語表現の生成・蓄積とAnki向けAPKG出力に特化する。
 
 ```text
-Japanese quick capture
-  -> Expression entry (Neon)
-  -> AI generation / semantic segmentation
-  -> Human review and variant registration
-  -> TTS + private audio storage
-  -> Library playback / Anki package export
+INPUT
+  Japanese intent + situation
+    -> AI structured generation (L1-L4)
+    -> Human review
+    -> Expression fields + metadata (Neon)
+
+LISTS
+  Saved expressions
+    -> Search / filter / logical grouping
+    -> Select variants
+
+EXPORT
+  Selected variants
+    -> en-US TTS (internal)
+    -> APKG projection + bundled media
+    -> Authenticated download
 ```
 
-既存の`scene_cards`とpractice系テーブルは、旧カードの閲覧・学習履歴を保つために維持する。新しい表現カードは専用テーブルへ保存し、学習画面が必要とするDTOへ投影する。新旧テーブルへ二重書き込みはしない。
-
-### MVP実装範囲（2026-07-20）
-
-最初のMVPは、入力を失わずに教材化するための垂直スライスを対象とする。
-
-- 実装済み: `/create`、`/library`、`/api/expressions`、`/api/expressions/:id/generate`、`/api/expressions/:id`
-- 実装済み: 日本語入力のlocalStorage退避、L1〜L4候補生成、長文の意味単位分割、候補選択、Neon保存、ownerスコープ
-- DEV実装済み: 登録済み表現の学習モード投影、登録日時、AI提案ジャンル・タグ、browser-speech fallback、個別・タグ・期間指定のexport導線
-- 実装済みのproduction boundary: provider-backed TTS adapter、private binary storage adapter、音声同梱`.apkg` adapter、owner認証済みaudio/package download。provider keyとBlob tokenがないDEVではfallback/未readyとして扱う
-- 次スライス: generation profile設定画面、Anki Desktop空profileへの実import/reimport E2E、TTS providerの米国発音voice確認
-
-音声・AnkiのDB境界（`audio_assets`、`anki_exports`）とAnkiフィールド契約は先に確定している。外部providerとbinary生成を追加する際も、確定済みの本文と入力を失わないよう、text生成とは別ジョブとして実装する。
+アプリ内学習、AI添削、練習履歴は現行product domainから外す。旧practice系テーブルとmigrationはデータ保全のため残すが、現行画面へ投影せず、新domainへ二重書き込みしない。
 
 ## 2. UI境界
 
-| Route | 責務 | 主な操作 |
-| --- | --- | --- |
-| `/` | 既存学習フロー | 旧カードと登録済み新カードの練習 |
-| `/create` | 思いつきの教材化 | 入力、AI生成、分割、確認、音声登録 |
-| `/library` | 登録済みカードの管理 | 検索、タグ絞り込み、再生、export選択 |
-`ScenePractice`へ新機能を継ぎ足さず、Capture/Editor、Library、AudioPlayer、ExportPanelを独立させる。既存UIの削除は、新UIが全ての必要導線を置換してから行う。
+| Route | Navigation label | Responsibility | 主な操作 |
+| --- | --- | --- | --- |
+| `/input` | `INPUT` | 日本語入力、AI生成、確認、DB保存 | 表現を生成して保存 |
+| `/lists` | `LISTS` | 一覧、検索、複合filter、編集、選択 | 選択してEXPORTへ |
+| `/export` | `EXPORT` | 対象確認、音声/APKG生成、download | APKGを作成 |
 
-`/settings/generation`によるL1〜L4制約とTTS既定値の編集は次スライスとし、MVPではDBの既定profileと環境変数を使う。
+- `/`は`/input`へredirectする。
+- 主要navigationは3項目だけにする。
+- `/create`と`/library`は新routeへ移行後redirectし、呼称もINPUT/LISTSへ統一する。
+- 旧学習UI、Owner deck、AI添削、練習状態、TSV、個別音声生成ボタンは表示しない。
+- audio assetの形式や生成単位は内部詳細とし、EXPORTでは「APKGを作成」という利用目的だけを主操作にする。
 
 ## 3. 永続化モデル
 
@@ -50,81 +52,98 @@ Japanese quick capture
 | Table | Primary responsibility | Key fields |
 | --- | --- | --- |
 | `generation_profiles` | L1〜L4の生成制約 | `code`, `min_words`, `max_words`, `max_sentences`, `required_features`, `instruction` |
-| `expression_entries` | 元の気づきと共通メタデータ | `id`, `owner_login`, `input_ja`, `situation_ja`, `genre_slug`, `situation_tags`, `status` |
+| `expression_entries` | 元の入力と共通metadata | `id`, `owner_login`, `input_ja`, `situation_ja`, `genre_slug`, `situation_tags`, `created_at`, `updated_at` |
 | `sentence_cards` | 分割後の意味単位 | `id`, `entry_id`, `position`, `intent_ja` |
-| `sentence_variants` | card×levelの確定候補 | `id`, `sentence_card_id`, `profile_code`, `english`, `japanese`, `key_expression`, `definition_ja`, `irregular_forms`, `anki_guid`, `status` |
-| `audio_assets` | 音声metadata | `variant_id`, `kind`, `blob_path`, `text_hash`, `provider`, `model`, `voice`, `format`, `status` |
+| `sentence_variants` | 意味単位×levelのAnki候補 | `id`, `sentence_card_id`, `profile_code`, `english`, `japanese`, `key_expression`, `definition_ja`, `irregular_forms`, `anki_guid`, `status` |
+| `audio_assets` | APKG用音声metadata | `variant_id`, `kind`, `blob_path`, `text_hash`, `provider`, `model`, `voice`, `locale`, `format`, `status` |
 | `anki_exports` | package生成状態 | `owner_login`, `status`, `card_count`, `blob_path`, `error_code` |
 
-外部入力やAI結果はHTMLとして保存しない。表示・Anki export時にテキストをescapeし、音声参照だけを制御された`[sound:filename]`形式で生成する。
+`Deck`は永続化された固定グループではなく、ジャンル、シチュエーション、レベル、作成日時などのfilterから組み立てる論理グループとする。将来、名前付きfilterの保存需要が確認できた場合だけ別modelを追加する。
 
 ### Object storage
 
-- 音声: private Vercel Blobにimmutable pathで保存する。localhostでは、production以外に限り`.saydeck-storage`へ保存できる。
-- APKG: private Vercel Blobに保存する。browserはowner認証済みdownload routeを通して取得し、Blob tokenやpathを返さない。
+- 音声とAPKGはprivate object storageへ保存する。localhostではproduction以外に限り`.saydeck-storage`を利用できる。
 - DBにはpathとmetadataだけを保存し、binaryは保存しない。
-- MVPでは本文変更時にassetを`stale`とし、再登録で同一variant/kindのmetadataを更新する。不要binaryの保持期間と削除jobは運用スライスで追加する。
-- export artifactはownerごとに履歴を保持する。保持上限とcleanupは運用スライスで追加する。
+- 本文またはTTS設定変更時は対応assetを`stale`にし、次回export時に再生成する。
+- browserはowner認証済みdownload routeを通してAPKGを取得し、storage tokenや内部pathを受け取らない。
 
 ## 4. サービス境界
 
 | Module | Responsibility |
 | --- | --- |
-| `expression-store` | expression用のPostgres read/writeとowner scope |
+| `expression-store` | expression用Postgres read/write、owner scope、LISTS query |
 | `expression-generation` | structured AI generation、制約検証、再生成 |
-| `text-segmentation` | 分割案の正規化、順番、再生成対象の決定 |
-| `ai/providers/*` | text AI providerとの通信。既存AI設定をadapterへ移す |
-| `tts-provider` | 音声生成。text AIとはkey/model/voiceを分離する |
-| `binary-store` | private BlobまたはDEV local storageのput/get |
-| `anki-export` | DB modelからAnki modelへの純粋なprojectionとpackage生成 |
-| `runtime-diagnostics` | DB、TTS、Blob、export adapterの利用可否を安全に返す |
+| `text-segmentation` | 意味単位の分割、順序、再生成対象の決定 |
+| `ai/providers/*` | text AI providerとの通信 |
+| `tts-provider` | `en-US`を明示したAPKG用音声生成 |
+| `binary-store` | private object storageまたはDEV local storageのput/get |
+| `anki-export` | DB modelからAnki modelへのprojection、音声準備、package生成 |
+| `runtime-diagnostics` | DB、AI、TTS、storage、APKG adapterの利用可否を安全に返す |
 
-AI生成とTTSを単一の同期処理へ結合しない。順序は「capture保存 → text生成 → 人間確認 → 選択variantのTTS → export」とする。
+AIテキスト生成とTTSは障害境界を分ける。通常順序は「INPUT保存 → AI生成 → 人間確認 → DB保存 → LISTS選択 → EXPORT時に音声準備 → APKG生成」とする。
 
 ## 5. API境界
 
 | Endpoint | Method | Responsibility |
 | --- | --- | --- |
-| `/api/expressions` | `POST`, `GET` | 入力保存、一覧取得 |
-| `/api/expressions/:id/generate` | `POST` | 分割案とlevel別variant生成 |
-| `/api/expressions/:id` | `PATCH` | metadata、分割、本文、選択状態の確定 |
-| `/api/diagnostics?probe=1` | `GET` | owner向けDB接続・表現schema・AI provider疎通確認 |
-| `/api/sentence-variants/:id/register` | `POST` | 文章検証、TTS、audio state更新 |
-| `/api/audio/:assetId` | `GET` | owner認証後の音声stream |
-| `/api/anki-exports` | `POST` | `audio_ready`の選択・タグ・期間でAPKG artifactを生成し、export IDを返す |
+| `/api/expressions` | `POST`, `GET` | 入力保存、LISTS取得・filter |
+| `/api/expressions/:id/generate` | `POST` | 分割案とlevel別Anki候補生成 |
+| `/api/expressions/:id` | `GET`, `PATCH` | 詳細取得、metadata・本文・選択状態の更新 |
+| `/api/anki-exports` | `POST` | 選択条件検証、en-US音声準備、APKG生成、export ID返却 |
 | `/api/anki-exports/:id/download` | `GET` | owner認証後にprivate APKGをstream download |
-| `/api/anki-exports/tsv` | `POST` | フィールド確認・バックアップ用のTSV補助出力 |
+| `/api/diagnostics?probe=1` | `GET` | owner向けDB・AI・TTS・storage・APKG疎通確認 |
 
-すべてのmutationはowner認証を必須にする。raw textを含むエラー詳細はクライアントへ返さず、既存error taxonomyへprovider共通のquota/rate-limit分類を追加する。
+`/api/sentence-variants/:id/register`、`/api/audio/:id`、`/api/anki-exports/tsv`は現行UIでは不要であり、APKG生成フローへ統合後に削除する。音声previewが将来必要になった場合も、米国英語assetを読み取り専用で再生し、生成ボタンは追加しない。
 
-`/api/generation-profiles` のowner更新APIは次スライスで追加する。
+## 6. 音声とAPKG
 
-## 6. 音声とexport
-
-- TTS既定: OpenAI互換Speech API、model `tts-1`、voice `alloy`、speed `1.0`、WAV。server-onlyの`SAYDECK_TTS_API_KEY`（または`OPENAI_API_KEY`）を使う。
-- `word_audio`にはキーフレーズ、`sentence_audio`には英文全文を使う。
-- hashは`kind + text + model + voice + speed + format`で計算し、冪等にする。
-- APKG生成には`ankipack@0.1.3`をexact pinし、custom `SayDeck ES1Kv2` model、固定deck/model ID、固定GUID、2 mediaをadapter越しにだけ使用する。
-- `sql.js` WASMをNode.js Route Handlerで初期化する。package bytesをFunction responseとして返さず、private storage保存後にowner認証download routeから取得する。
-- `ankipack`の互換性gateに失敗した場合は、adapterだけを公式Anki backendを使うworkerへ置き換える。TSV-onlyへ仕様を下げない。
+- TTS requestではprovider、model、voice、locale `en-US`、speed、formatを明示する。
+- 日本語voiceやブラウザ既定voiceへのfallbackは禁止する。失敗時はexportを失敗として返し、再試行可能にする。
+- APKG contract上の`word_audio`と`sentence_audio`に対応するmediaは内部で個別生成するが、APKGが一括同梱するため利用者はWAVを個別管理しない。
+- hashは`kind + text + model + voice + locale + speed + format`で計算し、同じassetを再利用する。
+- APKG生成にはadapterを使い、固定note type、固定model/deck ID、固定GUID、2 mediaを検証する。
+- 正式exportはAPKGだけとし、TSV生成コードとUIを削除する。
 
 ## 7. 削除・移行方針
 
-### 今回削除するもの
+### 現行UIから削除するもの
 
-- 旧日記CSV、旧語彙CSV、手動AI添削prompt、初期実装計画。
+- 旧`ScenePractice`と学習navigation
+- 旧カード、Owner deck、AI添削、回答、採点、完了・要復習UI
+- 新規表現を学習画面へ投影する処理
+- browser-speech fallback
+- 個別の語句音声・例文音声・WAV生成または登録ボタン
+- TSV export UIとAPI
 
-### 置換完了後に削除するもの
+### 当面保持するもの
 
-- 旧`ScenePractice`、旧cards/review/practice/notes API、旧カード生成・練習store、旧Practice向けCSS。
+- 旧`scene_cards`、`practice_records`、`practice_attempts`、`saved_notes`のDB tableとmigration
+- 既存データを復旧・退避するために必要な読み取り可能性
 
-削除gateは、新`/create`、`/library`、音声再生、APKG export、既存練習履歴の表示が動作し、回帰テストを通過していることとする。DB migration `0001`〜`0003`は適用済み環境の再現性のため削除しない。
+削除実装では、INPUT・LISTS・EXPORTおよび認証、現行expression schema、APKG exportに依存するコードを巻き込まない。不要tableのdropは別の明示的なデータ移行判断まで行わない。
 
 ## 8. 受け入れ・運用
 
-- 日本語入力がAI失敗時も残る。
-- 長文が意味単位に分割され、タグが継承される。
-- text編集後に音声がstaleになる。
-- private音声・APKGにowner以外がアクセスできない。
-- 生成APKGをAnki Desktopの空profileへimportし、8 field、deck、tags、2音声、再import更新を確認する。
+- INPUTで日本語入力がAI失敗時も残る。
+- L1〜L4の各候補が固定Ankiフィールドへ対応し、DBへ保存される。
+- LISTSでジャンル、シチュエーション、レベル、作成日時を組み合わせて絞り込める。
+- UIの主要navigationがINPUT、LISTS、EXPORTだけである。
+- 音声生成ボタンとTSV導線が存在しない。
+- 固定fixtureのWordとExample Sentenceを試聴し、米国英語発音であることを人間が確認する。
+- 生成APKGをAnki Desktopの空profileへimportし、8 field、tags、2音声、再import更新を確認する。
+- private APKGにowner以外がアクセスできない。
 - `lint`、`typecheck`、`build`、unit/integration/E2Eを通す。
+
+## 9. 実装シーケンス
+
+```text
+Phase 1: Remove legacy learning / TSV / manual audio UI
+  -> Phase 2: Build INPUT
+  -> Phase 3: Build LISTS
+  -> Phase 4: Build APKG-only EXPORT with en-US audio
+```
+
+- 各phaseは独立したIssueとし、直前phaseの完了を着手条件にする。
+- Phase 1は不要機能の削除に限定し、旧DB tableのdropは行わない。
+- Phase 2〜4では旧実装への互換投影を追加しない。
+- 各phaseでnavigation、API、dead code、テスト、文書の残存参照を確認する。

@@ -3,7 +3,7 @@
 - Status: Superseded
 - Date: 2026-06-02
 
-> Superseded in part by `docs/adr/0010-expression-capture-and-anki-export.md` on 2026-07-20. The existing Practice-first learning flow remains historical context, while expression capture, audio, and Anki export now have independent UI and data boundaries.
+> Superseded by `docs/adr/0013-expression-production-and-apkg-only.md` on 2026-07-20. The Practice-first learning flow is historical context and is not part of the current product scope.
 
 > Historical terminology: this ADR uses the product name at the time. The current product name is `SayDeck`; see `docs/adr/0011-rename-to-saydeck.md`.
 

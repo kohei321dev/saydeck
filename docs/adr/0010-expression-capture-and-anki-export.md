@@ -1,8 +1,10 @@
 # ADR 0010: Expression capture and Anki export pipeline
 
-- Status: Accepted
+- Status: Superseded in part by ADR 0013
 - Date: 2026-07-20
 - Supersedes: ADR 0009の作成導線と情報設計の一部
+
+> ADR 0013により、アプリ内学習との統合、手動の音声登録導線、TSV補助出力は廃止された。expression domain、DB境界、APKG field contractに関する判断は引き続き有効である。
 
 ## Context
 

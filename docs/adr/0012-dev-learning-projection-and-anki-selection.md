@@ -1,8 +1,10 @@
 # ADR-0012: DEVでの学習投影とAnki選択export
 
-- Status: Accepted for DEV validation; superseded for export format by ADR 0010
+- Status: Superseded by ADR 0013
 - Date: 2026-07-20
 - Scope: 登録表現を学習モードへ投影し、Anki取り込み用TSVを選択出力する
+
+> このADRの学習投影、browser-speech fallback、TSV出力は現行要件から削除された。履歴としてのみ保持する。
 
 ## Context
 
