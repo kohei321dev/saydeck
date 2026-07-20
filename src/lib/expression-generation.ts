@@ -3,18 +3,23 @@ import {
   MissingAiApiKeyError,
   getOwnerAiConfig,
 } from "@/lib/ai-config";
+import { generationProfileCodes } from "@/lib/expression-types";
 import type {
   GenerationResult,
   GenerationSegment,
   GenerationVariant,
   GenerationProfileCode,
+  GenerationProfile,
 } from "@/lib/expression-types";
+import { profileByCode } from "@/lib/generation-profiles";
 
 type GenerateExpressionInput = {
   inputJa: string;
   situationJa: string;
   genreSlug: string;
   situationTags: string[];
+  segmentIntents?: string[];
+  profiles: GenerationProfile[];
 };
 
 type XaiResponse = {
@@ -38,20 +43,6 @@ export class ExpressionGenerationError extends Error {
     this.status = status;
   }
 }
-
-const profileDefaults: Record<GenerationProfileCode, string> = {
-  L1: "1文、3〜8語。主語・動詞・必要な補語を中心にする。",
-  L2: "1〜2文、5〜14語。形容詞・副詞・状態表現のいずれかを加える。",
-  L3: "1〜2文、8〜20語。理由または対比を示す。",
-  L4: "1〜2文、8〜24語。質問・誘い・確認など会話要素を含める。",
-};
-
-const profileRules: Record<GenerationProfileCode, { minWords: number; maxWords: number; maxSentences: number }> = {
-  L1: { minWords: 3, maxWords: 8, maxSentences: 1 },
-  L2: { minWords: 5, maxWords: 14, maxSentences: 2 },
-  L3: { minWords: 8, maxWords: 20, maxSentences: 2 },
-  L4: { minWords: 8, maxWords: 24, maxSentences: 2 },
-};
 
 export async function generateExpressionWithAi(
   input: GenerateExpressionInput,
@@ -135,7 +126,18 @@ export async function generateExpressionWithAi(
   }
 
   try {
-    return normalizeGeneration(parseJsonObject(text));
+    const result = normalizeGeneration(parseJsonObject(text), input.profiles);
+    if (!input.segmentIntents?.length) return result;
+    if (result.segments.length !== input.segmentIntents.length) {
+      throw new Error("AI generation did not return the requested meaning units.");
+    }
+    return {
+      ...result,
+      segments: result.segments.map((segment, index) => ({
+        ...segment,
+        intentJa: input.segmentIntents![index],
+      })),
+    };
   } catch (error) {
     throw new ExpressionGenerationError(
       "invalid_response",
@@ -150,12 +152,15 @@ function buildPrompt(input: GenerateExpressionInput): string {
     `場面（日本語）: ${input.situationJa || "未指定"}`,
     `ジャンル: ${input.genreSlug || "未指定"}`,
     `タグ: ${input.situationTags.join(", ") || "未指定"}`,
+    input.segmentIntents?.length
+      ? `意味単位（この順序と件数を必ず使用）: ${input.segmentIntents.map((intent, index) => `${index + 1}. ${intent}`).join(" / ")}`
+      : "意味単位: AIが独立した発話意図だけを分割する。",
     "",
     "出力要件:",
-    "- segmentsは意味単位ごとの配列。通常は1件、独立した発話意図があれば最大4件。",
+    "- segmentsは意味単位ごとの配列。通常は1件、独立した発話意図があれば最大4件。指定された意味単位がある場合は、その件数と順序を守る。",
     "- 各segmentにintentJaとL1〜L4のvariantsを必ず作る。",
-    ...Object.entries(profileDefaults).map(
-      ([level, constraint]) => `- ${level}: ${constraint}`,
+    ...Object.values(profileByCode(input.profiles)).map(
+      (profile) => `- ${profile.code} / ${profile.name}: ${profile.maxSentences}文以内、${profile.minWords}〜${profile.maxWords}語。${profile.instruction}`,
     ),
     "- englishは自然な英文、japaneseは英文の自然な日本語訳。",
     "- keyExpressionは復習したい短い英語表現、definitionJaはその日本語の意味。",
@@ -178,7 +183,7 @@ function buildPrompt(input: GenerateExpressionInput): string {
               keyExpression: "practice ollies",
               definitionJa: "オーリーを練習する",
               irregularForms: "",
-              constraints: profileDefaults.L1,
+              constraints: profileByCode(input.profiles).L1.instruction,
               reviewPoints: "動作を表す動詞を使う",
             },
           ],
@@ -188,13 +193,13 @@ function buildPrompt(input: GenerateExpressionInput): string {
   ].join("\n");
 }
 
-function normalizeGeneration(value: unknown): GenerationResult {
+function normalizeGeneration(value: unknown, profiles: GenerationProfile[]): GenerationResult {
   if (!isRecord(value) || !Array.isArray(value.segments)) {
     throw new Error("AI generation must return a segments array.");
   }
 
   const segments = value.segments
-    .map((segment, index) => normalizeSegment(segment, index))
+    .map((segment, index) => normalizeSegment(segment, index, profiles))
     .filter((segment): segment is GenerationSegment => Boolean(segment));
 
   if (segments.length === 0 || segments.length > 4) {
@@ -208,13 +213,13 @@ function normalizeGeneration(value: unknown): GenerationResult {
   };
 }
 
-function normalizeSegment(value: unknown, position: number): GenerationSegment | null {
+function normalizeSegment(value: unknown, position: number, profiles: GenerationProfile[]): GenerationSegment | null {
   if (!isRecord(value) || !Array.isArray(value.variants)) {
     return null;
   }
 
   const variants = value.variants
-    .map(normalizeVariant)
+    .map((variant) => normalizeVariant(variant, profiles))
     .filter((variant): variant is GenerationVariant => Boolean(variant));
   const byProfile = new Map(variants.map((variant) => [variant.profileCode, variant]));
 
@@ -231,14 +236,14 @@ function normalizeSegment(value: unknown, position: number): GenerationSegment |
   };
 }
 
-function normalizeVariant(value: unknown): GenerationVariant | null {
+function normalizeVariant(value: unknown, profiles: GenerationProfile[]): GenerationVariant | null {
   if (!isRecord(value)) {
     return null;
   }
 
   const profileCode = getString(value.profileCode);
 
-  if (!(profileCode in profileDefaults)) {
+  if (!generationProfileCodes.includes(profileCode as GenerationProfileCode)) {
     return null;
   }
 
@@ -248,16 +253,16 @@ function normalizeVariant(value: unknown): GenerationVariant | null {
     return null;
   }
 
-  const rule = profileRules[profileCode as GenerationProfileCode];
+  const profile = profileByCode(profiles)[profileCode as GenerationProfileCode];
   const wordCount = countEnglishWords(english);
   const sentenceCount = countSentences(english);
 
-  if (wordCount < rule.minWords || wordCount > rule.maxWords) {
-    throw new Error(`${profileCode} must contain ${rule.minWords}-${rule.maxWords} English words.`);
+  if (wordCount < profile.minWords || wordCount > profile.maxWords) {
+    throw new Error(`${profileCode} must contain ${profile.minWords}-${profile.maxWords} English words.`);
   }
 
-  if (sentenceCount > rule.maxSentences) {
-    throw new Error(`${profileCode} must contain at most ${rule.maxSentences} sentence(s).`);
+  if (sentenceCount > profile.maxSentences) {
+    throw new Error(`${profileCode} must contain at most ${profile.maxSentences} sentence(s).`);
   }
 
   return {
@@ -267,7 +272,7 @@ function normalizeVariant(value: unknown): GenerationVariant | null {
     keyExpression: getString(value.keyExpression) || english.split(/\s+/).slice(0, 4).join(" "),
     definitionJa: getString(value.definitionJa),
     irregularForms: getString(value.irregularForms),
-    constraints: getString(value.constraints) || profileDefaults[profileCode as GenerationProfileCode],
+    constraints: getString(value.constraints) || profile.instruction,
     reviewPoints: getString(value.reviewPoints),
   };
 }

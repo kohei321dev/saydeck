@@ -89,6 +89,7 @@ npm run build
 3. `db/migrations/0003-practice-attempts-and-saved-notes.sql`
 4. `db/migrations/0004-saydeck-expressions.sql`
 5. `db/migrations/0005-expression-learning-and-export.sql`
+6. `db/migrations/0006-apkg-only-cleanup.sql`
 
 音声付きAPKGを使う場合は、server-onlyの`SAYDECK_TTS_API_KEY`（または`OPENAI_API_KEY`）と、Productionでは`BLOB_READ_WRITE_TOKEN`を設定します。`SAYDECK_TTS_MODEL`、`SAYDECK_TTS_VOICE`、`SAYDECK_TTS_SPEED`でTTS既定値を変更できます。
 

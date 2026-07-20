@@ -9,10 +9,11 @@ import {
 import {
   AnkiAudioNotReadyError,
   AnkiExportUnavailableError,
-  AnkiSamplesUnavailableError,
   createAnkiExportArtifact,
   getAnkiExportRecords,
 } from "@/lib/anki-export";
+import { AudioRegistrationError, registerSentenceVariantAudio } from "@/lib/expression-store";
+import { MissingTtsApiKeyError } from "@/lib/tts-provider";
 import { logServerError } from "@/lib/log-redaction";
 
 export const runtime = "nodejs";
@@ -33,14 +34,27 @@ export async function POST(request: Request) {
   const from = getString(body.from);
   const to = getString(body.to);
 
-  if (body.includeSamples === true) {
-    return NextResponse.json(
-      { error: { code: "samples_unavailable", message: "音声同梱APKGでは初期サンプルを選択できません。" } },
-      { status: 400 },
-    );
-  }
-
   try {
+    const requestedRecords = await getAnkiExportRecords(ownerLogin, {
+      variantIds,
+      tags,
+      from,
+      to,
+      requireAudio: false,
+    });
+
+    if (requestedRecords.length === 0) {
+      return NextResponse.json(
+        { error: { code: "no_cards", message: "EXPORTする保存済み表現がありません。" } },
+        { status: 404 },
+      );
+    }
+
+    await Promise.all(requestedRecords.map((record) => registerSentenceVariantAudio({
+      ownerLogin,
+      variantId: record.variantId,
+    })));
+
     const records = await getAnkiExportRecords(ownerLogin, {
       variantIds,
       tags,
@@ -48,13 +62,6 @@ export async function POST(request: Request) {
       to,
       requireAudio: true,
     });
-
-    if (records.length === 0) {
-      return NextResponse.json(
-        { error: { code: "no_cards", message: "音声readyの登録済みカードがありません。" } },
-        { status: 404 },
-      );
-    }
 
     const bytes = await buildAnkiPackage(records);
     const exportId = `export_${crypto.randomUUID()}`;
@@ -94,10 +101,17 @@ export async function POST(request: Request) {
       );
     }
 
-    if (error instanceof AnkiSamplesUnavailableError) {
+    if (error instanceof MissingTtsApiKeyError) {
       return NextResponse.json(
-        { error: { code: "samples_unavailable", message: "初期サンプルには同梱用音声がありません。" } },
-        { status: 400 },
+        { error: { code: "tts_not_configured", message: "米国英語音声の生成設定がありません。TTS設定後に再試行してください。" } },
+        { status: 503 },
+      );
+    }
+
+    if (error instanceof AudioRegistrationError) {
+      return NextResponse.json(
+        { error: { code: error.code, message: "米国英語音声の準備に失敗しました。時間を置いて再試行してください。" } },
+        { status: error.code === "provider_quota" ? 429 : 502 },
       );
     }
 

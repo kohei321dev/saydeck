@@ -1,5 +1,4 @@
 import { getSql, isDatabaseConfigured } from "@/lib/db";
-import { getSampleSceneCards } from "@/lib/card-store";
 import type { GenerationProfileCode } from "@/lib/expression-types";
 
 export type AnkiExportFilter = {
@@ -7,7 +6,6 @@ export type AnkiExportFilter = {
   tags?: string[];
   from?: string;
   to?: string;
-  includeSamples?: boolean;
   requireAudio?: boolean;
 };
 
@@ -50,6 +48,7 @@ type ExportRow = {
   audio_kind: "word" | "sentence" | null;
   audio_blob_path: string | null;
   audio_provider: string | null;
+  audio_locale: string | null;
   audio_status: "pending" | "ready" | "failed" | "stale" | null;
 };
 
@@ -64,13 +63,6 @@ export class AnkiAudioNotReadyError extends Error {
   constructor() {
     super("Selected cards do not have both provider-backed audio assets ready.");
     this.name = "AnkiAudioNotReadyError";
-  }
-}
-
-export class AnkiSamplesUnavailableError extends Error {
-  constructor() {
-    super("Initial sample cards do not have exportable audio assets.");
-    this.name = "AnkiSamplesUnavailableError";
   }
 }
 
@@ -103,6 +95,7 @@ export async function getAnkiExportRecords(
       a.kind as audio_kind,
       a.blob_path as audio_blob_path,
       a.provider as audio_provider,
+      a.locale as audio_locale,
       a.status as audio_status
     from sentence_variants v
     join sentence_cards c on c.id = v.sentence_card_id and c.owner_login = v.owner_login
@@ -110,7 +103,7 @@ export async function getAnkiExportRecords(
     left join audio_assets a on a.variant_id = v.id and a.owner_login = v.owner_login
     where v.owner_login = ${ownerLogin}
       and e.status = 'registered'
-      and v.is_selected = true
+      and (${variantIds.length > 0} or v.is_selected = true)
       and v.status <> 'archived'
       and e.registered_at is not null
       and (${variantIds.length === 0} or v.id = any(${sql.array(variantIds)}))
@@ -124,13 +117,6 @@ export async function getAnkiExportRecords(
 
   if (filter.requireAudio && records.some((record) => !hasReadyAudio(record))) {
     throw new AnkiAudioNotReadyError();
-  }
-
-  if (filter.includeSamples) {
-    if (filter.requireAudio) {
-      throw new AnkiSamplesUnavailableError();
-    }
-    records.push(...sampleCardsToAnkiRecords(await getSampleSceneCards(), filter));
   }
 
   return records;
@@ -224,7 +210,7 @@ function rowsToRecords(rows: ExportRow[]): AnkiExportRecord[] {
 }
 
 function appendMedia(media: AnkiMediaRef[], row: ExportRow): void {
-  if (!row.audio_kind || !row.audio_blob_path || row.audio_status !== "ready" || row.audio_provider === "browser-speech") return;
+  if (!row.audio_kind || !row.audio_blob_path || row.audio_status !== "ready" || row.audio_locale !== "en-US") return;
   const safeId = row.variant_id.replace(/[^A-Za-z0-9_-]/g, "_");
   const filename = row.audio_kind === "word"
     ? `saydeck_word_${safeId}.wav`
@@ -237,69 +223,6 @@ function appendMedia(media: AnkiMediaRef[], row: ExportRow): void {
 function hasReadyAudio(record: AnkiExportRecord): boolean {
   return record.media?.some((item) => item.kind === "word") === true
     && record.media?.some((item) => item.kind === "sentence") === true;
-}
-
-function sampleCardsToAnkiRecords(
-  cards: Awaited<ReturnType<typeof getSampleSceneCards>>,
-  filter: AnkiExportFilter,
-): AnkiExportRecord[] {
-  const ids = new Set(normalizeList(filter.variantIds));
-  const tags = new Set(normalizeList(filter.tags));
-  const from = normalizeDate(filter.from);
-  const to = normalizeDate(filter.to);
-
-  return cards.flatMap((card) => card.levels.map((level) => {
-    const variantId = `sample:${card.id}:${level.level}`;
-    const registeredAt = card.createdAt ?? "1970-01-01T00:00:00.000Z";
-    const cardTags = ["source::saydeck", `genre::${slug(card.category)}`, ...card.tags.map((tag) => `situation::${slug(tag)}`), `difficulty::${slug(level.level)}`];
-    const safeId = variantId.replace(/[^A-Za-z0-9_-]/g, "_");
-    return {
-      variantId,
-      ankiGuid: `sb_${safeId}`,
-      registeredAt,
-      deckName: `SayDeck::${slug(card.category)}`,
-      fields: [
-        `sb_${safeId}`,
-        keyExpression(level.answerEn),
-        level.answerJa,
-        "",
-        level.answerEn,
-        level.answerJa,
-        `[sound:saydeck_word_${safeId}.wav]`,
-        `[sound:saydeck_sentence_${safeId}.wav]`,
-      ] as AnkiExportRecord["fields"],
-      tags: cardTags,
-    };
-  })).filter((record) => {
-    const date = new Date(record.registeredAt).getTime();
-    return (ids.size === 0 || ids.has(record.variantId))
-      && (tags.size === 0 || record.tags.some((tag) => tags.has(tag) || tag.endsWith(`::${[...tags][0] ?? ""}`)))
-      && (!from || date >= new Date(from).getTime())
-      && (!to || date < new Date(to).getTime());
-  });
-}
-
-function keyExpression(value: string): string {
-  return value.split(/\s+/).filter(Boolean).slice(0, 4).join(" ").replace(/[.,!?]+$/, "");
-}
-
-export function recordsToAnkiTsv(records: AnkiExportRecord[]): string {
-  return records
-    .map((record) => `${record.fields.map(escapeField).join("\t")}\t${record.tags.map(escapeTag).join(" ")}`)
-    .join("\n") + (records.length ? "\n" : "");
-}
-
-function escapeField(value: string): string {
-  return value
-    .replace(/&(?!amp;|lt;|gt;|quot;|#39;)/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/\r?\n/g, "<br>")
-    .replace(/\t/g, " ");
-}
-
-function escapeTag(value: string): string {
-  return value.replace(/\s+/g, "_").replace(/\t/g, "_");
 }
 
 function normalizeList(value: string[] | undefined): string[] {

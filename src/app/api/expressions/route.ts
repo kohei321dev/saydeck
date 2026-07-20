@@ -47,10 +47,11 @@ export async function POST(request: Request) {
 
   const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
   const inputJa = getString(body?.inputJa);
+  const situationJa = getString(body?.situationJa);
 
-  if (!inputJa) {
+  if (!inputJa || !situationJa) {
     return NextResponse.json(
-      { error: { code: "invalid_input", message: "言いたいことを日本語で入力してください。" } },
+      { error: { code: "invalid_input", message: "言いたいこととシチュエーションを日本語で入力してください。" } },
       { status: 400 },
     );
   }
@@ -66,7 +67,7 @@ export async function POST(request: Request) {
     const entry = await createExpressionEntry({
       ownerLogin,
       inputJa,
-      situationJa: getString(body?.situationJa).slice(0, 1_000),
+      situationJa: situationJa.slice(0, 1_000),
       genreSlug: normalizeGenre(body?.genreSlug),
       situationTags: readTags(body?.situationTags),
     });
