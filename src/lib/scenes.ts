@@ -5,6 +5,8 @@ import {
 
 export type SceneCard = {
   id: string;
+  source?: "sample" | "owner" | "expression";
+  createdAt?: string;
   category: string;
   sceneJa: string;
   promptEn: string;

@@ -5,7 +5,7 @@
 
 ## Purpose
 
-Scene BuilderのAPI、UI、server logで同じエラー分類を使い、失敗原因とユーザーの次アクションを追いやすくする。
+SayDeckのAPI、UI、server logで同じエラー分類を使い、失敗原因とユーザーの次アクションを追いやすくする。
 
 この文書は分類とresponse shapeを決める。各API routeへの適用は、後続PRで小さく進める。
 

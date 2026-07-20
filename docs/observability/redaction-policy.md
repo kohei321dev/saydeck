@@ -5,7 +5,7 @@
 
 ## Purpose
 
-Scene Builderのログは、障害調査に必要な原因分類だけを残し、secret、個人情報、学習回答の本文を保存しない。
+SayDeckのログは、障害調査に必要な原因分類だけを残し、secret、個人情報、学習回答の本文を保存しない。
 
 ## Log Fields
 

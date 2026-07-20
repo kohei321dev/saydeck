@@ -75,7 +75,7 @@ async function SignInContent({ searchParams }: Props) {
   return (
     <main className="auth-page">
       <section className="auth-panel">
-        <h1>Scene Builder</h1>
+        <h1>SayDeck</h1>
         <p>
           GitHubログインで利用できます。@{ownerGithubUsername} はowner、それ以外はviewerです。
         </p>

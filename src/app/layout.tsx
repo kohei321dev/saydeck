@@ -3,8 +3,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Scene Builder",
-  description: "Scene-based English sentence building practice.",
+  title: "SayDeck",
+  description: "Capture what you want to say and turn it into English study cards.",
 };
 
 export default function RootLayout({
@@ -18,4 +18,3 @@ export default function RootLayout({
     </html>
   );
 }
-

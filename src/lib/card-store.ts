@@ -9,6 +9,8 @@ type SceneCardSource = "sample" | "owner";
 
 type SceneCardRow = {
   id: string;
+  source?: "sample" | "owner";
+  created_at?: Date | string;
   category: string;
   scene_ja: string;
   prompt_en: string;
@@ -169,7 +171,8 @@ export async function deleteStoredSceneCard(cardId: string): Promise<boolean> {
 async function getSceneCardsBySource(source: SceneCardSource): Promise<SceneCard[]> {
   const sql = getSql();
   const rows = await sql<SceneCardRow[]>`
-    select id, category, scene_ja, prompt_en, prompt_ja, tags, levels
+    select id, category, prompt_en, prompt_ja, tags, levels, source, created_at,
+      scene_ja
     from scene_cards
     where source = ${source}
     order by position asc, created_at asc, id asc
@@ -199,6 +202,8 @@ async function pruneStoredSceneCards(): Promise<void> {
 function rowToSceneCard(row: SceneCardRow): SceneCard | null {
   return normalizeSceneCard({
     id: row.id,
+    source: row.source,
+    createdAt: row.created_at ? toIso(row.created_at) : undefined,
     category: row.category,
     sceneJa: row.scene_ja,
     promptEn: row.prompt_en,
@@ -206,6 +211,10 @@ function rowToSceneCard(row: SceneCardRow): SceneCard | null {
     tags: row.tags,
     levels: row.levels,
   });
+}
+
+function toIso(value: Date | string): string {
+  return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
 }
 
 function normalizeSceneCard(value: unknown): SceneCard | null {
@@ -229,6 +238,8 @@ function normalizeSceneCard(value: unknown): SceneCard | null {
 
   return {
     id,
+    source: value.source === "sample" || value.source === "owner" ? value.source : undefined,
+    createdAt: getString(value.createdAt) || undefined,
     category: getString(value.category) || "custom",
     sceneJa,
     promptEn,

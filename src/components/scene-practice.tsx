@@ -19,6 +19,7 @@ import {
 
 import type { RuntimeDiagnostics } from "@/lib/runtime-diagnostics";
 import type { SceneCard } from "@/lib/scenes";
+import { SpeechButton } from "@/components/speech-button";
 
 type Props = {
   cardPersistenceConfigured?: boolean;
@@ -946,7 +947,7 @@ export function ScenePractice({
     setDiagnosticsError(null);
 
     try {
-      const response = await fetch("/api/diagnostics");
+      const response = await fetch("/api/diagnostics?probe=1");
       const payload = (await response.json().catch(() => ({}))) as {
         diagnostics?: RuntimeDiagnostics;
         error?: string;
@@ -1030,7 +1031,7 @@ export function ScenePractice({
     <div className="practice-shell">
       <section className="mode-hero" aria-label="モード選択">
         <div className="mode-copy">
-          <span>Scene Builder</span>
+          <span>SayDeck</span>
           <h1>今日の1シーン</h1>
         </div>
         <div className="mode-actions">
@@ -1466,7 +1467,10 @@ export function ScenePractice({
                 {showModel ? (
                   <div className="model-answer">
                     <h3>Model answer</h3>
-                    <p className="model-en">{selectedLevelData?.answerEn}</p>
+                    <div className="model-answer-line">
+                      <p className="model-en">{selectedLevelData?.answerEn}</p>
+                      {selectedLevelData?.answerEn ? <SpeechButton label="再生" text={selectedLevelData.answerEn} /> : null}
+                    </div>
                     <p>{selectedLevelData?.answerJa}</p>
                   </div>
                 ) : null}
@@ -1815,6 +1819,27 @@ function buildCardDecks(
     });
   }
 
+  const tagMap = new Map<string, string[]>();
+
+  for (const card of cards) {
+    for (const tag of card.tags) {
+      const tagCardIds = tagMap.get(tag) ?? [];
+      tagCardIds.push(card.id);
+      tagMap.set(tag, tagCardIds);
+    }
+  }
+
+  for (const [tag, cardIds] of [...tagMap.entries()].sort((a, b) =>
+    a[0].localeCompare(b[0]),
+  )) {
+    decks.push({
+      id: `tag:${tag}`,
+      title: `#${tag}`,
+      description: "タグ",
+      cardIds: [...new Set(cardIds)],
+    });
+  }
+
   return decks;
 }
 
@@ -1940,7 +1965,28 @@ function DiagnosticsSummary({
           label="GitHub"
         />
         <DiagnosticsRow isReady={diagnostics.database.configured} label="Database" />
+        <DiagnosticsRow
+          isReady={diagnostics.database.probeStatus === "connected"}
+          label="Database connection"
+          notReadyLabel={diagnostics.database.probeStatus === "not_configured" ? "未設定" : "未接続"}
+        />
+        <DiagnosticsRow
+          isReady={diagnostics.database.expressionSchemaReady}
+          label="expression schema"
+          notReadyLabel={diagnostics.database.probeStatus === "connected" ? "未適用" : "未確認"}
+        />
         <DiagnosticsRow isReady={diagnostics.ai.apiKeyConfigured} label="AI key" />
+        <DiagnosticsRow
+          isReady={diagnostics.ai.probeStatus === "connected"}
+          label="AI connection"
+          notReadyLabel={diagnostics.ai.probeStatus === "not_configured" ? "未設定" : "未接続"}
+        />
+        <DiagnosticsRow isReady={diagnostics.media.ttsConfigured} label="TTS key" notReadyLabel="未設定（DEVはbrowser-speech）" />
+        <DiagnosticsRow
+          isReady={diagnostics.media.blobConfigured || diagnostics.media.localFallbackAllowed}
+          label="Private media storage"
+          notReadyLabel="未設定"
+        />
         <DiagnosticsRow
           isReady={
             diagnostics.cards.persistenceConfigured && diagnostics.cards.schemaReady
