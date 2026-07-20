@@ -1,21 +1,26 @@
 # SayDeck
 
-現実の場面で「こう言いたい」と思った日本語を、AIによる英文候補・音声・Ankiカードへ変換する個人向け英語学習アプリです。
+現実の場面で「こう言いたい」と思った日本語を、AIでAnki向けの英語表現へ変換・蓄積し、米国英語音声付きAPKGとして書き出す個人向けアプリです。
 
 スケートボード場面を主な出発点にしつつ、日常会話や旅行などにも使える表現を蓄積します。
+
+## Production
+
+- [SayDeckを開く](https://scene-builder-tau.vercel.app)
 
 ## Current direction
 
 ```text
-日本語の思いつき
-  -> 保存
-  -> L1〜L4のAI英文候補
-  -> 分割・編集・承認
-  -> 音声付きカード登録
-  -> アプリ内再生 / 音声付きAnki APKG export
+INPUT: 日本語の言いたいこと + シチュエーション
+  -> AIがL1〜L4の基本ワード・例文・Ankiフィールドを生成
+  -> 確認・修正してDBへ保存
+LISTS: ジャンル・シチュエーション・レベル・作成日時で一覧・選択
+EXPORT: 米国英語音声を内部生成し、音声同梱Anki APKGをdownload
 ```
 
-既存のシーン練習と練習履歴は保持します。新しい教材化・音声・Anki export機能は、専用domainとして段階的に置き換えます。
+SayDeckの主要画面は`INPUT`、`LISTS`、`EXPORT`の3つです。アプリ内学習・AI添削・練習履歴は現行要件に含めず、復習はAnkiで行います。正式なexport形式はAPKGのみで、TSVや個別WAV操作は提供しません。
+
+MVP実装は、最初に旧学習・TSV・手動音声導線を削除し、その後`INPUT` → `LISTS` → `EXPORT`の順で進めます。
 
 ## Documentation
 
@@ -25,6 +30,7 @@
 - [Anki Export Specification](docs/specifications/anki-export.md)
 - [ADR 0010: Expression capture and Anki export pipeline](docs/adr/0010-expression-capture-and-anki-export.md)
 - [ADR 0011: Rename to SayDeck](docs/adr/0011-rename-to-saydeck.md)
+- [ADR 0013: Expression production and APKG-only product scope](docs/adr/0013-expression-production-and-apkg-only.md)
 - [既存ADR運用ガイド](docs/ADR.md)
 
 旧アプリ名由来のブラウザ保存キーと本番domainは、既存データとOAuthを守るために移行完了まで維持する。詳細はADR 0011とdeployment guideを参照する。
@@ -42,7 +48,7 @@ DEV_AUTH_BYPASS=1 npm run dev
 `db/migrations/0004-saydeck-expressions.sql`と`0005-expression-learning-and-export.sql`をNeonへ適用してください。英文候補の生成には
 server-sideの`OWNER_AI_KEY`（許可モデル`grok-4.3`）も必要です。どちらかが未設定でも、入力画面は表示され、DB保存失敗時は入力をlocalStorageへ退避します。
 
-学習モードの`Owner deck`には登録済み表現が自動で追加されます。`/export`ではカード個別選択、タグ、登録期間で音声付き`.apkg`を作成できます。TSVはフィールド確認用の補助出力です。TTS keyがないlocalhostではbrowser-speech fallbackになり、APKG候補には入りません。TTS keyがあれば、Blob tokenがないlocalhostでも`.saydeck-storage`を使ってAPKGまで検証できます。
+`LISTS`では生成済み表現を個別選択し、ジャンル、シチュエーション、レベル、作成日時などで絞り込めます。`EXPORT`では選択した表現から米国英語音声付き`.apkg`を作成します。音声生成はAPKG作成の内部処理です。TTS keyがあれば、Blob tokenがないlocalhostでも`.saydeck-storage`を使ってAPKGまで検証できます。
 
 ownerでログインした状態では、既存画面の診断パネルからDB接続、表現schema、AI providerの疎通を確認できます。APIでは`GET /api/diagnostics?probe=1`が同じ確認を行い、secretやprovider本文は返しません。
 
@@ -71,7 +77,7 @@ npm run build
 
 ## Current persistence
 
-- Neon/Postgres: 既存カード、練習状態、練習履歴、保存ノート。`0004`で表現・variant・音声metadata・export状態、`0005`で登録日時・Anki index・DEV音声assetを追加する。
+- Neon/Postgres: 表現入力、意味単位、L1〜L4 variant、分類metadata、Anki index、音声metadata、export状態。旧カード・練習状態・練習履歴・保存ノートは移行安全性のため当面保持するが、現行UIでは使用しない。
 - private object storage: 新仕様の音声binaryとAPKG artifact。本文やAPI keyは保存しない。
 - local development storage: TTS/APKGのlocalhost検証時だけ`.saydeck-storage`へ保存できる。Productionではprivate Blobを必須にする。
 - localStorage: 未同期のQuick Capture入力だけを一時退避する。

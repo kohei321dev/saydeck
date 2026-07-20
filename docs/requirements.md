@@ -2,53 +2,75 @@
 
 - Status: Accepted
 - Date: 2026-07-20
-- Related: `docs/product-brief.md`, `docs/design.md`, `docs/specifications/anki-export.md`, `docs/adr/0010-expression-capture-and-anki-export.md`
+- Related: `docs/product-brief.md`, `docs/design.md`, `docs/specifications/anki-export.md`, `docs/adr/0013-expression-production-and-apkg-only.md`
 
 ## 1. 目的と成功条件
 
 ### Why
 
-学習者が実際のスケートボード中や日常会話で「こう言いたい」と思った瞬間に、その気づきを失わず、自然な英語表現とAnki学習カードへ変換できるようにする。
+学習者がスケートボード中や日常会話で「こう言いたい」と思った瞬間の日本語を失わず、自然な英語表現へ変換し、Ankiで継続的に振り返れるようにする。
 
 ### What
 
-日本語で表現を入力し、AIで難易度別の英文候補を作り、人間が確認して音声付きカードとして保存・再生・Anki exportできる個人学習アプリにする。
+日本語の`言いたいこと`と`シチュエーション`を受け取り、AIがジャンル、シチュエーション、レベルに合う基本ワードと例文を複数生成する。生成結果をAnkiフィールド契約に沿ってDBへ保存し、一覧から選択した表現を米国英語音声付きAPKGとして出力する。
+
+SayDeckの主要機能は次の2つに限定する。
+
+1. 英語表現を生成してDBへ蓄積・整理する。
+2. 蓄積した表現をAnki用APKGとしてexportする。
+
+UIはこの責務を`INPUT`、`LISTS`、`EXPORT`の3画面で表現する。
 
 ### 成功条件
 
-- iOSブラウザを含む任意の画面から、1つの日本語入力をすぐ保存できる。
+- iOSブラウザから日本語の言いたいこととシチュエーションをすぐ入力できる。
 - 入力がAI失敗や通信失敗で失われない。
-- L1〜L4の英文候補を編集・選択できる。
-- 長い内容は意味を壊さない分割案として確認でき、分割カードに共通タグが引き継がれる。
-- 登録済みカードはキーフレーズ音声と例文音声をアプリ内で再生できる。
-- ブラウザから、Ankiでimport可能な音声同梱`.apkg`を取得できる。
+- L1〜L4ごとに基本ワードと例文を生成し、Anki用の固定フィールドへ対応付けられる。
+- 生成結果をDBへ保存し、ジャンル、シチュエーション、レベル、作成日時で一覧・絞り込み・選択できる。
+- ブラウザから、Ankiでimport可能な米国英語音声同梱`.apkg`を取得できる。
+- 画面にアプリ内学習、AI添削、TSV、個別WAV生成の導線が表示されない。
 
 ## 2. 対象ユーザーと利用文脈
 
 - Primary user: 本人（owner）
 - Primary device: iOSブラウザ、必要に応じてdesktop browser
 - 利用場面: スケートボード中・移動中・日常で表現を思いついた直後
-- セッション: 数十秒で入力保存、数分でAI生成・確認・登録
+- セッション: 数十秒で入力、数分でAI生成結果の確認・保存、必要時にAPKG export
 
-初期版では、作成、音声再生、Anki exportはownerだけに許可する。共有、共同編集、公開deckは対象外とする。
+初期版では、作成、編集、一覧、Anki exportはownerだけに許可する。共有、共同編集、公開deckは対象外とする。
 
-## 3. 機能要件
+## 3. 情報設計
 
-### FR-1: Quick Capture
+| Screen | Route | Responsibility | Primary action |
+| --- | --- | --- | --- |
+| `INPUT` | `/input` | 日本語入力、AI生成、結果確認、DB保存 | `表現を生成して保存` |
+| `LISTS` | `/lists` | 生成済み表現の一覧、検索、絞り込み、編集、export選択 | `選択してEXPORTへ` |
+| `EXPORT` | `/export` | 選択条件の確認、APKG生成、download | `APKGを作成` |
 
-- すべての主要画面から`表現を作る`へ移動できる。
-- 必須入力は`言いたいこと（日本語）`だけとする。
-- `場面（日本語）`、ジャンル、シチュエーションタグは任意入力とし、AIが候補を提案する。
-- 送信前にブラウザのlocalStorageへ一時退避し、Neonへの保存成功後に消す。
-- オフラインまたは保存失敗時は`未同期`として残し、次回起動または再試行時に同期する。
+- グローバルナビゲーションは上記3項目だけを主要導線として表示する。
+- `/`は`/input`へ遷移する。
+- `学習`、旧カード、練習履歴、AI添削、Owner deckは現行UIに表示しない。
+- `語句音声を生成`、`WAVを生成`、`音声を登録`など、内部処理を利用者へ露出する操作を置かない。
+
+## 4. 機能要件
+
+### FR-1: INPUT
+
+- 必須入力は`言いたいこと（日本語）`と`シチュエーション（日本語）`とする。
+- ジャンルは任意入力とし、未指定時はAIが提案する。
+- 送信前に入力をブラウザのlocalStorageへ一時退避し、DB保存成功後に消す。
+- AIまたはDB保存に失敗した場合は入力を保持し、再試行できる。
+- 入力、AI生成、確認・修正、DB保存を1つの連続した画面フローにする。
 
 ### FR-2: 難易度別AI生成
 
-- 保存済み入力から、各意味単位についてL1〜L4の英文・和訳・キーフレーズを生成する。
-- `keyExpression`をAnkiの`Word`、`english`を`Example Sentence`として扱う。`Word`は単語1語に限定せず、学習価値のある短いキーフレーズを許容する。
-- AIは、英文、和訳、キーフレーズ、キーフレーズの日本語の意味、不規則変化、制約根拠を構造化データで返す。
-- ユーザーは生成後に英文、和訳、キーフレーズ、タグを編集できる。
-- 語数と文数はサーバーで検証する。品詞・会話要素はAIの根拠表示と人間確認を併用する。
+- AIは意味単位ごとにL1〜L4の候補を生成する。
+- 各候補はAnkiの固定フィールドに対応する構造化データとして返す。
+- `keyExpression`を`Word`、`english`を`Example Sentence`として扱う。`Word`は単語1語に限定せず、学習価値のある短い基本フレーズを許容する。
+- AIは`Word`、`Definition`、`Irregular Forms`、`Example Sentence`、`Translation`に加えて、ジャンルとシチュエーションタグを返す。
+- `Index`、音声field、GUIDはシステムが生成し、AIへ生成させない。
+- ユーザーは保存前後に本文、訳、基本ワード、ジャンル、シチュエーションタグを修正できる。
+- 生成した候補はDBへ保存し、LISTSで参照可能にする。
 
 | Profile | Purpose | Default constraint |
 | --- | --- | --- |
@@ -57,64 +79,71 @@
 | L3 / Reason | 理由・結果・対比を加える | 1〜2文、8〜20語、理由または対比を示す |
 | L4 / Conversation | 会話として返す | 1〜2文、8〜24語、質問・誘い・確認などを含める |
 
-- L1〜L4の語数、文数、必須要素、AI指示はowner用設定画面で変更できる。
-- `主語と動詞のみ`は、文法的に不自然な二語文ではなく、修飾を抑えた最小の文として扱う。
-
 ### FR-3: 意味単位の分割
 
-- 生成文がプロファイルの最大語数・文数を超える、または入力に独立した発話意図が複数ある場合、AIは意味単位の分割案を返す。
+- 入力に独立した発話意図が複数ある場合、AIは意味単位の分割案を返す。
 - ユーザーは保存前に分割、結合、並べ替えを行える。
-- 分割後のカードは同一の親入力に属し、ジャンルとシチュエーションタグを継承する。
-- 分割・結合で意味単位が変わった場合、その単位のAI候補を再生成する。
+- 分割後の表現は同一の親入力に属し、ジャンルとシチュエーションタグを継承する。
 
-### FR-4: タグとカード状態
+### FR-4: LISTS
 
-- 1つの入力にジャンル1件とシチュエーションタグ0件以上を保存する。
-- 難易度はvariantごとにL1〜L4として保存し、Anki export時にタグ化する。
-- 生成した全variantはDBへ保存する。音声化・exportするvariantはユーザーが選ぶ。
-- variantの状態は`draft`、`approved`、`audio_ready`、`audio_failed`、`stale`、`archived`とする。
+- DBに保存された生成済み表現を一覧表示する。
+- ジャンル、シチュエーション、レベル、作成日時、更新日時、キーワードで絞り込める。
+- 複数条件を組み合わせ、件数と選択状態を確認できる。
+- 表現を個別または一括選択し、EXPORTへ引き継げる。
+- 一覧と詳細から生成内容を確認・修正できる。
+- `Deck`は固定の保存単位ではなく、LISTSの絞り込み条件から作る論理的なグループとして扱う。
+- 音声の内部状態は、export不能時の理由として必要な場合だけ表示し、個別WAV操作は提供しない。
 
-### FR-5: 音声登録と再生
+### FR-5: 米国英語音声
 
-- `approved` variantを登録すると、キーフレーズと英語例文全文の2音声を生成する。
-- 音声は米国英語として生成し、既定値はOpenAI互換Speech APIの`tts-1`、`alloy`、speed `1.0`、WAVとする。providerはserver-side adapterとして差し替え可能にする。
-- 音声binaryはprivate object storageへ保存し、DBにはprovider、model、voice、speed、format、hash、path、statusだけを保存する。
-- 2音声の保存が完了したvariantだけを`audio_ready`にする。
-- 本文、voice、model、速度、formatが変わった音声は`stale`にし、再登録時に再生成する。
-- Libraryでは音声状態と再生操作を表示する。MVPの失敗時はWordとExample Sentenceの2音声を1組として再試行する。
+- APKGに含める英語音声は米国英語（`en-US`）として生成する。
+- 日本語voiceまたはブラウザ既定voiceへfallbackしてAPKGへ含めてはならない。
+- provider、model、voice、locale、speed、formatをserver側で明示し、生成後のmetadataへ保存する。
+- 実際の出力が米国英語として聞こえることを、固定fixtureと人間による試聴でrelease gateにする。
+- APKG契約で必要な`word_audio`と`sentence_audio`はシステムが内部生成する。ユーザーに音声登録やWAV生成ボタンを操作させない。
 
-### FR-6: Anki Export
+### FR-6: APKG Export
 
-- `audio_ready` variantを任意選択し、`.apkg`としてexportする。
-- exportは音声、note type、deck、tagsを同梱する。
-- `Index`、`Word`、`Definition`、`Irregular Forms`、`Example Sentence`、`Translation`、`word_audio`、`sentence_audio`の8フィールドと、その順序を固定する。
-- exportは同じvariantを再度importしたときに重複しないよう、固定GUIDと固定model/deck IDを使用する。
-- Anki contractの詳細は`docs/specifications/anki-export.md`を正本とする。
+- LISTSから選択された表現、または同等の絞り込み条件を対象に`.apkg`を生成する。
+- export前に必要な米国英語音声をシステムが生成または再利用し、APKGへ同梱する。
+- APKGはnote type、deck、tags、音声mediaを1ファイルに内包する。利用者がWAVを個別に管理する必要はない。
+- `Index`、`Word`、`Definition`、`Irregular Forms`、`Example Sentence`、`Translation`、`word_audio`、`sentence_audio`の8フィールドと順序を固定する。
+- 固定GUIDと固定model/deck IDにより、同じ表現の再importで重複させない。
+- 正式なdownload形式はAPKGのみとし、TSV export UI・APIは提供しない。
+- 詳細は`docs/specifications/anki-export.md`を正本とする。
 
-TSVはAPKGの代替ではない。フィールド確認やテキストバックアップの補助形式としてだけ提供し、音声付き学習カードの正式なdownload形式にはしない。
-
-## 4. 非機能要件
+## 5. 非機能要件
 
 - Neon/Postgresを構造化データの正本とする。音声binaryやAPKG binaryをDBへ保存しない。
 - 音声とexport artifactはprivate object storageに保存し、認証済みownerだけが取得できる。
 - API key、Blob token、raw AI response、入力全文、署名URLをapplication logに出さない。
-- AI生成、TTS、Blob保存、APKG生成はそれぞれ再試行可能で、片方の失敗で入力や確定済み本文を失わない。
+- AI生成、TTS、Blob保存、APKG生成はそれぞれ再試行可能にする。
 - 主要操作はiOSの縦長画面・片手操作・横スクロールなしで完結する。
 
-## 5. 非対象
+## 6. 非対象
 
+- アプリ内学習、英作文回答、AI添削、採点、練習履歴、復習キュー
+- TSV、CSV、個別WAVのexport
 - AnkiWeb、AnkiConnect、AnkiDroid APIとの直接同期
 - 日本語音声、発音採点、音声認識
 - 自動公開deck、他ユーザー共有、共同編集
 - AI生成結果を人間確認なしで自動exportすること
-- 既存`scene_cards`、練習履歴、保存ノートの一括移行・削除
 
-## 6. DEV検証済みの追加スライス
+## 7. 既存機能の扱い
 
-- `registered`の表現カードは既存の学習モードから選択でき、既存の練習履歴へ保存する。
-- AI生成レスポンスからジャンルslugとシチュエーションタグを提案し、入力済みの値を優先して保存する。
-- 登録日時を保持し、LibraryとAnki exportの期間フィルタへ利用する。
-- Ankiの8フィールド、deck、tags、2音声を、個別選択・タグ絞り込み・登録日以降/期間指定でAPKG出力する。TSVは同じフィルタを使える補助出力とする。
-- DEVではTTS key未設定時にbrowser-speechをfallbackとして画面再生できるが、これは`audio_ready`やAPKGのmedia要件を満たさない。
-- TTS keyとprivate binary storageが利用できる環境では、選択variantのWAVを生成・保存し、`audio_ready`だけをAPKG export候補にする。DEVではprivate Blobの代わりにlocal binary storageを許可する。
-- `/api/anki-exports`はAPKG生成とartifact ID返却、`/api/anki-exports/:id/download`はowner認証済みdownloadを担当する。TSVは`/api/anki-exports/tsv`の補助APIとする。
+- 旧`ScenePractice`、旧カード、review/practice/notes API、学習投影、browser-speech fallback、TSV APIは削除対象とする。
+- 旧`scene_cards`、`practice_records`、`practice_attempts`、`saved_notes`のデータとmigrationは、安全な移行・復旧のため当面保持する。
+- 旧データを新しい表現domainへ二重書き込みまたは自動投影しない。
+- 削除は別Issueで実装し、現行のINPUT・LISTS・EXPORTに必要なデータを巻き込まないことをテストする。
+
+## 8. MVP実装順序
+
+実装は次の順序で行う。後続phaseを先行させない。
+
+1. **Phase 1 — Cleanup**: 旧学習UI・API、学習投影、browser-speech fallback、TSV、手動音声生成導線を削除する。
+2. **Phase 2 — INPUT**: 日本語入力からAI生成、確認・修正、Ankiフィールド準拠のDB保存までを完成させる。
+3. **Phase 3 — LISTS**: 保存済み表現の一覧、複合filter、論理group、編集、export選択を完成させる。
+4. **Phase 4 — EXPORT**: LISTSの選択を受け取り、米国英語音声を内部生成してAPKGだけを出力する。
+
+Phase 1では旧DB tableとmigrationを削除しない。現行expression・認証・APKG実装に必要な依存を誤って削除しないことを確認してから、Phase 2へ進む。

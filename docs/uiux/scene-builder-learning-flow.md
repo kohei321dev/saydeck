@@ -1,5 +1,7 @@
 # Scene Builder Learning Flow
 
+> Status: Superseded by `docs/adr/0013-expression-production-and-apkg-only.md`. This document describes the removed Practice-first learning flow and is retained only as historical context.
+
 - Date: 2026-06-02
 - Related ADR: `docs/adr/0009-scene-builder-ux-architecture.md`
 - Related Interview: `docs/uiux/scene-builder-ux-brainstorming.md`

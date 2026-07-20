@@ -1,5 +1,7 @@
 # Scene Builder UX Interview and Brainstorming Note
 
+> Status: Superseded by `docs/adr/0013-expression-production-and-apkg-only.md`. The learning-mode assumptions in this document are no longer current requirements.
+
 - Date: 2026-06-02
 - Related ADR: `docs/adr/0009-scene-builder-ux-architecture.md`
 - Related Issue: #22
