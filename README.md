@@ -1,95 +1,99 @@
-# Scene Builder
+# SayDeck
 
-英検3級レベルから、日常会話で使える英語を増やすための個人学習プロジェクトです。
+現実の場面で「こう言いたい」と思った日本語を、AIによる英文候補・音声・Ankiカードへ変換する個人向け英語学習アプリです。
 
-目的は、スピーキングの前段にある「自分が言いたいことを短い英文にする力」を鍛えることです。まずはスケボー中に外国人の友達と話す場面を中心に、トピックカード、短い日記、難易度別の模範回答を蓄積します。
+スケートボード場面を主な出発点にしつつ、日常会話や旅行などにも使える表現を蓄積します。
 
-## Production
+## Current direction
 
-https://scene-builder-tau.vercel.app
+```text
+日本語の思いつき
+  -> 保存
+  -> L1〜L4のAI英文候補
+  -> 分割・編集・承認
+  -> 音声付きカード登録
+  -> アプリ内再生 / 音声付きAnki APKG export
+```
 
-## Current Direction
+既存のシーン練習と練習履歴は保持します。新しい教材化・音声・Anki export機能は、専用domainとして段階的に置き換えます。
 
-- project name: `Scene Builder`
-- repository name: `scene-builder`
-- 学習者: 英検3級程度
-- 目標: 日常会話、特にスケボー場面で自分の経験や質問を言えること
-- 課題: 話したい内容があっても、英文として頭に出てこない
-- 方針: スピーキングだけでなく、短いライティングを先に鍛える
-- 初期教材: スケボー場面のトピックカードと短い日記プロンプト
-- 初期実装: Neon/Postgres上のサンプルカードをVercelなどで閲覧できる形にする
-- AI利用: Grok/xAI APIで回答添削とowner向けカード生成を行う
+## Documentation
 
-## Learning Loop
+- [Product Brief](docs/product-brief.md)
+- [要求定義](docs/requirements.md)
+- [設計](docs/design.md)
+- [Anki Export Specification](docs/specifications/anki-export.md)
+- [ADR 0010: Expression capture and Anki export pipeline](docs/adr/0010-expression-capture-and-anki-export.md)
+- [ADR 0011: Rename to SayDeck](docs/adr/0011-rename-to-saydeck.md)
+- [既存ADR運用ガイド](docs/ADR.md)
 
-1. 日本語または英語のトピックカードを見る。
-2. 自分で短い英文を書く。音声入力を使ってもよい。
-3. 難易度別の模範回答を見る。
-4. 自分の回答を、語順・動詞・形容詞・理由づけの観点で直す。
-5. 使えそうな表現をカードとして蓄積する。
+旧アプリ名由来のブラウザ保存キーと本番domainは、既存データとOAuthを守るために移行完了まで維持する。詳細はADR 0011とdeployment guideを参照する。
 
-## Repository Structure
-
-- `docs/product-brief.md`: 学習課題、MVP、実現可能性
-- `docs/adr/`: 設計判断の記録
-- `docs/prompt-templates/`: AIに問題生成や添削を頼むためのテンプレート
-- `db/migrations/`: Neon/Postgres用schema、サンプルカード、練習履歴、保存ノート
-- `data/diary-prompts.csv`: 短い英語日記の練習プロンプト
-- `data/vocabulary.csv`: 使い回したい語彙・表現
-
-## Local Development
+## Local development
 
 ```bash
 npm install
 DEV_AUTH_BYPASS=1 npm run dev
 ```
 
-`DEV_AUTH_BYPASS=1` はローカル確認用です。`NODE_ENV=production` では無効になります。
+`DEV_AUTH_BYPASS=1`はローカル確認専用です。`NODE_ENV=production`では無効になります。
 
-`DATABASE_URL` が未設定のローカル開発では、動作確認用の固定カードが毎回読み込まれます。ProductionではこのDEVカードは表示されません。
+表現作成を実データで確認する場合は、`DATABASE_URL`を設定し、既存migrationに続けて
+`db/migrations/0004-saydeck-expressions.sql`と`0005-expression-learning-and-export.sql`をNeonへ適用してください。英文候補の生成には
+server-sideの`OWNER_AI_KEY`（許可モデル`grok-4.3`）も必要です。どちらかが未設定でも、入力画面は表示され、DB保存失敗時は入力をlocalStorageへ退避します。
 
-## GitHub Login Setup
+学習モードの`Owner deck`には登録済み表現が自動で追加されます。`/export`ではカード個別選択、タグ、登録期間で音声付き`.apkg`を作成できます。TSVはフィールド確認用の補助出力です。TTS keyがないlocalhostではbrowser-speech fallbackになり、APKG候補には入りません。TTS keyがあれば、Blob tokenがないlocalhostでも`.saydeck-storage`を使ってAPKGまで検証できます。
 
-GitHub OAuth Appを作り、callback URLに次を設定します。
+ownerでログインした状態では、既存画面の診断パネルからDB接続、表現schema、AI providerの疎通を確認できます。APIでは`GET /api/diagnostics?probe=1`が同じ確認を行い、secretやprovider本文は返しません。
 
-```text
-https://your-vercel-url/api/auth/callback/github
+### Vercel環境変数をlocalhostで使う場合
+
+localhostはVercelのProduction環境ではないため、Vercelの値を自動継承しません。ローカルではProduction用secretを直接使わず、Development用の限定された`DATABASE_URL`とAI keyをVercelに登録してから、次のように取得します。
+
+```bash
+npx vercel env pull .env.local --environment=development --project saydecks --scope uechikoheis-projects --yes
+DEV_AUTH_BYPASS=1 npm run dev
 ```
 
-Vercel Environment Variablesに次を設定します。
+secretをローカルファイルへ書きたくない場合は、VercelのDevelopment runtimeで起動します。
 
-- `GITHUB_OWNER=kohei321dev`
-- `DATABASE_URL`
-- `AUTH_SECRET`
-- `GITHUB_CLIENT_ID`
-- `GITHUB_CLIENT_SECRET`
-- `OWNER_AI_KEY`
-- `OWNER_AI_MODEL=grok-4.3`
-- `VIEWER_AI_KEY`
-- `VIEWER_AI_MODEL=claude-haiku-4-5-20251001`
+```bash
+DEV_AUTH_BYPASS=1 npx vercel dev --project saydecks --scope uechikoheis-projects --listen 3000
+```
 
-`GITHUB_OWNER` と一致するGitHub loginはownerとして利用できます。それ以外のGitHub loginはviewerとしてカード閲覧、回答入力、HaikuによるAI添削を利用できます。
+現在のプロジェクトではDevelopment/Previewの環境変数は未登録です。ProductionのsecretはVercel CLIでも`[sensitive]`としてマスクされるため、Production secretをlocalhostへコピーする運用にはしません。Development環境を追加できない場合は、ownerログイン後のVercel runtime probeでProduction接続を確認してください。
 
-ownerログイン後、カード追加パネルの「設定診断」からAuth、GitHub、Database、owner AI key、owner AI model、カード保存先の設定状態を確認できます。secret値そのものは表示しません。
+```bash
+npm run lint
+npm run typecheck
+npm run build
+```
 
-サンプルカードとOwnerがAIで生成したカードは、Neon/Postgresの `scene_cards` から読み込みます。Owner生成カードも同じテーブルへ保存されるため、再読み込み後や別ブラウザでOwnerログインした場合も表示されます。`DATABASE_URL` が未設定、またはmigration未適用の場合、カード追加は失敗します。
+## Current persistence
 
-## Neon Postgres
+- Neon/Postgres: 既存カード、練習状態、練習履歴、保存ノート。`0004`で表現・variant・音声metadata・export状態、`0005`で登録日時・Anki index・DEV音声assetを追加する。
+- private object storage: 新仕様の音声binaryとAPKG artifact。本文やAPI keyは保存しない。
+- local development storage: TTS/APKGのlocalhost検証時だけ`.saydeck-storage`へ保存できる。Productionではprivate Blobを必須にする。
+- localStorage: 未同期のQuick Capture入力だけを一時退避する。
 
-NeonなどのPostgresに以下のmigrationを順番に適用し、Vercel Productionに `DATABASE_URL` を設定します。
+現在のDB migrationは順に適用します。
 
 1. `db/migrations/0001-practice-records.sql`
 2. `db/migrations/0002-scene-cards.sql`
 3. `db/migrations/0003-practice-attempts-and-saved-notes.sql`
+4. `db/migrations/0004-saydeck-expressions.sql`
+5. `db/migrations/0005-expression-learning-and-export.sql`
 
-`0003` は、練習ごとの履歴 `practice_attempts` と見返し用ノート `saved_notes` のDB保存に必要です。
+音声付きAPKGを使う場合は、server-onlyの`SAYDECK_TTS_API_KEY`（または`OPENAI_API_KEY`）と、Productionでは`BLOB_READ_WRITE_TOKEN`を設定します。`SAYDECK_TTS_MODEL`、`SAYDECK_TTS_VOICE`、`SAYDECK_TTS_SPEED`でTTS既定値を変更できます。
 
-`DATABASE_URL` が未設定の場合、学習状態、練習履歴、保存ノートはブラウザのlocalStorageに保存されます。
+migration runnerはまだ導入していないため、Neonへ上記の順で手動適用します。既存migrationは適用済み環境の再現性のため削除しません。
+
+## Security
+
+- API key、OAuth secret、Blob token、raw AI responseはGitへ保存しない。
+- 書き込み・音声再生・APKG downloadはowner認証で保護する。
+- 認証、Vercel、Neonの現行設定は[deployment guide](docs/vercel-deployment.md)を参照する。
 
 ## License
 
 MIT License. See `LICENSE`.
-
-## Feasibility Summary
-
-静的なカード表示、難易度別の模範回答、学習履歴の蓄積はすぐ実現できます。一方で、ユーザー入力に対する自然な採点・添削・言い換え提案は、静的サイトだけでは限界があります。最初は模範回答とセルフチェックで始め、必要になった段階でVercel FunctionsなどからAI APIを呼ぶ構成に拡張します。

@@ -6,7 +6,7 @@
 
 ## Purpose
 
-Scene BuilderのAPI requestを、server log、DB処理、external AI callの失敗調査で同じIDから追えるようにする。
+SayDeckのAPI requestを、server log、DB処理、external AI callの失敗調査で同じIDから追えるようにする。
 
 この文書は最小実装として、request IDの生成・伝播ルールと代表APIへの試験導入範囲を定義する。
 

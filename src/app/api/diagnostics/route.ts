@@ -6,7 +6,7 @@ import { getRuntimeDiagnostics } from "@/lib/runtime-diagnostics";
 
 export const runtime = "nodejs";
 
-export async function GET() {
+export async function GET(request: Request) {
   if (!isDevAuthBypassEnabled()) {
     const session = await getServerSession(authOptions);
 
@@ -25,5 +25,6 @@ export async function GET() {
     }
   }
 
-  return NextResponse.json({ diagnostics: await getRuntimeDiagnostics() });
+  const probeExternal = new URL(request.url).searchParams.get("probe") === "1";
+  return NextResponse.json({ diagnostics: await getRuntimeDiagnostics({ probeExternal }) });
 }

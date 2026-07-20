@@ -1,5 +1,6 @@
 import { getServerSession } from "next-auth";
 import Image from "next/image";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { ScenePractice } from "@/components/scene-practice";
@@ -18,12 +19,15 @@ import {
   isCardPersistenceConfigured,
 } from "@/lib/card-store";
 import { isDatabaseConfigured } from "@/lib/db";
+import { expressionEntriesToSceneCards } from "@/lib/expression-scene-cards";
+import { getExpressionOwnerLogin } from "@/lib/expression-auth";
+import { listExpressionEntries } from "@/lib/expression-store";
 import { mergeSceneCards } from "@/lib/scenes";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Render the Scene Builder home page, fetching scene cards and enforcing dev, auth, and permission gates.
+ * Render the SayDeck home page, fetching scene cards and enforcing dev, auth, and permission gates.
  *
  * When dev-auth-bypass is enabled, returns a dev view with an owner dev chip and cloud sync controlled by database configuration.
  * If authentication is not configured, redirects to "/signin?setup=1".
@@ -34,11 +38,12 @@ export const dynamic = "force-dynamic";
  * @returns The page's JSX element.
  */
 export default async function HomePage() {
-  const [sampleCards, storedCards] = await Promise.all([
+  const [sampleCards, storedCards, expressionCards] = await Promise.all([
     getSampleSceneCards(),
     getStoredSceneCards(),
+    getRegisteredExpressionCards(),
   ]);
-  const cards = mergeSceneCards(sampleCards, storedCards);
+  const cards = mergeSceneCards(sampleCards, storedCards, expressionCards);
   const persistedCardIds = storedCards.map((card) => card.id);
   const cardPersistenceConfigured = isCardPersistenceConfigured();
   const databaseConfigured = isDatabaseConfigured();
@@ -56,9 +61,11 @@ export default async function HomePage() {
               src="/icon.svg"
               width={28}
             />
-            <strong>Scene Builder</strong>
+            <strong>SayDeck</strong>
           </div>
           <div className="topbar-actions">
+            <Link className="app-nav-link" href="/create">表現を作る</Link>
+            <Link className="app-nav-link" href="/library">Library</Link>
             <span className="user-chip">@{ownerGithubUsername} dev</span>
             <SignOutButton />
           </div>
@@ -102,9 +109,11 @@ export default async function HomePage() {
             src="/icon.svg"
             width={28}
           />
-          <strong>Scene Builder</strong>
-        </div>
-        <div className="topbar-actions">
+          <strong>SayDeck</strong>
+      </div>
+      <div className="topbar-actions">
+          <Link className="app-nav-link" href="/create">表現を作る</Link>
+          <Link className="app-nav-link" href="/library">Library</Link>
           <span className="user-chip">
             @{session.user.githubLogin ?? session.user.email ?? "unknown"}{" "}
             {session.user.role ?? "viewer"}
@@ -121,4 +130,18 @@ export default async function HomePage() {
       />
     </div>
   );
+}
+
+async function getRegisteredExpressionCards() {
+  const ownerLogin = await getExpressionOwnerLogin();
+
+  if (!ownerLogin) {
+    return [];
+  }
+
+  try {
+    return expressionEntriesToSceneCards(await listExpressionEntries(ownerLogin));
+  } catch {
+    return [];
+  }
 }

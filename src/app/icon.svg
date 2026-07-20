@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
-  <title id="title">Scene Builder icon</title>
+  <title id="title">SayDeck icon</title>
   <desc id="desc">A modern rounded speech bubble icon with three dots.</desc>
   <defs>
     <linearGradient id="bubble" x1="96" x2="416" y1="104" y2="408" gradientUnits="userSpaceOnUse">

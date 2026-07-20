@@ -1,5 +1,11 @@
 # Vercel Deployment
 
+## Naming boundary
+
+[事実] local project directory、npm package、GitHub remote repositoryは`saydeck`である。Vercel project名は既存の`saydecks`を維持する。
+
+[事実] Vercel project名は`scene-builder`から`saydecks`へ変更済みだが、Production domainとOAuth callback URLは既存のままである。この文書で参照するdomainは実運用中のOAuth callback URLと`NEXTAUTH_URL`の正本である。新domainへ変更する場合は、Vercel、`NEXTAUTH_URL`、GitHub OAuth、Google OAuthを同じ切替で更新し、owner loginを確認するまで現行domainを維持する。
+
 ## Auth, AI, Database
 
 [事実] This app uses NextAuth with GitHub OAuth.
@@ -28,7 +34,7 @@ Use the generated Client ID and Client Secret as Vercel env vars.
 
 ## Preview Deployment Policy
 
-[判断] Scene BuilderではPR PreviewをUI確認の必須導線から外す。理由は、PR/commitごとに変わるPreview URLとGitHub OAuth callback URLの整合を安全に保ちにくく、Production用secretをPreviewへ持ち込む運用に寄りやすいため。
+[判断] SayDeckではPR PreviewをUI確認の必須導線から外す。理由は、PR/commitごとに変わるPreview URLとGitHub OAuth callback URLの整合を安全に保ちにくく、Production用secretをPreviewへ持ち込む運用に寄りやすいため。
 
 [判断] Vercelの自動deploymentは `main` だけ有効にし、PR branch / 作業branchのPreview deploymentは作成しない。repo側では `vercel.json` の `git.deploymentEnabled` で `main` を `true`、その他branchを `false` にする。
 
@@ -140,6 +146,12 @@ OWNER_AI_MODEL=grok-4.3
 VIEWER_AI_KEY=<viewer-claude-api-key>
 VIEWER_AI_MODEL=claude-haiku-4-5-20251001
 DATABASE_URL=<neon-postgres-connection-string>
+SAYDECK_TTS_API_KEY=<server-only-speech-api-key>
+SAYDECK_TTS_BASE_URL=https://api.openai.com/v1
+SAYDECK_TTS_MODEL=tts-1
+SAYDECK_TTS_VOICE=alloy
+SAYDECK_TTS_SPEED=1.0
+BLOB_READ_WRITE_TOKEN=<private-vercel-blob-token>
 ```
 
 Do not set `DEV_AUTH_BYPASS` in Vercel Production.
@@ -156,9 +168,17 @@ Preview用のEnvironment Variablesは現在は管理しない。Preview deployme
    - `db/migrations/0001-practice-records.sql`
    - `db/migrations/0002-scene-cards.sql`
    - `db/migrations/0003-practice-attempts-and-saved-notes.sql`
+   - `db/migrations/0004-saydeck-expressions.sql`
+   - `db/migrations/0005-expression-learning-and-export.sql`
 4. Redeploy the Vercel project after setting `DATABASE_URL`.
 
 `0003` creates `practice_attempts` and `saved_notes`, which are required for DB-backed practice history and saved notes.
+
+`0004` creates the SayDeck expression capture, sentence variant, audio metadata, and Anki export state tables.
+
+`0005` adds registration timestamps, deterministic Anki indexes, and DEV browser-speech assets used by the learning/export projection.
+
+The APKG path also requires `SAYDECK_TTS_API_KEY` (or `OPENAI_API_KEY`) and `BLOB_READ_WRITE_TOKEN`. TTS creates the Word and Example Sentence WAV files, and private Blob stores both the media and generated APKG. The browser only uses the owner-authenticated audio and download routes.
 
 If `DATABASE_URL` is not set, sample cards cannot be loaded from Neon and the app continues to use browser `localStorage` only for practice records, practice attempts, and saved notes.
 
@@ -190,7 +210,15 @@ the learning app after provider authentication.
    - `OWNER_AI_MODEL=grok-4.3`
    - `VIEWER_AI_KEY`
    - `VIEWER_AI_MODEL=claude-haiku-4-5-20251001`
+   - `SAYDECK_TTS_API_KEY` (or `OPENAI_API_KEY`)
+   - `BLOB_READ_WRITE_TOKEN`
 5. Confirm the `/signin` page shows GitHub OAuth as enabled before testing provider login.
+
+## Runtime connection probe
+
+After deploying the current source and applying migrations `0004` and `0005`, sign in as the owner and open the diagnostics panel, or request `GET /api/diagnostics?probe=1`. The probe reports only boolean/status information for the database connection, SayDeck expression schema, and owner AI provider. It never returns `DATABASE_URL`, API keys, raw provider responses, or connection strings.
+
+If the probe reports `Database connection: 未接続`, check the Production `DATABASE_URL` value and Neon network access. If it reports `expression schema: 未適用`, apply `db/migrations/0004-saydeck-expressions.sql` and `db/migrations/0005-expression-learning-and-export.sql`. If it reports `AI connection: 未接続`, check `OWNER_AI_KEY` and `OWNER_AI_MODEL=grok-4.3` in the Production environment.
 
 Do not paste client secrets, tokens, or raw provider error payloads into issues
 or docs. If an env value changes in Vercel, redeploy before retesting because

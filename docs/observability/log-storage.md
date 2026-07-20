@@ -6,7 +6,7 @@
 
 ## Purpose
 
-Scene Builderのapplication logを、Vercel / Neon / external AI providerに過度に依存しない形で扱う。
+SayDeckのapplication logを、Vercel / Neon / external AI providerに過度に依存しない形で扱う。
 
 この文書は初期ログ保存先、短期retention、長期分析への拡張条件、provider-neutral log schemaを決める。実装は後続PRで小さく適用する。
 
@@ -64,7 +64,7 @@ application logは次のfieldを基本形にする。
   "event": "api_error",
   "timestamp": "2026-06-19T00:00:00.000Z",
   "level": "error",
-  "service": "scene-builder",
+  "service": "saydeck",
   "environment": "production",
   "route": "/api/review",
   "method": "POST",
