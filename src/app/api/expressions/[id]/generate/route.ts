@@ -8,6 +8,7 @@ import {
 } from "@/lib/expression-generation";
 import {
   ExpressionDatabaseUnavailableError,
+  ExpressionAlreadyRegisteredError,
   getExpressionEntry,
   listGenerationProfiles,
   saveGenerationResult,
@@ -49,9 +50,9 @@ export async function POST(
     const profiles = await listGenerationProfiles(ownerLogin);
     const result = await generateExpressionWithAi({
       inputJa: entry.inputJa,
-      situationJa: entry.situationJa,
       genreSlug: entry.genreSlug,
-      situationTags: entry.situationTags,
+      legacySituationJa: entry.situationJa,
+      existingSituationTags: entry.situationTags,
       segmentIntents,
       profiles,
     });
@@ -67,6 +68,13 @@ export async function POST(
       return NextResponse.json(
         { error: { code: "database_not_configured", message: "Neon/Postgresが設定されていません。" } },
         { status: 503 },
+      );
+    }
+
+    if (error instanceof ExpressionAlreadyRegisteredError) {
+      return NextResponse.json(
+        { error: { code: "already_registered", message: "登録済みの表現は再生成できません。新しい入力として作成してください。" } },
+        { status: 409 },
       );
     }
 

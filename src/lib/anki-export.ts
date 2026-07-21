@@ -1,5 +1,6 @@
 import { getSql, isDatabaseConfigured } from "@/lib/db";
 import type { GenerationProfileCode } from "@/lib/expression-types";
+import { deckSituationTag } from "@/lib/situation-tags";
 
 export type AnkiExportFilter = {
   variantIds?: string[];
@@ -185,7 +186,8 @@ function rowsToRecords(rows: ExportRow[]): AnkiExportRecord[] {
     const registeredAt = toIso(row.registered_at);
     const safeId = row.variant_id.replace(/[^A-Za-z0-9_-]/g, "_");
     const genre = slug(row.genre_slug || "expression");
-    const situationTags = (row.situation_tags ?? []).map((tag) => `situation::${slug(tag)}`);
+    const rawSituationTags = row.situation_tags ?? [];
+    const situationTags = rawSituationTags.map((tag) => `situation::${slug(tag)}`);
     const exportTags = [
       "source::saydeck",
       `genre::${genre}`,
@@ -197,7 +199,7 @@ function rowsToRecords(rows: ExportRow[]): AnkiExportRecord[] {
       variantId: row.variant_id,
       ankiGuid: row.anki_guid,
       registeredAt,
-      deckName: `SayDeck::${genre}`,
+      deckName: `SayDeck::${row.profile_code}::${deckSituationTag(rawSituationTags)}`,
       fields: [
         `sb_${safeId}`,
         row.key_expression,

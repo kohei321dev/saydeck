@@ -38,7 +38,7 @@ export function ExpressionLibrary({ entries: initialEntries }: Props) {
   const genres = useMemo(() => Array.from(new Set(entries.map((entry) => entry.genreSlug).filter(Boolean))).sort(), [entries]);
   const tags = useMemo(() => Array.from(new Set(entries.flatMap((entry) => entry.situationTags))).sort(), [entries]);
   const visible = useMemo(() => entries.filter((entry) => {
-    const text = [entry.inputJa, entry.situationJa, entry.genreSlug, ...entry.situationTags]
+    const text = [entry.inputJa, entry.genreSlug, ...entry.situationTags]
       .join(" ").toLowerCase();
     const updated = entry.updatedAt.slice(0, 10);
     const hasLevel = !level || entry.sentenceCards.some((card) =>
@@ -95,7 +95,6 @@ export function ExpressionLibrary({ entries: initialEntries }: Props) {
         body: JSON.stringify({
           selectedVariantIds: selectedForEntry,
           genreSlug: entry.genreSlug,
-          situationTags: entry.situationTags,
           variants: entry.sentenceCards.flatMap((card) => (card.variants ?? []).map((variant) => ({
             id: variant.id,
             english: variant.english,
@@ -153,13 +152,13 @@ export function ExpressionLibrary({ entries: initialEntries }: Props) {
             <div>
               <p className="eyebrow">{entry.genreSlug || "expression"}</p>
               <h2>{entry.inputJa}</h2>
-              <p>{entry.situationJa}</p>
+              <p>{entry.situationTags.join(" / ")}</p>
             </div>
             <time dateTime={entry.updatedAt}>{formatDate(entry.updatedAt)}</time>
           </div>
           <div className="capture-ai-metadata">
-            <label className="capture-inline-editor"><span>ジャンル</span><input onChange={(event) => updateEntry(entry.id, (current) => ({ ...current, genreSlug: event.target.value }))} value={entry.genreSlug} /></label>
-            <label className="capture-inline-editor"><span>タグ</span><input onChange={(event) => updateEntry(entry.id, (current) => ({ ...current, situationTags: event.target.value.split(/[;,]/).map((value) => value.trim()).filter(Boolean) }))} value={entry.situationTags.join(", ")} /></label>
+            <label className="capture-inline-editor"><span>ジャンル</span><select onChange={(event) => updateEntry(entry.id, (current) => ({ ...current, genreSlug: selectedGenre(event.target.value, current.genreSlug) }))} value={genreMode(entry.genreSlug)}><option value="">指定なし（AIに任せる）</option><option value="daily">日常生活</option><option value="skateboarding">スケートボード</option><option value="other">その他</option></select>{genreMode(entry.genreSlug) === "other" ? <input maxLength={120} onChange={(event) => updateEntry(entry.id, (current) => ({ ...current, genreSlug: event.target.value }))} value={entry.genreSlug} /> : null}</label>
+            <p className="field-hint">シチュエーションタグ: {entry.situationTags.join(" / ")}</p>
           </div>
           {entry.sentenceCards.map((card) => (
             <div className="library-card" key={card.id}>
@@ -205,4 +204,15 @@ function updateVariant(
 
 function formatDate(value: string): string {
   return new Intl.DateTimeFormat("ja-JP", { dateStyle: "medium" }).format(new Date(value));
+}
+
+function genreMode(value: string): "" | "daily" | "skateboarding" | "other" {
+  if (value === "daily" || value === "skateboarding") return value;
+  return value ? "other" : "";
+}
+
+function selectedGenre(mode: string, currentValue: string): string {
+  if (mode === "daily" || mode === "skateboarding") return mode;
+  if (mode === "other") return genreMode(currentValue) === "other" ? currentValue : "";
+  return "";
 }

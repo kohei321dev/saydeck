@@ -5,6 +5,7 @@ import {
   approveExpressionEntry,
   ExpressionDatabaseUnavailableError,
   ExpressionSelectionError,
+  ExpressionSituationTagsRequiredError,
   ExpressionVariantUpdateError,
   getExpressionEntry,
 } from "@/lib/expression-store";
@@ -75,10 +76,6 @@ export async function PATCH(
     }).slice(0, 100)
     : undefined;
   const genreSlug = typeof body?.genreSlug === "string" ? body.genreSlug.trim().slice(0, 120) : undefined;
-  const situationTags = Array.isArray(body?.situationTags)
-    ? body.situationTags.filter((value): value is string => typeof value === "string").map((value) => value.trim()).filter(Boolean).slice(0, 20)
-    : undefined;
-
   if (selectedVariantIds.length === 0) {
     return NextResponse.json(
       { error: { code: "no_selection", message: "登録するレベルを1つ以上選択してください。" } },
@@ -93,7 +90,6 @@ export async function PATCH(
       selectedVariantIds,
       variantUpdates,
       genreSlug,
-      situationTags,
     });
 
     return NextResponse.json({ entry });
@@ -108,6 +104,13 @@ export async function PATCH(
     if (error instanceof ExpressionVariantUpdateError) {
       return NextResponse.json(
         { error: { code: "invalid_variant", message: "英文候補の編集内容を確認してください。" } },
+        { status: 400 },
+      );
+    }
+
+    if (error instanceof ExpressionSituationTagsRequiredError) {
+      return NextResponse.json(
+        { error: { code: "situation_tags_required", message: "シチュエーションタグの生成に失敗しました。候補を再生成してください。" } },
         { status: 400 },
       );
     }
