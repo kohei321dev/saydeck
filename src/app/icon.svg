@@ -1,19 +1,14 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="56 68 400 400" role="img" aria-labelledby="title desc">
   <title id="title">SayDeck icon</title>
-  <desc id="desc">A modern rounded speech bubble icon with three dots.</desc>
+  <desc id="desc">A compact rounded speech bubble icon with three dots.</desc>
   <defs>
     <linearGradient id="bubble" x1="96" x2="416" y1="104" y2="408" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#1f6f5b"/>
       <stop offset="1" stop-color="#375a8c"/>
     </linearGradient>
-    <filter id="shadow" x="40" y="48" width="432" height="416" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse">
-      <feDropShadow dx="0" dy="18" flood-color="#1f2520" flood-opacity="0.18" stdDeviation="18"/>
-    </filter>
   </defs>
 
-  <rect width="512" height="512" rx="112" fill="#f4f7f5"/>
-
-  <g filter="url(#shadow)">
+  <g>
     <path
       d="M128 112H384C420 112 448 140 448 176V296C448 332 420 360 384 360H280L205 418C196 425 184 418 184 407V360H128C92 360 64 332 64 296V176C64 140 92 112 128 112Z"
       fill="url(#bubble)"

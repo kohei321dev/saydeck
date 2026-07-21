@@ -33,9 +33,9 @@ export function AppFrame({
             alt=""
             aria-hidden="true"
             className="brand-icon"
-            height={28}
+            height={30}
             src="/icon.svg"
-            width={28}
+            width={30}
           />
           <Link className="brand-link" href="/">
             <strong>SayDeck</strong>
