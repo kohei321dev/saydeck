@@ -103,7 +103,7 @@ export async function POST(request: Request) {
 
     if (error instanceof MissingTtsApiKeyError) {
       return NextResponse.json(
-        { error: { code: "tts_not_configured", message: "米国英語音声の生成設定がありません。TTS設定後に再試行してください。" } },
+        { error: { code: "tts_not_configured", message: "xAI音声の生成設定がありません。OWNER_AI_KEYを確認してください。" } },
         { status: 503 },
       );
     }

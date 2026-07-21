@@ -91,7 +91,7 @@ npm run build
 5. `db/migrations/0005-expression-learning-and-export.sql`
 6. `db/migrations/0006-apkg-only-cleanup.sql`
 
-音声付きAPKGを使う場合は、server-onlyの`SAYDECK_TTS_API_KEY`（または`OPENAI_API_KEY`）と、Productionでは`BLOB_READ_WRITE_TOKEN`を設定します。`SAYDECK_TTS_MODEL`、`SAYDECK_TTS_VOICE`、`SAYDECK_TTS_SPEED`でTTS既定値を変更できます。
+音声付きAPKGは、英文候補生成と同じserver-onlyの`OWNER_AI_KEY`でxAI Text to Speechを呼び出します。Productionでは`BLOB_READ_WRITE_TOKEN`も設定します。`SAYDECK_TTS_VOICE`、`SAYDECK_TTS_SPEED`でxAI TTSの既定値を変更できます。
 
 migration runnerはまだ導入していないため、Neonへ上記の順で手動適用します。既存migrationは適用済み環境の再現性のため削除しません。
 

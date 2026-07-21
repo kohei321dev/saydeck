@@ -513,7 +513,7 @@ export async function registerSentenceVariantAudio(input: {
   const hasReusableAudio = sources.every((source) => existingAssets.some((asset) =>
     asset.kind === source.kind
       && asset.status === "ready"
-      && asset.provider === "openai-compatible"
+      && asset.provider === config.provider
       && asset.locale === config.locale
       && asset.text_hash === expectedHashes.get(source.kind),
   ));
@@ -539,9 +539,9 @@ export async function registerSentenceVariantAudio(input: {
     )
     values
       (${`audio_${variant.id}_word`}, ${input.ownerLogin}, ${variant.id}, 'word', '',
-        ${textHash("word", variant.key_expression, config)}, 'openai-compatible', ${config.model}, ${config.voice}, ${config.locale}, ${config.speed}, 'wav', 'pending'),
+        ${textHash("word", variant.key_expression, config)}, ${config.provider}, ${config.model}, ${config.voice}, ${config.locale}, ${config.speed}, 'wav', 'pending'),
       (${`audio_${variant.id}_sentence`}, ${input.ownerLogin}, ${variant.id}, 'sentence', '',
-        ${textHash("sentence", variant.english, config)}, 'openai-compatible', ${config.model}, ${config.voice}, ${config.locale}, ${config.speed}, 'wav', 'pending')
+        ${textHash("sentence", variant.english, config)}, ${config.provider}, ${config.model}, ${config.voice}, ${config.locale}, ${config.speed}, 'wav', 'pending')
     on conflict (owner_login, variant_id, kind) do update set
       blob_path = excluded.blob_path, text_hash = excluded.text_hash,
       provider = excluded.provider, model = excluded.model,
@@ -565,7 +565,7 @@ export async function registerSentenceVariantAudio(input: {
       await sql`
         update audio_assets
         set blob_path = ${audio.storage.blobPath}, text_hash = ${audio.hash},
-          provider = 'openai-compatible', model = ${audio.config.model},
+          provider = ${audio.config.provider}, model = ${audio.config.model},
           voice = ${audio.config.voice}, locale = ${audio.config.locale}, speed = ${audio.config.speed},
           format = 'wav', status = 'ready', error_code = null, updated_at = now()
         where owner_login = ${input.ownerLogin}
