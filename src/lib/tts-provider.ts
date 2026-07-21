@@ -1,24 +1,26 @@
 /**
  * Server-side TTS adapter.
  *
- * The text-generation provider and the audio provider are intentionally
- * separate. Production uses an OpenAI-compatible speech endpoint and keeps
- * the credential on the server only. APKG audio is always generated as en-US
- * server-side media; browser speech is not an export fallback.
+ * Text generation and audio synthesis remain separate server-side paths.
+ * Production uses xAI Text to Speech with the same server-only
+ * credential as expression generation. APKG audio is always generated as
+ * en-US server-side media; browser speech is not an export fallback.
  */
 
 export type TtsConfig = {
   apiKey: string;
   baseUrl: string;
+  provider: "xai";
   model: string;
   voice: string;
   locale: "en-US";
+  language: "en";
   speed: number;
 };
 
 export class MissingTtsApiKeyError extends Error {
   constructor() {
-    super("SAYDECK_TTS_API_KEY is not configured.");
+    super("OWNER_AI_KEY is not configured.");
     this.name = "MissingTtsApiKeyError";
   }
 }
@@ -40,11 +42,11 @@ export class TtsProviderError extends Error {
 }
 
 export function isTtsConfigured(): boolean {
-  return Boolean(process.env.SAYDECK_TTS_API_KEY?.trim() || process.env.OPENAI_API_KEY?.trim());
+  return Boolean(process.env.OWNER_AI_KEY?.trim());
 }
 
 export function getTtsConfig(): TtsConfig {
-  const apiKey = process.env.SAYDECK_TTS_API_KEY?.trim() || process.env.OPENAI_API_KEY?.trim();
+  const apiKey = process.env.OWNER_AI_KEY?.trim();
 
   if (!apiKey) {
     throw new MissingTtsApiKeyError();
@@ -54,11 +56,13 @@ export function getTtsConfig(): TtsConfig {
 
   return {
     apiKey,
-    baseUrl: (process.env.SAYDECK_TTS_BASE_URL?.trim() || "https://api.openai.com/v1").replace(/\/$/, ""),
-    model: process.env.SAYDECK_TTS_MODEL?.trim() || "tts-1",
-    voice: process.env.SAYDECK_TTS_VOICE?.trim() || "alloy",
+    baseUrl: "https://api.x.ai/v1",
+    provider: "xai",
+    model: "xai-tts",
+    voice: process.env.SAYDECK_TTS_VOICE?.trim() || "eve",
     locale: "en-US",
-    speed: Number.isFinite(speedValue) && speedValue > 0 && speedValue <= 4 ? speedValue : 1,
+    language: "en",
+    speed: Number.isFinite(speedValue) && speedValue >= 0.7 && speedValue <= 1.5 ? speedValue : 1,
   };
 }
 
@@ -80,18 +84,20 @@ export async function synthesizeAmericanEnglish(text: string): Promise<{
   let response: Response;
 
   try {
-    response = await fetch(`${config.baseUrl}/audio/speech`, {
+    response = await fetch(`${config.baseUrl}/tts`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${config.apiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: config.model,
-        voice: config.voice,
-        locale: config.locale,
-        input: normalizedText,
-        response_format: "wav",
+        text: normalizedText,
+        voice_id: config.voice,
+        language: config.language,
+        output_format: {
+          codec: "wav",
+          sample_rate: 24_000,
+        },
         speed: config.speed,
       }),
       signal: AbortSignal.timeout(60_000),
@@ -113,13 +119,28 @@ export async function synthesizeAmericanEnglish(text: string): Promise<{
     );
   }
 
-  const bytes = new Uint8Array(await response.arrayBuffer());
+  const bytes = await readAudioBytes(response);
 
   if (!isWav(bytes)) {
     throw new TtsProviderError("invalid_audio", "TTS provider did not return a WAV file.");
   }
 
   return { bytes, config };
+}
+
+async function readAudioBytes(response: Response): Promise<Uint8Array> {
+  const contentType = response.headers.get("content-type") ?? "";
+
+  if (!contentType.includes("application/json")) {
+    return new Uint8Array(await response.arrayBuffer());
+  }
+
+  const body = (await response.json().catch(() => null)) as { audio?: unknown } | null;
+  if (!body || typeof body.audio !== "string") {
+    throw new TtsProviderError("invalid_audio", "xAI TTS did not return audio bytes.");
+  }
+
+  return new Uint8Array(Buffer.from(body.audio, "base64"));
 }
 
 function isWav(bytes: Uint8Array): boolean {

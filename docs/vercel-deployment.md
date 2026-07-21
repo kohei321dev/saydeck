@@ -135,10 +135,7 @@ GITHUB_OWNER=kohei321dev
 OWNER_AI_KEY=<owner-grok-api-key>
 OWNER_AI_MODEL=grok-4.3
 DATABASE_URL=<neon-postgres-connection-string>
-SAYDECK_TTS_API_KEY=<server-only-speech-api-key>
-SAYDECK_TTS_BASE_URL=https://api.openai.com/v1
-SAYDECK_TTS_MODEL=tts-1
-SAYDECK_TTS_VOICE=alloy
+SAYDECK_TTS_VOICE=eve
 SAYDECK_TTS_SPEED=1.0
 BLOB_READ_WRITE_TOKEN=<private-vercel-blob-token>
 ```
@@ -168,7 +165,7 @@ Preview用のEnvironment Variablesは現在は管理しない。Preview deployme
 
 `0005` adds registration timestamps and deterministic Anki indexes. `0006` removes derived browser-speech assets and adds `en-US` locale metadata for APKG audio.
 
-The APKG path also requires `SAYDECK_TTS_API_KEY` (or `OPENAI_API_KEY`) and `BLOB_READ_WRITE_TOKEN`. EXPORT internally creates the `en-US` Word and Example Sentence audio, and private Blob stores both the media and generated APKG. The browser only uses the owner-authenticated package download route.
+The APKG path reuses `OWNER_AI_KEY` for xAI Text to Speech and also requires `BLOB_READ_WRITE_TOKEN`. EXPORT internally creates the `en-US` Word and Example Sentence audio, and private Blob stores both the media and generated APKG. The browser only uses the owner-authenticated package download route.
 
 If `DATABASE_URL` is not set, INPUT keeps unsynchronized Japanese input in browser `localStorage` so it can be retried after configuration is restored.
 
@@ -197,7 +194,6 @@ the INPUT page after provider authentication.
    - `DATABASE_URL`
    - `OWNER_AI_KEY`
    - `OWNER_AI_MODEL=grok-4.3`
-   - `SAYDECK_TTS_API_KEY` (or `OPENAI_API_KEY`)
    - `BLOB_READ_WRITE_TOKEN`
 5. Confirm the `/signin` page shows GitHub OAuth as enabled before testing provider login.
 
