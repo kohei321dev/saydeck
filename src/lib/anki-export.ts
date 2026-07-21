@@ -106,8 +106,8 @@ export async function getAnkiExportRecords(
       and (${variantIds.length > 0} or v.is_selected = true)
       and v.status <> 'archived'
       and e.registered_at is not null
-      and (${variantIds.length === 0} or v.id = any(${sql.array(variantIds)}))
-      and (${tags.length === 0} or e.situation_tags && ${sql.array(tags)})
+      and (${variantIds.length === 0} or v.id = any(${sql.array(variantIds)}::text[]))
+      and (${tags.length === 0} or e.situation_tags && ${sql.array(tags)}::text[])
       and (${from ? sql`e.registered_at >= ${from}` : sql`true`})
       and (${to ? sql`e.registered_at < ${to}` : sql`true`})
     order by e.registered_at asc, v.anki_guid asc
