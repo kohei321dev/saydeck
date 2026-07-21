@@ -109,9 +109,32 @@ export async function POST(request: Request) {
     }
 
     if (error instanceof AudioRegistrationError) {
+      logServerError("Failed to prepare APKG audio.", error, { code: error.code });
+
+      if (error.code === "storage_unavailable") {
+        return NextResponse.json(
+          { error: { code: error.code, message: "APKG音声の保存先が未設定です。BLOB_READ_WRITE_TOKENを設定してください。" } },
+          { status: 503 },
+        );
+      }
+
+      if (error.code === "provider_quota") {
+        return NextResponse.json(
+          { error: { code: error.code, message: "xAI音声APIの利用上限に達しました。xAIの利用状況を確認してから再試行してください。" } },
+          { status: 429 },
+        );
+      }
+
+      if (error.code === "invalid_audio") {
+        return NextResponse.json(
+          { error: { code: error.code, message: "xAI音声APIから有効な音声を取得できませんでした。設定を確認して再試行してください。" } },
+          { status: 502 },
+        );
+      }
+
       return NextResponse.json(
         { error: { code: error.code, message: "米国英語音声の準備に失敗しました。時間を置いて再試行してください。" } },
-        { status: error.code === "provider_quota" ? 429 : 502 },
+        { status: 502 },
       );
     }
 
