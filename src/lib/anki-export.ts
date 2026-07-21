@@ -79,6 +79,12 @@ export async function getAnkiExportRecords(
   const tags = normalizeList(filter.tags);
   const from = normalizeDate(filter.from);
   const to = normalizeDate(filter.to);
+  const variantFilter = variantIds.length > 0
+    ? sql`v.id in ${sql(variantIds)}`
+    : sql`v.is_selected = true`;
+  const tagFilter = tags.length > 0
+    ? sql`e.situation_tags && array[${sql(tags)}]::text[]`
+    : sql`true`;
   const rows = await sql<ExportRow[]>`
     select
       v.id as variant_id,
@@ -103,11 +109,10 @@ export async function getAnkiExportRecords(
     left join audio_assets a on a.variant_id = v.id and a.owner_login = v.owner_login
     where v.owner_login = ${ownerLogin}
       and e.status = 'registered'
-      and (${variantIds.length > 0} or v.is_selected = true)
+      and ${variantFilter}
       and v.status <> 'archived'
       and e.registered_at is not null
-      and (${variantIds.length === 0} or v.id = any(${sql.array(variantIds)}::text[]))
-      and (${tags.length === 0} or e.situation_tags && ${sql.array(tags)}::text[])
+      and ${tagFilter}
       and (${from ? sql`e.registered_at >= ${from}` : sql`true`})
       and (${to ? sql`e.registered_at < ${to}` : sql`true`})
     order by e.registered_at asc, v.anki_guid asc
