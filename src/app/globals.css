@@ -57,10 +57,9 @@ button {
 }
 
 .brand-icon {
-  border-radius: 8px;
   display: block;
-  height: 28px;
-  width: 28px;
+  height: 30px;
+  width: 30px;
 }
 
 .brand strong {
