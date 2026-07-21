@@ -78,6 +78,10 @@ export async function POST(
     }
 
     if (error instanceof ExpressionGenerationError) {
+      logServerError("Failed to generate expression entry.", error, {
+        generationCode: error.code,
+        generationStatus: error.status,
+      });
       return NextResponse.json(
         { error: { code: error.code, message: error.code === "external_ai_quota_exceeded" ? "AIのquotaまたはrate limitに達しました。時間を置いて再試行してください。" : "英文候補の生成に失敗しました。" } },
         { status: error.status },
