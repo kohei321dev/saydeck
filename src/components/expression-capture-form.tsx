@@ -13,10 +13,10 @@ const captureQueueKey = "saydeck.capture-queue.v1";
 
 type CaptureQueue = {
   inputJa: string;
-  situationJa: string;
   genreSlug: string;
-  situationTags: string;
 };
+
+type GenreMode = "" | "daily" | "skateboarding" | "other";
 
 type SegmentDraft = {
   id: string;
@@ -29,9 +29,8 @@ type Props = {
 
 export function ExpressionCaptureForm({ initialQueue = null }: Props) {
   const [inputJa, setInputJa] = useState(initialQueue?.inputJa ?? "");
-  const [situationJa, setSituationJa] = useState(initialQueue?.situationJa ?? "");
-  const [genreSlug, setGenreSlug] = useState(initialQueue?.genreSlug ?? "");
-  const [situationTags, setSituationTags] = useState(initialQueue?.situationTags ?? "");
+  const [genreMode, setGenreMode] = useState<GenreMode>(() => getGenreMode(initialQueue?.genreSlug));
+  const [otherGenre, setOtherGenre] = useState(() => getOtherGenre(initialQueue?.genreSlug));
   const [entry, setEntry] = useState<ExpressionEntryDetail | null>(null);
   const [segmentDrafts, setSegmentDrafts] = useState<SegmentDraft[]>([]);
   const [selectedVariantIds, setSelectedVariantIds] = useState<Set<string>>(new Set());
@@ -49,9 +48,8 @@ export function ExpressionCaptureForm({ initialQueue = null }: Props) {
       if (!raw) return;
       const queued = JSON.parse(raw) as CaptureQueue;
       setInputJa(queued.inputJa ?? "");
-      setSituationJa(queued.situationJa ?? "");
-      setGenreSlug(queued.genreSlug ?? "");
-      setSituationTags(queued.situationTags ?? "");
+      setGenreMode(getGenreMode(queued.genreSlug));
+      setOtherGenre(getOtherGenre(queued.genreSlug));
       setNotice("未同期の入力を復元しました。保存を再試行してください。");
     } catch {
       window.localStorage.removeItem(captureQueueKey);
@@ -65,13 +63,11 @@ export function ExpressionCaptureForm({ initialQueue = null }: Props) {
 
     const payload = {
       inputJa: inputJa.trim(),
-      situationJa: situationJa.trim(),
-      genreSlug: genreSlug.trim(),
-      situationTags,
+      genreSlug: selectedGenre(genreMode, otherGenre),
     };
 
-    if (!payload.inputJa || !payload.situationJa) {
-      setError("言いたいこととシチュエーションを入力してください。");
+    if (!payload.inputJa) {
+      setError("言いたいことを入力してください。");
       return;
     }
 
@@ -140,7 +136,6 @@ export function ExpressionCaptureForm({ initialQueue = null }: Props) {
           body: JSON.stringify({
             selectedVariantIds: Array.from(selectedVariantIds),
             genreSlug: entry.genreSlug,
-            situationTags: entry.situationTags,
             variants: entry.sentenceCards.flatMap((card) => (card.variants ?? []).map((variant) => ({
               id: variant.id,
               english: variant.english,
@@ -180,10 +175,10 @@ export function ExpressionCaptureForm({ initialQueue = null }: Props) {
     } : current);
   }
 
-  function updateEntryMetadata(field: "genreSlug" | "situationTags", value: string) {
+  function updateEntryMetadata(field: "genreSlug", value: string) {
     setEntry((current) => current ? {
       ...current,
-      [field]: field === "situationTags" ? value.split(/[;,]/).map((tag) => tag.trim()).filter(Boolean) : value,
+      [field]: value,
     } : current);
   }
 
@@ -259,18 +254,16 @@ export function ExpressionCaptureForm({ initialQueue = null }: Props) {
         </label>
         <div className="capture-form-grid">
           <label className="capture-field">
-            <span>シチュエーション（日本語）</span>
-            <input maxLength={1000} onChange={(event) => setSituationJa(event.target.value)} placeholder="例：スケートパークで友達に話す" required value={situationJa} />
-          </label>
-          <label className="capture-field">
             <span>ジャンル（任意）</span>
-            <input maxLength={120} onChange={(event) => setGenreSlug(event.target.value)} placeholder="skate / daily / travel" value={genreSlug} />
+            <select onChange={(event) => setGenreMode(event.target.value as GenreMode)} value={genreMode}>
+              <option value="">指定なし（AIに任せる）</option>
+              <option value="daily">日常生活</option>
+              <option value="skateboarding">スケートボード</option>
+              <option value="other">その他</option>
+            </select>
           </label>
+          {genreMode === "other" ? <label className="capture-field"><span>その他のジャンル</span><input maxLength={120} onChange={(event) => setOtherGenre(event.target.value)} placeholder="travel" value={otherGenre} /></label> : null}
         </div>
-        <label className="capture-field">
-          <span>シチュエーションタグ（任意）</span>
-          <input onChange={(event) => setSituationTags(event.target.value)} placeholder="友達, 練習, 帰宅" value={situationTags} />
-        </label>
         <button className="primary-button capture-submit" disabled={phase === "saving" || phase === "generating"} type="submit">
           {phase === "saving" ? "保存中…" : phase === "generating" ? "AIが候補を作成中…" : "保存して英文候補を作る"}
         </button>
@@ -301,8 +294,8 @@ export function ExpressionCaptureForm({ initialQueue = null }: Props) {
             <span className="capture-count">{selectedVariantIds.size}件を登録予定</span>
           </div>
           <div className="capture-ai-metadata">
-            <label className="capture-inline-editor"><span>ジャンル</span><input value={entry.genreSlug} onChange={(event) => updateEntryMetadata("genreSlug", event.target.value)} /></label>
-            <label className="capture-inline-editor"><span>タグ</span><input value={entry.situationTags.join(", ")} onChange={(event) => updateEntryMetadata("situationTags", event.target.value)} /></label>
+            <label className="capture-inline-editor"><span>ジャンル</span><select onChange={(event) => updateEntryMetadata("genreSlug", selectReviewGenre(event.target.value, entry.genreSlug))} value={getGenreMode(entry.genreSlug)}><option value="">指定なし（AIに任せる）</option><option value="daily">日常生活</option><option value="skateboarding">スケートボード</option><option value="other">その他</option></select>{getGenreMode(entry.genreSlug) === "other" ? <input maxLength={120} onChange={(event) => updateEntryMetadata("genreSlug", event.target.value)} value={entry.genreSlug} /> : null}</label>
+            <p className="field-hint">シチュエーションタグ: {entry.situationTags.join(" / ")}</p>
           </div>
           <section className="segment-editor" aria-labelledby="segment-editor-title">
             <div>
@@ -389,4 +382,23 @@ function persistQueue(payload: CaptureQueue) {
   } catch {
     // A private browsing context may reject localStorage. The API error remains visible.
   }
+}
+
+function getGenreMode(genreSlug: string | undefined): GenreMode {
+  if (genreSlug === "daily" || genreSlug === "skateboarding") return genreSlug;
+  return genreSlug ? "other" : "";
+}
+
+function getOtherGenre(genreSlug: string | undefined): string {
+  return genreSlug === "daily" || genreSlug === "skateboarding" ? "" : genreSlug ?? "";
+}
+
+function selectedGenre(mode: GenreMode, otherGenre: string): string {
+  return mode === "other" ? otherGenre.trim() : mode;
+}
+
+function selectReviewGenre(mode: string, currentValue: string): string {
+  if (mode === "daily" || mode === "skateboarding") return mode;
+  if (mode === "other") return getGenreMode(currentValue) === "other" ? currentValue : "";
+  return "";
 }

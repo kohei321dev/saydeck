@@ -45,15 +45,14 @@ APKGは内部に複数のmedia fileを保持する形式だが、利用者には
 
 ## 4. Deck、tags、IDs
 
-- Deck既定値: `SayDeck::<genre-slug>`
+- Deck既定値: `SayDeck::<L1|L2|L3|L4>::<主シチュエーションタグ>`。例: `SayDeck::L2::友人への返信`。
 - Tags:
   - `source::saydeck`
   - `genre::<genre-slug>`
-  - `situation::<situation-slug>`（0件以上）
+  - `situation::<situation-slug>`（1〜3件）
   - `difficulty::<l1|l2|l3|l4>`
-  - `created::<yyyy-mm>`
-- LISTS上の絞り込みやグループは固定deckと同一視しない。export時に選択した表現を、既定deckまたは指定deck名へまとめる。
-- `anki_guid`はvariant作成時に一度生成し、DBへ保存する。exportのたびに生成し直さない。
+- LISTS上の絞り込みやグループはfixed deckと同一視しない。export時、主シチュエーションタグ（`situation_tags`の先頭）と難易度が同じvariantは同じdeckへ入る。残りのシチュエーションタグはtagとして保持し、同一noteを複数deckに複製しない。
+- `anki_guid`はvariant作成時に一度生成し、DBへ保存する。exportのたびに生成し直さない。新しいvariantには新GUIDを割り当てるため、新規カードが既存カードを上書きすることはない。
 - model IDは`SayDeck ES1Kv2`専用の定数とする。
 - deck IDはdeck名から決定的に得る値とし、exportごとに時刻由来のIDを使わない。
 
@@ -79,7 +78,7 @@ APKGは内部に複数のmedia fileを保持する形式だが、利用者には
 5. packageをprivate storageへ保存する。
 6. browserにはexport IDを返し、owner認証済みdownload routeから単一のAPKGを取得する。
 
-同じvariantを編集して再exportした場合、同じGUIDと`Index`を使う。Ankiのempty profileへ初回importし、編集後の再importで重複せず更新できることをrelease gateとする。
+同じvariantを編集して再exportした場合、同じGUIDと`Index`を使う。Ankiのempty profileへ初回importし、編集後の再importで重複せず更新できることをrelease gateとする。別の入力から作成したvariantは別GUIDを持ち、同じ主タグ・難易度なら同じdeck階層へ追加される。
 
 ## 7. API contract
 
@@ -91,6 +90,6 @@ APKGは内部に複数のmedia fileを保持する形式だが、利用者には
 
 - 固定fixtureのWordとExample Sentenceについて、生成requestが`en-US`設定を持つことを自動テストする。
 - 生成音声を人間が試聴し、米国英語発音であることを確認する。
-- package内SQLite/ZIP、8 field、GUID、deck、tags、2 mediaと参照整合性を自動検証する。
+- package内SQLite/ZIP、8 field、GUID、`SayDeck::<難易度>::<主タグ>`、tags、2 mediaと参照整合性を自動検証する。
 - Anki Desktopの空profileへimportし、音声再生を確認する。
 - 同じvariantを更新して再export・再importし、重複せず更新されることを確認する。

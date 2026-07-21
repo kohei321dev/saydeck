@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-07-20
-- Related: `docs/product-brief.md`, `docs/design.md`, `docs/specifications/anki-export.md`, `docs/adr/0013-expression-production-and-apkg-only.md`
+- Related: `docs/product-brief.md`, `docs/design.md`, `docs/specifications/anki-export.md`, `docs/adr/0013-expression-production-and-apkg-only.md`, `docs/adr/0015-situation-tag-taxonomy-and-anki-deck-hierarchy.md`
 
 ## 1. 目的と成功条件
 
@@ -12,7 +12,7 @@
 
 ### What
 
-日本語の`言いたいこと`と`シチュエーション`を受け取り、AIがジャンル、シチュエーション、レベルに合う基本ワードと例文を複数生成する。生成結果をAnkiフィールド契約に沿ってDBへ保存し、一覧から選択した表現を米国英語音声付きAPKGとして出力する。
+日本語の`言いたいこと`を受け取り、AIがジャンル、必須のシチュエーションタグ、レベルに合う基本ワードと例文を複数生成する。生成結果をAnkiフィールド契約に沿ってDBへ保存し、一覧から選択した表現を米国英語音声付きAPKGとして出力する。
 
 SayDeckの主要機能は次の2つに限定する。
 
@@ -23,10 +23,10 @@ UIはこの責務を`INPUT`、`LISTS`、`EXPORT`の3画面で表現する。
 
 ### 成功条件
 
-- iOSブラウザから日本語の言いたいこととシチュエーションをすぐ入力できる。
+- iOSブラウザから日本語の言いたいことをすぐ入力でき、場面の分類はAIへ任せられる。
 - 入力がAI失敗や通信失敗で失われない。
 - L1〜L4ごとに基本ワードと例文を生成し、Anki用の固定フィールドへ対応付けられる。
-- 生成結果をDBへ保存し、ジャンル、シチュエーション、レベル、作成日時で一覧・絞り込み・選択できる。
+- 生成結果をDBへ保存し、ジャンル、シチュエーションタグ、レベル、作成日時で一覧・絞り込み・選択できる。
 - ブラウザから、Ankiでimport可能な米国英語音声同梱`.apkg`を取得できる。
 - 画面にアプリ内学習、AI添削、TSV、個別WAV生成の導線が表示されない。
 
@@ -56,8 +56,10 @@ UIはこの責務を`INPUT`、`LISTS`、`EXPORT`の3画面で表現する。
 
 ### FR-1: INPUT
 
-- 必須入力は`言いたいこと（日本語）`と`シチュエーション（日本語）`とする。
-- ジャンルは任意入力とし、未指定時はAIが提案する。
+- 必須入力は`言いたいこと（日本語）`だけとする。シチュエーションの入力欄とシチュエーションタグの入力欄は置かない。
+- ジャンルは任意とし、`日常生活`、`スケートボード`、`その他`、`指定なし`から選ぶ。`その他`を選んだ場合だけ自由入力を表示し、`指定なし`はAI提案を採用する。
+- AIは言いたいことの日本語からシチュエーションタグを1〜3件必ず生成する。登録前にタグが0件の表現は保存できない。
+- AIは定義済みのシチュエーションタグプールから該当するタグを優先して採用する。該当がない場合だけ、短い日本語タグを新規生成する。
 - 送信前に入力をブラウザのlocalStorageへ一時退避し、DB保存成功後に消す。
 - AIまたはDB保存に失敗した場合は入力を保持し、再試行できる。
 - 入力、AI生成、確認・修正、DB保存を1つの連続した画面フローにする。
@@ -67,9 +69,9 @@ UIはこの責務を`INPUT`、`LISTS`、`EXPORT`の3画面で表現する。
 - AIは意味単位ごとにL1〜L4の候補を生成する。
 - 各候補はAnkiの固定フィールドに対応する構造化データとして返す。
 - `keyExpression`を`Word`、`english`を`Example Sentence`として扱う。`Word`は単語1語に限定せず、学習価値のある短い基本フレーズを許容する。
-- AIは`Word`、`Definition`、`Irregular Forms`、`Example Sentence`、`Translation`に加えて、ジャンルとシチュエーションタグを返す。
+- AIは`Word`、`Definition`、`Irregular Forms`、`Example Sentence`、`Translation`に加えて、ジャンルとシチュエーションタグを返す。シチュエーションタグは1〜3件で、先頭を主タグとする。
 - `Index`、音声field、GUIDはシステムが生成し、AIへ生成させない。
-- ユーザーは保存前後に本文、訳、基本ワード、ジャンル、シチュエーションタグを修正できる。
+- ユーザーは保存前後に本文、訳、基本ワード、ジャンルを修正できる。シチュエーションタグはAIが生成する必須metadataとして表示・絞り込みに使い、初期入力では受け付けない。
 - 生成した候補はDBへ保存し、LISTSで参照可能にする。
 
 | Profile | Purpose | Default constraint |
@@ -88,11 +90,11 @@ UIはこの責務を`INPUT`、`LISTS`、`EXPORT`の3画面で表現する。
 ### FR-4: LISTS
 
 - DBに保存された生成済み表現を一覧表示する。
-- ジャンル、シチュエーション、レベル、作成日時、更新日時、キーワードで絞り込める。
+- ジャンル、シチュエーションタグ、レベル、作成日時、更新日時、キーワードで絞り込める。
 - 複数条件を組み合わせ、件数と選択状態を確認できる。
 - 表現を個別または一括選択し、EXPORTへ引き継げる。
 - 一覧と詳細から生成内容を確認・修正できる。
-- `Deck`は固定の保存単位ではなく、LISTSの絞り込み条件から作る論理的なグループとして扱う。
+- LISTSの絞り込みは論理グループであり、Anki export時のdeck階層とは独立して扱う。
 - 音声の内部状態は、export不能時の理由として必要な場合だけ表示し、個別WAV操作は提供しない。
 
 ### FR-5: 米国英語音声
@@ -109,7 +111,8 @@ UIはこの責務を`INPUT`、`LISTS`、`EXPORT`の3画面で表現する。
 - export前に必要な米国英語音声をシステムが生成または再利用し、APKGへ同梱する。
 - APKGはnote type、deck、tags、音声mediaを1ファイルに内包する。利用者がWAVを個別に管理する必要はない。
 - `Index`、`Word`、`Definition`、`Irregular Forms`、`Example Sentence`、`Translation`、`word_audio`、`sentence_audio`の8フィールドと順序を固定する。
-- 固定GUIDと固定model/deck IDにより、同じ表現の再importで重複させない。
+- 同じvariantは永続化したGUIDとIndexを再利用し、再export・再importでは重複ではなく更新する。新しい入力または新しいvariantには新しいGUIDを割り当て、既存カードを上書きしない。
+- Anki deckは`SayDeck::<難易度>::<主シチュエーションタグ>`とする。主タグが同じ追加カードは、同じdeck階層へ展開する。
 - 正式なdownload形式はAPKGのみとし、TSV export UI・APIは提供しない。
 - 詳細は`docs/specifications/anki-export.md`を正本とする。
 

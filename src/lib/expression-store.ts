@@ -8,6 +8,7 @@ import {
   synthesizeAmericanEnglish,
   TtsProviderError,
 } from "@/lib/tts-provider";
+import { normalizeSituationTags } from "@/lib/situation-tags";
 import type {
   AudioAsset,
   ExpressionEntry,
@@ -39,6 +40,20 @@ export class ExpressionVariantUpdateError extends Error {
   }
 }
 
+export class ExpressionSituationTagsRequiredError extends Error {
+  constructor() {
+    super("At least one situation tag is required to register an expression.");
+    this.name = "ExpressionSituationTagsRequiredError";
+  }
+}
+
+export class ExpressionAlreadyRegisteredError extends Error {
+  constructor() {
+    super("A registered expression cannot be regenerated.");
+    this.name = "ExpressionAlreadyRegisteredError";
+  }
+}
+
 export class SentenceVariantNotFoundError extends Error {
   constructor() {
     super("Sentence variant was not found.");
@@ -59,9 +74,7 @@ export class AudioRegistrationError extends Error {
 type CreateExpressionInput = {
   ownerLogin: string;
   inputJa: string;
-  situationJa: string;
   genreSlug: string;
-  situationTags: string[];
 };
 
 type ExpressionEntryRow = {
@@ -194,8 +207,8 @@ export async function createExpressionEntry(
       id, owner_login, input_ja, situation_ja, genre_slug, situation_tags, status
     )
     values (
-      ${id}, ${input.ownerLogin}, ${input.inputJa}, ${input.situationJa},
-      ${input.genreSlug}, ${sql.array(input.situationTags)}, 'draft'
+      ${id}, ${input.ownerLogin}, ${input.inputJa}, '',
+      ${input.genreSlug}, ${sql.array([])}, 'draft'
     )
     returning id, owner_login, input_ja, situation_ja, genre_slug,
       situation_tags, status, registered_at, created_at, updated_at
@@ -268,6 +281,15 @@ export async function saveGenerationResult(input: {
     throw new Error("Expression entry was not found.");
   }
 
+  if (current.status === "registered") {
+    throw new ExpressionAlreadyRegisteredError();
+  }
+
+  const suggestedSituationTags = normalizeSituationTags(input.result.suggestedSituationTags);
+  if (suggestedSituationTags.length === 0) {
+    throw new ExpressionSituationTagsRequiredError();
+  }
+
   await sql.begin(async (transaction) => {
     await transaction`
       delete from sentence_cards
@@ -308,7 +330,7 @@ export async function saveGenerationResult(input: {
       }
     }
 
-    if (input.result.suggestedGenreSlug || input.result.suggestedSituationTags?.length) {
+    if (input.result.suggestedGenreSlug || suggestedSituationTags.length) {
       await transaction`
         update expression_entries
         set genre_slug = case
@@ -317,7 +339,7 @@ export async function saveGenerationResult(input: {
             end,
             situation_tags = case
               when cardinality(situation_tags) = 0
-                then ${transaction.array(input.result.suggestedSituationTags ?? [])}
+                then ${transaction.array(suggestedSituationTags)}
               else situation_tags
             end,
             updated_at = now()
@@ -355,7 +377,6 @@ export async function approveExpressionEntry(input: {
     irregularForms?: string;
   }>;
   genreSlug?: string;
-  situationTags?: string[];
 }): Promise<ExpressionEntryDetail> {
   const sql = requireDatabase();
   const current = await getExpressionEntry(input.ownerLogin, input.entryId);
@@ -382,6 +403,11 @@ export async function approveExpressionEntry(input: {
   }
 
   const validIds = validRows.map((row) => row.id);
+  const situationTags = normalizeSituationTags(current.situationTags);
+
+  if (situationTags.length === 0) {
+    throw new ExpressionSituationTagsRequiredError();
+  }
 
   const updates = (input.variantUpdates ?? [])
     .filter((update) => validIds.includes(update.id))
@@ -421,15 +447,13 @@ export async function approveExpressionEntry(input: {
     `;
   }
 
-  if (input.genreSlug !== undefined || input.situationTags !== undefined) {
-    await sql`
-      update expression_entries
-      set genre_slug = ${input.genreSlug?.trim().slice(0, 120) ?? current.genreSlug},
-        situation_tags = ${sql.array((input.situationTags ?? current.situationTags).slice(0, 20))},
-        updated_at = now()
-      where owner_login = ${input.ownerLogin} and id = ${input.entryId}
-    `;
-  }
+  await sql`
+    update expression_entries
+    set genre_slug = ${input.genreSlug?.trim().slice(0, 120) ?? current.genreSlug},
+      situation_tags = ${sql.array(situationTags)},
+      updated_at = now()
+    where owner_login = ${input.ownerLogin} and id = ${input.entryId}
+  `;
 
   await sql`
     update sentence_variants

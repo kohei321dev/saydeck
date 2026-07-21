@@ -12,12 +12,16 @@ import type {
   GenerationProfile,
 } from "@/lib/expression-types";
 import { profileByCode } from "@/lib/generation-profiles";
+import {
+  normalizeSituationTags,
+  situationTagPoolPrompt,
+} from "@/lib/situation-tags";
 
 type GenerateExpressionInput = {
   inputJa: string;
-  situationJa: string;
   genreSlug: string;
-  situationTags: string[];
+  legacySituationJa?: string;
+  existingSituationTags: string[];
   segmentIntents?: string[];
   profiles: GenerationProfile[];
 };
@@ -79,8 +83,8 @@ export async function generateExpressionWithAi(
             role: "system",
             content: [
               "あなたは日本人学習者向けの英語教材作成者です。",
-      "日本語の気づきを、自然な英語表現カードへ変換してください。",
-      "入力にジャンルやタグがない場合は、学習に使いやすい英語slugのジャンルと日本語のシチュエーションタグを提案してください。",
+              "日本語の気づきを、自然な英語表現カードへ変換してください。",
+              "言いたいことからシチュエーションを分類し、必ず1〜3件の日本語タグを返してください。",
               "必ずJSONだけを返し、Markdownやコードフェンスは使わないでください。",
               "独立した発話意図が複数ある場合だけsegmentsを分割してください。",
             ].join("\n"),
@@ -149,15 +153,17 @@ export async function generateExpressionWithAi(
 function buildPrompt(input: GenerateExpressionInput): string {
   return [
     `言いたいこと（日本語）: ${input.inputJa}`,
-    `場面（日本語）: ${input.situationJa || "未指定"}`,
-    `ジャンル: ${input.genreSlug || "未指定"}`,
-    `タグ: ${input.situationTags.join(", ") || "未指定"}`,
+    `ジャンル: ${input.genreSlug || "未指定（英語slugを提案）"}`,
+    `旧シチュエーション入力（存在する場合だけ参考にする）: ${input.legacySituationJa || "なし"}`,
+    `既存シチュエーションタグ（再生成時の参考。正しいとは限らない）: ${input.existingSituationTags.join(", ") || "なし"}`,
+    `優先タグプール: ${situationTagPoolPrompt()}`,
     input.segmentIntents?.length
       ? `意味単位（この順序と件数を必ず使用）: ${input.segmentIntents.map((intent, index) => `${index + 1}. ${intent}`).join(" / ")}`
       : "意味単位: AIが独立した発話意図だけを分割する。",
     "",
     "出力要件:",
     "- segmentsは意味単位ごとの配列。通常は1件、独立した発話意図があれば最大4件。指定された意味単位がある場合は、その件数と順序を守る。",
+    "- suggestedSituationTagsは必ず1〜3件。入力に合う優先タグプールの値を完全一致で優先し、最も中心となるタグを先頭に置く。プールに該当しない場合だけ短い日本語タグを生成する。",
     "- 各segmentにintentJaとL1〜L4のvariantsを必ず作る。",
     ...Object.values(profileByCode(input.profiles)).map(
       (profile) => `- ${profile.code} / ${profile.name}: ${profile.maxSentences}文以内、${profile.minWords}〜${profile.maxWords}語。${profile.instruction}`,
@@ -170,7 +176,7 @@ function buildPrompt(input: GenerateExpressionInput): string {
     "返却JSON:",
     JSON.stringify({
       suggestedGenreSlug: "skatepark",
-      suggestedSituationTags: ["練習", "友達", "スケートボード"],
+      suggestedSituationTags: ["友人への返信", "SNS・DM"],
       segments: [
         {
           position: 0,
@@ -209,7 +215,7 @@ function normalizeGeneration(value: unknown, profiles: GenerationProfile[]): Gen
   return {
     segments,
     suggestedGenreSlug: normalizeSlug(value.suggestedGenreSlug),
-    suggestedSituationTags: normalizeTags(value.suggestedSituationTags),
+    suggestedSituationTags: normalizeRequiredSituationTags(value.suggestedSituationTags),
   };
 }
 
@@ -325,15 +331,12 @@ function normalizeSlug(value: unknown): string {
     .slice(0, 120);
 }
 
-function normalizeTags(value: unknown): string[] {
-  if (!Array.isArray(value)) {
-    return [];
+function normalizeRequiredSituationTags(value: unknown): string[] {
+  const tags = normalizeSituationTags(value);
+  if (tags.length === 0) {
+    throw new Error("AI generation must return at least one situation tag.");
   }
-
-  return value
-    .map(getString)
-    .filter(Boolean)
-    .slice(0, 20);
+  return tags;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

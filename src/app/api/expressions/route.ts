@@ -47,11 +47,10 @@ export async function POST(request: Request) {
 
   const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
   const inputJa = getString(body?.inputJa);
-  const situationJa = getString(body?.situationJa);
 
-  if (!inputJa || !situationJa) {
+  if (!inputJa) {
     return NextResponse.json(
-      { error: { code: "invalid_input", message: "言いたいこととシチュエーションを日本語で入力してください。" } },
+      { error: { code: "invalid_input", message: "言いたいことを日本語で入力してください。" } },
       { status: 400 },
     );
   }
@@ -67,9 +66,7 @@ export async function POST(request: Request) {
     const entry = await createExpressionEntry({
       ownerLogin,
       inputJa,
-      situationJa: situationJa.slice(0, 1_000),
       genreSlug: normalizeGenre(body?.genreSlug),
-      situationTags: readTags(body?.situationTags),
     });
 
     return NextResponse.json({ entry }, { status: 201 });
@@ -95,19 +92,6 @@ function handleStoreError(message: string, error: unknown) {
 
 function getString(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
-}
-
-function readTags(value: unknown): string[] {
-  const values = Array.isArray(value)
-    ? value
-    : typeof value === "string"
-      ? value.split(/[;,]/)
-      : [];
-
-  return values
-    .map(getString)
-    .filter(Boolean)
-    .slice(0, 20);
 }
 
 function normalizeGenre(value: unknown): string {
