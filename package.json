@@ -5,10 +5,11 @@
   "license": "MIT",
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build && npm run verify:anki-wasm-trace",
     "start": "next start",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "verify:anki-wasm-trace": "node scripts/verify-anki-wasm-trace.mjs"
   },
   "dependencies": {
     "@vercel/blob": "2.6.1",
