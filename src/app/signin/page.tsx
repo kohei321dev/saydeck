@@ -49,13 +49,34 @@ async function getRequestOrigin(): Promise<string | null> {
   return `${protocol}://${host}`;
 }
 
+function getCanonicalAuthOrigin(): string | null {
+  const configuredUrl = process.env.NEXTAUTH_URL?.trim();
+
+  if (!configuredUrl) {
+    return null;
+  }
+
+  try {
+    return new URL(configuredUrl).origin;
+  } catch {
+    return null;
+  }
+}
+
 async function SignInContent({ searchParams }: Props) {
   const params = await searchParams;
   const authOrigin = await getRequestOrigin();
+  const canonicalAuthOrigin = getCanonicalAuthOrigin();
+
+  if (canonicalAuthOrigin && authOrigin && canonicalAuthOrigin !== authOrigin) {
+    redirect(`${canonicalAuthOrigin}/signin`);
+  }
+
   const needsSetup = params.setup === "1" || !isAuthConfigured();
   const authErrorMessage = getAuthErrorMessage(params.error);
   const githubConfigured = isGitHubAuthConfigured();
-  const callbackUrl = authOrigin ? `${authOrigin}/` : "/";
+  const callbackOrigin = canonicalAuthOrigin ?? authOrigin;
+  const callbackUrl = callbackOrigin ? `${callbackOrigin}/` : "/";
   const missingProviderNames = [
     githubConfigured ? null : "GitHub",
   ].filter((name): name is string => Boolean(name));
@@ -96,10 +117,10 @@ async function SignInContent({ searchParams }: Props) {
             <dd>@{ownerGithubUsername}</dd>
           </div>
         </dl>
-        {authOrigin ? (
+        {callbackOrigin ? (
           <div className="callback-list">
             <span>OAuth callback URL</span>
-            <code>{authOrigin}/api/auth/callback/github</code>
+            <code>{callbackOrigin}/api/auth/callback/github</code>
           </div>
         ) : null}
         {needsSetup ? (
