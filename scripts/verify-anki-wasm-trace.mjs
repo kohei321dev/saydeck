@@ -23,7 +23,7 @@ const trace = JSON.parse(await readFile(tracePath, "utf8"));
 const wasmPath = "node_modules/sql.js/dist/sql-wasm.wasm";
 const route = await readFile(routePath, "utf8");
 
-if (!trace.files.some((file) => file.endsWith(wasmPath))) {
+if (!trace.files.some((file) => file.replaceAll("\\", "/").endsWith(wasmPath))) {
   throw new Error(`APKG export trace does not include ${wasmPath}.`);
 }
 
