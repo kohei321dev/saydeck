@@ -56,19 +56,17 @@ export function ExpressionExportPanel({ entries }: Props) {
     });
   }
 
-  async function exportCards(format: "apkg" | "tsv") {
-    const exportIds = Array.from(selectedIds).filter((id) => format === "tsv" || apkgCandidateIds.has(id));
+  async function exportCards() {
+    const exportIds = Array.from(selectedIds).filter((id) => apkgCandidateIds.has(id));
 
     if (exportIds.length === 0) {
-      setStatus(format === "apkg"
-        ? "WordとExample SentenceのWAVが揃ったカードを選択してください。"
-        : "エクスポートするカードを選択してください。");
+      setStatus("APKGに必要なWordとExample Sentenceの音声が揃った表現を選択してください。");
       return;
     }
     setIsExporting(true);
     setStatus(null);
     try {
-      const response = await fetch(format === "apkg" ? "/api/anki-exports" : "/api/anki-exports/tsv", {
+      const response = await fetch("/api/anki-exports", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -82,12 +80,11 @@ export function ExpressionExportPanel({ entries }: Props) {
         const payload = await response.json().catch(() => ({})) as { error?: { message?: string } };
         throw new Error(payload.error?.message ?? "エクスポートに失敗しました。");
       }
-      const payload = format === "apkg"
-        ? await response.json() as { export?: { id?: string; cardCount?: number; filename?: string } }
-        : null;
-      const downloadResponse = format === "apkg" && payload?.export?.id
-        ? await fetch(`/api/anki-exports/${encodeURIComponent(payload.export.id)}/download`)
-        : response;
+      const payload = await response.json() as { export?: { id?: string; cardCount?: number; filename?: string } };
+      if (!payload.export?.id) {
+        throw new Error("APKGのダウンロード情報を取得できませんでした。");
+      }
+      const downloadResponse = await fetch(`/api/anki-exports/${encodeURIComponent(payload.export.id)}/download`);
       if (!downloadResponse.ok) {
         const downloadError = await downloadResponse.json().catch(() => ({})) as { error?: { message?: string } };
         throw new Error(downloadError.error?.message ?? "ダウンロードに失敗しました。");
@@ -96,12 +93,10 @@ export function ExpressionExportPanel({ entries }: Props) {
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement("a");
       anchor.href = url;
-      anchor.download = format === "apkg"
-        ? payload?.export?.filename ?? "saydeck-anki.apkg"
-        : "saydeck-anki.tsv";
+      anchor.download = payload.export?.filename ?? "saydeck-anki.apkg";
       anchor.click();
       URL.revokeObjectURL(url);
-      setStatus(`${payload?.export?.cardCount ?? response.headers.get("X-SayDeck-Card-Count") ?? exportIds.length}件を${format === "apkg" ? "APKGへ" : "TSVへ"}出力しました。`);
+      setStatus(`${payload.export?.cardCount ?? exportIds.length}件をAPKGへ出力しました。`);
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "エクスポートに失敗しました。");
     } finally {
@@ -132,16 +127,13 @@ export function ExpressionExportPanel({ entries }: Props) {
         <span>{selectedIds.size}/{allSelected.length}件選択</span>
         <button className="secondary-button" onClick={() => selectVisible(true)} type="button">表示中を選択</button>
         <button className="secondary-button" onClick={() => selectVisible(false)} type="button">表示中を解除</button>
-        <button className="primary-button" disabled={isExporting} onClick={() => void exportCards("apkg")} type="button">
-          {isExporting ? "作成中…" : `音声付きAPKGを出力（ready ${Array.from(selectedIds).filter((id) => apkgCandidateIds.has(id)).length}件）`}
+        <button className="primary-button" disabled={isExporting} onClick={() => void exportCards()} type="button">
+          {isExporting ? "作成中…" : `APKGを作成（準備済み ${Array.from(selectedIds).filter((id) => apkgCandidateIds.has(id)).length}件）`}
         </button>
       </div>
       {apkgCandidates.length === 0 ? (
-        <p className="capture-notice">WordとExample SentenceのWAVが揃うまではTSV補助出力だけ利用できます。</p>
+        <p className="capture-notice">現在、APKGに必要な英語音声が準備済みの表現はありません。</p>
       ) : null}
-      <button className="secondary-button" disabled={isExporting} onClick={() => void exportCards("tsv")} type="button">
-        TSVを補助出力
-      </button>
       {status ? <p className="capture-notice" role="status">{status}</p> : null}
       <div className="export-card-list">
         {visible.map(({ entry, variant }) => (
@@ -149,12 +141,12 @@ export function ExpressionExportPanel({ entries }: Props) {
             <input checked={selectedIds.has(variant.id)} onChange={() => toggle(variant.id)} type="checkbox" />
             <span className="capture-variant-level">{variant.profileCode}</span>
             <span><strong>{variant.keyExpression}</strong><small>{variant.english}</small></span>
-            <small>{apkgCandidateIds.has(variant.id) ? "WAV ready" : "TSVのみ"}</small>
+            <small>{apkgCandidateIds.has(variant.id) ? "APKG準備済み" : "音声未準備"}</small>
             <time dateTime={entry.registeredAt ?? entry.updatedAt}>{formatDate(entry.registeredAt ?? entry.updatedAt)}</time>
           </label>
         ))}
       </div>
-      <p className="field-hint">APKGにはIndex / Word / Definition / Irregular Forms / Example Sentence / Translation / word_audio / sentence_audio、deck、タグ、WAV音声を同梱します。</p>
+      <p className="field-hint">APKGにはIndex / Word / Definition / Irregular Forms / Example Sentence / Translation / word_audio / sentence_audio、deck、タグ、英語音声を同梱します。</p>
     </section>
   );
 }
@@ -163,7 +155,11 @@ function isProviderAudioReady(variant: SentenceVariant): boolean {
   if (variant.status !== "audio_ready") return false;
   const assets = variant.audioAssets ?? [];
   return ["word", "sentence"].every((kind) => assets.some((asset) =>
-    asset.kind === kind && asset.status === "ready" && asset.provider !== "browser-speech" && !asset.blobPath.startsWith("browser-speech://"),
+    asset.kind === kind
+      && asset.status === "ready"
+      && asset.provider !== "browser-speech"
+      && Boolean(asset.blobPath)
+      && !asset.blobPath.startsWith("browser-speech://"),
   ));
 }
 

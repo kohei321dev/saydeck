@@ -1,14 +1,4 @@
-import { createHash } from "node:crypto";
-
 import { getSql, isDatabaseConfigured } from "@/lib/db";
-import { putPrivateBinary } from "@/lib/binary-store";
-import {
-  getTtsConfig,
-  isTtsConfigured,
-  MissingTtsApiKeyError,
-  synthesizeAmericanEnglish,
-  TtsProviderError,
-} from "@/lib/tts-provider";
 import type {
   AudioAsset,
   ExpressionEntry,
@@ -36,23 +26,6 @@ export class ExpressionVariantUpdateError extends Error {
   constructor() {
     super("Expression variant update was invalid.");
     this.name = "ExpressionVariantUpdateError";
-  }
-}
-
-export class SentenceVariantNotFoundError extends Error {
-  constructor() {
-    super("Sentence variant was not found.");
-    this.name = "SentenceVariantNotFoundError";
-  }
-}
-
-export class AudioRegistrationError extends Error {
-  readonly code: "storage_unavailable" | "provider_unavailable" | "provider_quota" | "invalid_audio";
-
-  constructor(code: AudioRegistrationError["code"], message: string) {
-    super(message);
-    this.name = "AudioRegistrationError";
-    this.code = code;
   }
 }
 
@@ -405,13 +378,6 @@ export async function approveExpressionEntry(input: {
     where owner_login = ${input.ownerLogin} and id = ${input.entryId}
   `;
 
-  // DEV fallback: browser speech keeps the capture flow usable without a
-  // server-side TTS credential. These rows are intentionally not marked
-  // audio_ready and can never satisfy the APKG media gate.
-  if (!isTtsConfigured() && process.env.NODE_ENV !== "production") {
-    await insertBrowserSpeechAssets(sql, input.ownerLogin, validIds);
-  }
-
   const saved = await getExpressionEntry(input.ownerLogin, input.entryId);
 
   if (!saved) {
@@ -419,203 +385,6 @@ export async function approveExpressionEntry(input: {
   }
 
   return saved;
-}
-
-export async function registerSentenceVariantAudio(input: {
-  ownerLogin: string;
-  variantId: string;
-}): Promise<{ entry: ExpressionEntryDetail; mode: "provider" | "browser" }> {
-  const sql = requireDatabase();
-  const rows = await sql<{
-    id: string;
-    owner_login: string;
-    english: string;
-    key_expression: string;
-    sentence_card_id: string;
-    entry_id: string;
-    status: SentenceVariant["status"];
-    is_selected: boolean;
-  }[]>`
-    select v.id, v.owner_login, v.english, v.key_expression,
-      v.sentence_card_id, c.entry_id, v.status, v.is_selected
-    from sentence_variants v
-    join sentence_cards c on c.id = v.sentence_card_id and c.owner_login = v.owner_login
-    where v.owner_login = ${input.ownerLogin} and v.id = ${input.variantId}
-    limit 1
-  `;
-  const variant = rows[0];
-
-  if (!variant) {
-    throw new SentenceVariantNotFoundError();
-  }
-
-  if (!isTtsConfigured()) {
-    if (process.env.NODE_ENV !== "production") {
-      await insertBrowserSpeechAssets(sql, input.ownerLogin, [variant.id]);
-      const entry = await getExpressionEntry(input.ownerLogin, variant.entry_id);
-      if (!entry) throw new Error("Expression entry was not found.");
-      return { entry, mode: "browser" };
-    }
-    throw new MissingTtsApiKeyError();
-  }
-
-  const config = getTtsConfig();
-  const sources = [
-    { kind: "word" as const, text: variant.key_expression },
-    { kind: "sentence" as const, text: variant.english },
-  ];
-
-  await sql`
-    update sentence_variants
-    set status = 'approved', updated_at = now()
-    where owner_login = ${input.ownerLogin} and id = ${variant.id}
-  `;
-  await sql`
-    insert into audio_assets (
-      id, owner_login, variant_id, kind, blob_path, text_hash,
-      provider, model, voice, speed, format, status
-    )
-    values
-      (${`audio_${variant.id}_word`}, ${input.ownerLogin}, ${variant.id}, 'word', '',
-        ${textHash("word", variant.key_expression, config)}, 'openai-compatible', ${config.model}, ${config.voice}, ${config.speed}, 'wav', 'pending'),
-      (${`audio_${variant.id}_sentence`}, ${input.ownerLogin}, ${variant.id}, 'sentence', '',
-        ${textHash("sentence", variant.english, config)}, 'openai-compatible', ${config.model}, ${config.voice}, ${config.speed}, 'wav', 'pending')
-    on conflict (owner_login, variant_id, kind) do update set
-      blob_path = excluded.blob_path, text_hash = excluded.text_hash,
-      provider = excluded.provider, model = excluded.model,
-      voice = excluded.voice, speed = excluded.speed, format = excluded.format,
-      status = 'pending', error_code = null, updated_at = now()
-  `;
-
-  try {
-    const generated = await Promise.all(sources.map(async (source) => {
-      const audio = await synthesizeAmericanEnglish(source.text);
-      const hash = textHash(source.kind, source.text, audio.config);
-      const storage = await putPrivateBinary(
-        `audio/${safePathSegment(input.ownerLogin)}/${safePathSegment(variant.id)}/${source.kind}-${hash}.wav`,
-        audio.bytes,
-        "audio/wav",
-      );
-      return { ...source, hash, storage, config: audio.config };
-    }));
-
-    for (const audio of generated) {
-      await sql`
-        update audio_assets
-        set blob_path = ${audio.storage.blobPath}, text_hash = ${audio.hash},
-          provider = 'openai-compatible', model = ${audio.config.model},
-          voice = ${audio.config.voice}, speed = ${audio.config.speed},
-          format = 'wav', status = 'ready', error_code = null, updated_at = now()
-        where owner_login = ${input.ownerLogin}
-          and variant_id = ${variant.id}
-          and kind = ${audio.kind}
-      `;
-    }
-
-    await sql`
-      update sentence_variants
-      set status = 'audio_ready', updated_at = now()
-      where owner_login = ${input.ownerLogin} and id = ${variant.id}
-    `;
-  } catch (error) {
-    const errorCode = error instanceof TtsProviderError
-      ? error.code === "quota_exceeded" ? "provider_quota" : error.code === "invalid_audio" ? "invalid_audio" : "provider_unavailable"
-      : error instanceof Error && error.name === "BinaryStorageUnavailableError"
-        ? "storage_unavailable"
-        : "provider_unavailable";
-    await sql`
-      update audio_assets
-      set status = 'failed', error_code = ${errorCode}, updated_at = now()
-      where owner_login = ${input.ownerLogin} and variant_id = ${variant.id}
-    `;
-    await sql`
-      update sentence_variants
-      set status = 'audio_failed', updated_at = now()
-      where owner_login = ${input.ownerLogin} and id = ${variant.id}
-    `;
-
-    if (error instanceof TtsProviderError) {
-      throw new AudioRegistrationError(errorCode, error.message);
-    }
-    throw new AudioRegistrationError(errorCode, "音声ファイルの登録に失敗しました。");
-  }
-
-  const entry = await getExpressionEntry(input.ownerLogin, variant.entry_id);
-  if (!entry) throw new Error("Expression entry was not found.");
-  return { entry, mode: "provider" };
-}
-
-export async function getAudioAssetForOwner(
-  ownerLogin: string,
-  assetId: string,
-): Promise<AudioAsset | null> {
-  const sql = requireDatabase();
-  const rows = await sql<AudioAssetRow[]>`
-    select id, owner_login, variant_id, kind, blob_path, text_hash,
-      provider, model, voice, speed, format, status, error_code,
-      created_at, updated_at
-    from audio_assets
-    where owner_login = ${ownerLogin} and id = ${assetId}
-    limit 1
-  `;
-  return rows[0] ? toAudioAsset(rows[0]) : null;
-}
-
-async function insertBrowserSpeechAssets(
-  sql: ReturnType<typeof getSql>,
-  ownerLogin: string,
-  variantIds: string[],
-): Promise<void> {
-  await sql`
-    insert into audio_assets (
-      id, owner_login, variant_id, kind, blob_path, text_hash,
-      provider, model, voice, speed, format, status
-    )
-    select
-      'audio_' || v.id || '_word', v.owner_login, v.id, 'word',
-      'browser-speech://' || v.id || '/word', md5(v.key_expression),
-      'browser-speech', 'SpeechSynthesis', 'en-US', 1.0, 'wav', 'ready'
-    from sentence_variants v
-    where v.owner_login = ${ownerLogin} and v.id = any(${sql.array(variantIds)})
-    on conflict (owner_login, variant_id, kind) do update set
-      blob_path = excluded.blob_path, text_hash = excluded.text_hash,
-      provider = excluded.provider, model = excluded.model,
-      voice = excluded.voice, status = excluded.status,
-      error_code = null, updated_at = now()
-    where audio_assets.provider = 'browser-speech'
-  `;
-  await sql`
-    insert into audio_assets (
-      id, owner_login, variant_id, kind, blob_path, text_hash,
-      provider, model, voice, speed, format, status
-    )
-    select
-      'audio_' || v.id || '_sentence', v.owner_login, v.id, 'sentence',
-      'browser-speech://' || v.id || '/sentence', md5(v.english),
-      'browser-speech', 'SpeechSynthesis', 'en-US', 1.0, 'wav', 'ready'
-    from sentence_variants v
-    where v.owner_login = ${ownerLogin} and v.id = any(${sql.array(variantIds)})
-    on conflict (owner_login, variant_id, kind) do update set
-      blob_path = excluded.blob_path, text_hash = excluded.text_hash,
-      provider = excluded.provider, model = excluded.model,
-      voice = excluded.voice, status = excluded.status,
-      error_code = null, updated_at = now()
-    where audio_assets.provider = 'browser-speech'
-  `;
-}
-
-function textHash(
-  kind: "word" | "sentence",
-  text: string,
-  config: { model: string; voice: string; speed: number },
-): string {
-  return createHash("sha256")
-    .update(JSON.stringify({ kind, text, model: config.model, voice: config.voice, speed: config.speed, format: "wav" }))
-    .digest("hex");
-}
-
-function safePathSegment(value: string): string {
-  return value.replace(/[^A-Za-z0-9_-]/g, "_").slice(0, 100) || "unknown";
 }
 
 async function readDetails(

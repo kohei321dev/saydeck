@@ -25,7 +25,7 @@ SayDeckのログは、障害調査に必要な原因分類だけを残し、secr
 - OAuth client secret、provider raw payload
 - `DATABASE_URL` とDB接続文字列
 - raw request body
-- AI添削対象の回答文
+- 日本語入力と生成された英語表現の本文
 - AI providerへのprompt全文
 - AI providerのraw response全文
 - private URL、secretを含むURL、認証付きURL

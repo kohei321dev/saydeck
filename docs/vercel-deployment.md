@@ -10,11 +10,11 @@
 
 [事実] This app uses NextAuth with GitHub OAuth.
 
-[事実] GitHub sign-in grants `owner` when the GitHub `login` matches `GITHUB_OWNER`, which defaults to `kohei321dev`; other GitHub logins are treated as `viewer`.
+[事実] GitHub sign-in grants `owner` when the GitHub `login` matches `GITHUB_OWNER`, which defaults to `kohei321dev`; other GitHub logins cannot use owner routes.
 
-[事実] Owner AI calls use `OWNER_AI_KEY` from server-side API routes. Viewer AI review uses `VIEWER_AI_KEY`. The browser never receives either API key.
+[事実] Expression generation uses `OWNER_AI_KEY` from server-side API routes. The browser never receives the API key.
 
-[事実] Sample scene cards, owner-generated scene cards, and Owner practice records can be stored in Postgres through `DATABASE_URL`. ADR 0008 selects Neon Postgres as the first cloud database target.
+[事実] Expression entries, level variants, audio metadata, and APKG export state are stored in Postgres through `DATABASE_URL`. ADR 0008 selects Neon Postgres as the first cloud database target.
 
 ## GitHub OAuth App
 
@@ -89,7 +89,7 @@ for OAuth provider verification.
 ### Before PR
 
 - Run the app locally with `DEV_AUTH_BYPASS=1 npm run dev`.
-- Confirm the learning app renders at `http://localhost:3000`.
+- Confirm the root redirects to the expression INPUT screen at `http://localhost:3000/create`.
 - Confirm `/signin?setup=1` explains missing OAuth setup when local OAuth env
   vars are intentionally absent.
 - Do not change Production OAuth provider settings for a PR-only check.
@@ -111,13 +111,7 @@ for OAuth provider verification.
   actions available.
 - Sign out, then open the Production root in a fresh session and confirm the
   unauthenticated user redirects to `/signin`.
-- Sign in with a non-owner GitHub account and confirm the account can use the
-  viewer learning flow but cannot use owner-only actions.
-- If Google OAuth is listed in `/api/auth/providers`, sign in with a guest
-  Google account and confirm the intended guest/viewer behavior. If Google is
-  not listed, record the item as not applicable for that release rather than
-  treating it as a pass.
-- Confirm an account that should not have practice access reaches `/denied`.
+- Sign in with a non-owner GitHub account and confirm it reaches `/denied`.
 
 ### Callback Mismatch Triage
 
@@ -143,8 +137,6 @@ GITHUB_CLIENT_SECRET=<github-oauth-client-secret>
 GITHUB_OWNER=kohei321dev
 OWNER_AI_KEY=<owner-grok-api-key>
 OWNER_AI_MODEL=grok-4.3
-VIEWER_AI_KEY=<viewer-claude-api-key>
-VIEWER_AI_MODEL=claude-haiku-4-5-20251001
 DATABASE_URL=<neon-postgres-connection-string>
 SAYDECK_TTS_API_KEY=<server-only-speech-api-key>
 SAYDECK_TTS_BASE_URL=https://api.openai.com/v1
@@ -172,23 +164,22 @@ Preview用のEnvironment Variablesは現在は管理しない。Preview deployme
    - `db/migrations/0005-expression-learning-and-export.sql`
 4. Redeploy the Vercel project after setting `DATABASE_URL`.
 
-`0003` creates `practice_attempts` and `saved_notes`, which are required for DB-backed practice history and saved notes.
+`0001`〜`0003`は旧practice dataの再現性と保全のため保持する。現行UIはこれらを利用しない。
 
 `0004` creates the SayDeck expression capture, sentence variant, audio metadata, and Anki export state tables.
 
-`0005` adds registration timestamps, deterministic Anki indexes, and DEV browser-speech assets used by the learning/export projection.
+`0005` adds registration timestamps and deterministic Anki indexes. Phase 1以降、DEV browser-speech fallbackは利用しない。
 
-The APKG path also requires `SAYDECK_TTS_API_KEY` (or `OPENAI_API_KEY`) and `BLOB_READ_WRITE_TOKEN`. TTS creates the Word and Example Sentence WAV files, and private Blob stores both the media and generated APKG. The browser only uses the owner-authenticated audio and download routes.
+Phase 4のAPKG pathは`SAYDECK_TTS_API_KEY`（または`OPENAI_API_KEY`）と`BLOB_READ_WRITE_TOKEN`を使用する。TTSはWordとExample Sentenceの米国英語音声を内部生成し、private BlobはmediaとAPKGを保存する。browserにはowner認証済みAPKG downloadだけを提供する。
 
-If `DATABASE_URL` is not set, sample cards cannot be loaded from Neon and the app continues to use browser `localStorage` only for practice records, practice attempts, and saved notes.
+If `DATABASE_URL` is not set, INPUTは未同期の日本語入力をbrowser `localStorage`へ一時退避する。表現のDB保存・LISTS・EXPORTは利用できない。
 
 ## Access Rules
 
-- The learning app redirects to `/signin` unless the user has an accepted GitHub session.
+- Expression routes redirect to `/signin` unless the user has an accepted GitHub owner session.
 - Owner-only actions require GitHub login matching `GITHUB_OWNER`.
-- Viewer login can read cards, answer practice prompts, and run AI review with Claude Haiku.
-- `/api/practice` returns `401` unless the current session is owner.
-- `/api/practice` returns `503` if `DATABASE_URL` is not configured.
+- Non-owner login is redirected to `/denied`.
+- Expression and export APIs return `401` without an owner session and `503` when required infrastructure is not configured.
 
 ## Production OAuth Redirect Check
 
@@ -208,8 +199,6 @@ the learning app after provider authentication.
    - `DATABASE_URL`
    - `OWNER_AI_KEY`
    - `OWNER_AI_MODEL=grok-4.3`
-   - `VIEWER_AI_KEY`
-   - `VIEWER_AI_MODEL=claude-haiku-4-5-20251001`
    - `SAYDECK_TTS_API_KEY` (or `OPENAI_API_KEY`)
    - `BLOB_READ_WRITE_TOKEN`
 5. Confirm the `/signin` page shows GitHub OAuth as enabled before testing provider login.

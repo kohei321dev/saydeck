@@ -68,14 +68,6 @@ export function isOwnerSession(session: Session | null): boolean {
   return session?.user?.role === "owner";
 }
 
-export function isViewerSession(session: Session | null): boolean {
-  return session?.user?.role === "viewer";
-}
-
-export function canUsePractice(session: Session | null): boolean {
-  return isOwnerSession(session) || isViewerSession(session);
-}
-
 export function isAuthConfigured(): boolean {
   return Boolean(process.env.AUTH_SECRET && isGitHubAuthConfigured());
 }

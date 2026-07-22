@@ -8,15 +8,9 @@ import {
   isGitHubAuthConfigured,
   ownerGithubUsername,
 } from "@/lib/auth";
-import {
-  getCardStoreLocation,
-  isCardStoreReady,
-  isCardPersistenceConfigured,
-} from "@/lib/card-store";
 import { getSql, isDatabaseConfigured } from "@/lib/db";
 import { isBlobStorageConfigured, isLocalBinaryStorageAllowed } from "@/lib/binary-store";
 import { logServerError } from "@/lib/log-redaction";
-import { getPracticeStorageReadiness } from "@/lib/practice-notes";
 import { isTtsConfigured } from "@/lib/tts-provider";
 
 export type RuntimeProbeStatus =
@@ -38,20 +32,10 @@ export type RuntimeDiagnostics = {
     githubConfigured: boolean;
     ownerGithubUsername: string;
   };
-  cards: {
-    persistenceConfigured: boolean;
-    schemaReady: boolean;
-    storeLocation: string;
-  };
   database: {
     configured: boolean;
     probeStatus: RuntimeProbeStatus;
     expressionSchemaReady: boolean;
-  };
-  practiceStorage: {
-    persistenceConfigured: boolean;
-    practiceAttemptsReady: boolean;
-    savedNotesReady: boolean;
   };
   media: {
     ttsConfigured: boolean;
@@ -67,7 +51,6 @@ export type RuntimeDiagnostics = {
  */
 export async function getRuntimeDiagnostics(options: { probeExternal?: boolean } = {}): Promise<RuntimeDiagnostics> {
   const databaseConfigured = isDatabaseConfigured();
-  const practiceStorageReadiness = await getPracticeStorageReadiness();
   const databaseProbe = await probeDatabase();
   const aiProbe = options.probeExternal
     ? await probeOwnerAi()
@@ -86,20 +69,10 @@ export async function getRuntimeDiagnostics(options: { probeExternal?: boolean }
       githubConfigured: isGitHubAuthConfigured(),
       ownerGithubUsername: sanitizeRuntimeLabel(ownerGithubUsername),
     },
-    cards: {
-      persistenceConfigured: isCardPersistenceConfigured(),
-      schemaReady: await isCardStoreReady(),
-      storeLocation: getCardStoreLocation(),
-    },
     database: {
       configured: databaseConfigured,
       probeStatus: databaseProbe.status,
       expressionSchemaReady: databaseProbe.expressionSchemaReady,
-    },
-    practiceStorage: {
-      persistenceConfigured: databaseConfigured,
-      practiceAttemptsReady: practiceStorageReadiness.practiceAttemptsReady,
-      savedNotesReady: practiceStorageReadiness.savedNotesReady,
     },
     media: {
       ttsConfigured: isTtsConfigured(),

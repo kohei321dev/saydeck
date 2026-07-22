@@ -32,9 +32,9 @@ export default async function ExpressionLibraryPage() {
     <AppFrame activePath="library" roleLabel="owner" userLabel={userLabel}>
       <main className="library-page">
         <section className="library-intro">
-          <p className="eyebrow">LIBRARY</p>
-          <h1>登録した表現</h1>
-          <p>英文候補、タグ、登録日、音声再生を確認できます。Anki exportではカード・タグ・期間を指定できます。</p>
+          <p className="eyebrow">LISTS</p>
+          <h1>保存した表現</h1>
+          <p>生成した基本ワード、例文、ジャンル、シチュエーション、レベルを確認できます。</p>
         </section>
         {loadError ? <p className="error-note">{loadError}</p> : <ExpressionLibrary entries={entries} />}
       </main>

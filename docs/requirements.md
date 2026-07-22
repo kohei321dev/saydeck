@@ -132,7 +132,7 @@ UIはこの責務を`INPUT`、`LISTS`、`EXPORT`の3画面で表現する。
 
 ## 7. 既存機能の扱い
 
-- 旧`ScenePractice`、旧カード、review/practice/notes API、学習投影、browser-speech fallback、TSV APIは削除対象とする。
+- Phase 1で、旧`ScenePractice`、旧カード、review/practice/notes API、学習投影、browser-speech fallback、TSV APIを削除した。
 - 旧`scene_cards`、`practice_records`、`practice_attempts`、`saved_notes`のデータとmigrationは、安全な移行・復旧のため当面保持する。
 - 旧データを新しい表現domainへ二重書き込みまたは自動投影しない。
 - 削除は別Issueで実装し、現行のINPUT・LISTS・EXPORTに必要なデータを巻き込まないことをテストする。

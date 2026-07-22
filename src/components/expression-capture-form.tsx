@@ -28,7 +28,7 @@ export function ExpressionCaptureForm({ initialQueue = null }: Props) {
   const [situationTags, setSituationTags] = useState(initialQueue?.situationTags ?? "");
   const [entry, setEntry] = useState<ExpressionEntryDetail | null>(null);
   const [selectedVariantIds, setSelectedVariantIds] = useState<Set<string>>(new Set());
-  const [phase, setPhase] = useState<"idle" | "saving" | "generating" | "approving" | "registering" | "done">("idle");
+  const [phase, setPhase] = useState<"idle" | "saving" | "generating" | "approving" | "done">("idle");
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(initialQueue ? "未同期の入力を復元しました。保存を再試行してください。" : null);
 
@@ -133,22 +133,7 @@ export function ExpressionCaptureForm({ initialQueue = null }: Props) {
         },
       );
       setEntry(result.entry);
-      setPhase("registering");
-      const selectedVariants = result.entry.sentenceCards
-        .flatMap((card) => card.variants ?? [])
-        .filter((variant) => variant.isSelected);
-      const audioResults = await Promise.all(
-        selectedVariants.map((variant) => requestJson<{ entry: ExpressionEntryDetail; mode: "provider" | "browser" }>(
-          `/api/sentence-variants/${encodeURIComponent(variant.id)}/register`,
-          { method: "POST" },
-        )),
-      );
-      const latestEntry = audioResults.at(-1)?.entry ?? result.entry;
-      setEntry(latestEntry);
-      const providerAudio = audioResults.some((audio) => audio.mode === "provider");
-      setNotice(providerAudio
-        ? "カードと米国英語WAV音声を登録しました。Libraryで確認できます。"
-        : "カードを登録しました。DEVではブラウザ音声をLibraryで再生できます。APKGにはWAV音声が必要です。");
+      setNotice("選択した表現を保存しました。LISTSで確認できます。");
       setPhase("done");
     } catch (caught) {
       setError(getErrorMessage(caught));
@@ -260,10 +245,10 @@ export function ExpressionCaptureForm({ initialQueue = null }: Props) {
             </article>
           ))}
           <div className="capture-review-actions">
-          <button className="primary-button" disabled={phase === "approving" || phase === "registering"} onClick={() => void approve()} type="button">
-              {phase === "approving" ? "登録中…" : phase === "registering" ? "音声を生成中…" : phase === "done" ? "登録済み" : "選択した候補を登録"}
+          <button className="primary-button" disabled={phase === "approving"} onClick={() => void approve()} type="button">
+              {phase === "approving" ? "保存中…" : phase === "done" ? "保存済み" : "選択した候補を保存"}
             </button>
-            {phase === "done" ? <Link className="secondary-button" href="/library">Libraryを見る</Link> : null}
+            {phase === "done" ? <Link className="secondary-button" href="/library">LISTSを見る</Link> : null}
           </div>
         </section>
       ) : null}

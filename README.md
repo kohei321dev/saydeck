@@ -20,7 +20,7 @@ EXPORT: 米国英語音声を内部生成し、音声同梱Anki APKGをdownload
 
 SayDeckの主要画面は`INPUT`、`LISTS`、`EXPORT`の3つです。アプリ内学習・AI添削・練習履歴は現行要件に含めず、復習はAnkiで行います。正式なexport形式はAPKGのみで、TSVや個別WAV操作は提供しません。
 
-MVP実装は、最初に旧学習・TSV・手動音声導線を削除し、その後`INPUT` → `LISTS` → `EXPORT`の順で進めます。
+MVP Phase 1として旧学習・TSV・手動音声導線を削除済みです。以降は`INPUT` → `LISTS` → `EXPORT`の順で進めます。
 
 ## Documentation
 
@@ -50,7 +50,7 @@ server-sideの`OWNER_AI_KEY`（許可モデル`grok-4.3`）も必要です。ど
 
 `LISTS`では生成済み表現を個別選択し、ジャンル、シチュエーション、レベル、作成日時などで絞り込めます。`EXPORT`では選択した表現から米国英語音声付き`.apkg`を作成します。音声生成はAPKG作成の内部処理です。TTS keyがあれば、Blob tokenがないlocalhostでも`.saydeck-storage`を使ってAPKGまで検証できます。
 
-ownerでログインした状態では、既存画面の診断パネルからDB接続、表現schema、AI providerの疎通を確認できます。APIでは`GET /api/diagnostics?probe=1`が同じ確認を行い、secretやprovider本文は返しません。
+ownerでログインした状態では、`GET /api/diagnostics?probe=1`からDB接続、表現schema、AI providerの疎通を確認できます。secretやprovider本文は返しません。
 
 ### Vercel環境変数をlocalhostで使う場合
 

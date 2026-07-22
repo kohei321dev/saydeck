@@ -9,7 +9,6 @@ import {
 import {
   AnkiAudioNotReadyError,
   AnkiExportUnavailableError,
-  AnkiSamplesUnavailableError,
   createAnkiExportArtifact,
   getAnkiExportRecords,
 } from "@/lib/anki-export";
@@ -32,13 +31,6 @@ export async function POST(request: Request) {
   const tags = readStringList(body.tags);
   const from = getString(body.from);
   const to = getString(body.to);
-
-  if (body.includeSamples === true) {
-    return NextResponse.json(
-      { error: { code: "samples_unavailable", message: "音声同梱APKGでは初期サンプルを選択できません。" } },
-      { status: 400 },
-    );
-  }
 
   try {
     const records = await getAnkiExportRecords(ownerLogin, {
@@ -91,13 +83,6 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: { code: "audio_not_ready", message: "WordとExample Sentenceの両方の音声が必要です。" } },
         { status: 409 },
-      );
-    }
-
-    if (error instanceof AnkiSamplesUnavailableError) {
-      return NextResponse.json(
-        { error: { code: "samples_unavailable", message: "初期サンプルには同梱用音声がありません。" } },
-        { status: 400 },
       );
     }
 

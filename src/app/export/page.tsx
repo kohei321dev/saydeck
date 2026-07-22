@@ -25,9 +25,9 @@ export default async function ExportPage() {
     <AppFrame activePath="export" roleLabel="owner" userLabel={userLabel}>
       <main className="library-page">
         <section className="library-intro">
-          <p className="eyebrow">ANKI EXPORT</p>
-          <h1>学習カードをまとめて出力</h1>
-          <p>カード、タグ、登録期間を指定して、WAV音声・deck・タグを含むAnki用APKGを作成します。</p>
+          <p className="eyebrow">EXPORT</p>
+          <h1>Anki用APKGを出力</h1>
+          <p>保存した表現から、音声・deck・タグを含むAnki用APKGを作成します。</p>
         </section>
         <ExpressionExportPanel entries={entries} />
       </main>

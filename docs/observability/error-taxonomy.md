@@ -17,13 +17,13 @@ API error responseは次の形に寄せる。
 {
   "error": {
     "code": "external_ai_unavailable",
-    "message": "AI添削に失敗しました。少し時間を置いて再実行してください。",
+    "message": "英文候補の生成に失敗しました。少し時間を置いて再実行してください。",
     "action": "retry_later"
   }
 }
 ```
 
-`message` はUI表示用にする。secret、raw provider payload、DB接続文字列、stack trace、学習者の回答文は含めない。
+`message` はUI表示用にする。secret、raw provider payload、DB接続文字列、stack trace、入力本文は含めない。
 
 `action` は任意だが、UIで次の動きを出す場合に使う。
 
@@ -35,10 +35,10 @@ server logでは、UI messageとは別に調査用detailを残す。
 {
   "event": "api_error",
   "code": "external_ai_unavailable",
-  "route": "/api/review",
+  "route": "/api/expressions/:id/generate",
   "status": 502,
   "provider": "owner_ai",
-  "operation": "review_answer"
+  "operation": "generate_expression_variants"
 }
 ```
 

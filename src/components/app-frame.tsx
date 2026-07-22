@@ -4,26 +4,19 @@ import Link from "next/link";
 import { SignOutButton } from "@/components/sign-in-button";
 
 type AppFrameProps = {
-  activePath?: "practice" | "create" | "library" | "export";
+  activePath?: "create" | "library" | "export";
   children: React.ReactNode;
   roleLabel?: string;
   userLabel?: string;
 };
 
 const navigation = [
-  { href: "/", id: "practice", label: "学習" },
-  { href: "/create", id: "create", label: "表現を作る" },
-  { href: "/library", id: "library", label: "Library" },
-  { href: "/export", id: "export", label: "Anki export" },
+  { href: "/create", id: "create", label: "INPUT" },
+  { href: "/library", id: "library", label: "LISTS" },
+  { href: "/export", id: "export", label: "EXPORT" },
 ] as const;
 
-/**
- * Shared authenticated application frame for the new expression routes.
- *
- * The legacy home page still owns its existing frame while migration is in
- * progress. New pages use this component so navigation and sign-out behavior
- * stay consistent without coupling their client state to ScenePractice.
- */
+/** Shared authenticated frame for the expression workflow. */
 export function AppFrame({
   activePath,
   children,
@@ -42,7 +35,7 @@ export function AppFrame({
             src="/icon.svg"
             width={28}
           />
-          <Link className="brand-link" href="/">
+          <Link className="brand-link" href="/create">
             <strong>SayDeck</strong>
           </Link>
         </div>
