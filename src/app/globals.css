@@ -2282,7 +2282,7 @@ button:disabled {
   align-items: flex-start;
   display: grid;
   gap: 10px;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto auto minmax(0, 1fr);
 }
 
 .library-variant > div {
