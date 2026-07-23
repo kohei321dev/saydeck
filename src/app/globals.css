@@ -2227,6 +2227,17 @@ button:disabled {
   text-decoration: none;
 }
 
+.danger-button {
+  align-items: center;
+  background: transparent;
+  border: 1px solid #d66a56;
+  border-radius: 8px;
+  color: #a84231;
+  display: inline-flex;
+  min-height: 44px;
+  padding: 0 14px;
+}
+
 .library-list {
   display: grid;
   gap: 16px;
@@ -2282,7 +2293,29 @@ button:disabled {
   align-items: flex-start;
   display: grid;
   gap: 10px;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto auto minmax(0, 1fr);
+}
+
+.library-entry-meta,
+.library-entry-actions,
+.library-edit-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.library-entry-meta {
+  justify-content: flex-end;
+}
+
+.library-entry-meta time {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.library-edit-actions {
+  margin-top: 20px;
 }
 
 .library-variant > div {
@@ -2485,7 +2518,7 @@ button:disabled {
     grid-template-columns: auto auto minmax(0, 1fr);
   }
 
-  .library-variant {
+.library-variant {
     grid-template-columns: auto minmax(0, 1fr);
   }
 
@@ -2501,4 +2534,16 @@ button:disabled {
   .export-card-row time {
     grid-column: 3;
   }
+}
+
+.library-variant.selected {
+  background: #edf8f2;
+  border-radius: 8px;
+}
+
+.library-variant > input[type="checkbox"] {
+  accent-color: var(--accent);
+  height: 18px;
+  margin: 2px 0 0;
+  width: 18px;
 }

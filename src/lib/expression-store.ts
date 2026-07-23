@@ -489,6 +489,24 @@ export async function approveExpressionEntry(input: {
   return saved;
 }
 
+/** Hide an expression from the product without destroying its export history. */
+export async function archiveExpressionEntry(input: {
+  ownerLogin: string;
+  entryId: string;
+}): Promise<boolean> {
+  const sql = requireDatabase();
+  const result = await sql<{ id: string }[]>`
+    update expression_entries
+    set status = 'archived', updated_at = now()
+    where owner_login = ${input.ownerLogin}
+      and id = ${input.entryId}
+      and status <> 'archived'
+    returning id
+  `;
+
+  return result.length > 0;
+}
+
 export async function registerSentenceVariantAudio(input: {
   ownerLogin: string;
   variantId: string;

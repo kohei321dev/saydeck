@@ -26,6 +26,9 @@ export function ExpressionLibrary({ entries: initialEntries }: Props) {
   );
   const [notice, setNotice] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingOriginal, setEditingOriginal] = useState<ExpressionEntryDetail | null>(null);
 
   useEffect(() => {
     try {
@@ -111,10 +114,57 @@ export function ExpressionLibrary({ entries: initialEntries }: Props) {
       }
       updateEntry(entry.id, () => payload.entry!);
       setNotice("編集内容と選択状態を保存しました。");
+      setEditingId(null);
+      setEditingOriginal(null);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "表現を保存できませんでした。");
     } finally {
       setSavingId(null);
+    }
+  }
+
+  function beginEditing(entry: ExpressionEntryDetail) {
+    setEditingId(entry.id);
+    setEditingOriginal(entry);
+    setNotice(null);
+  }
+
+  function cancelEditing() {
+    if (editingOriginal) {
+      updateEntry(editingOriginal.id, () => editingOriginal);
+    }
+    setEditingId(null);
+    setEditingOriginal(null);
+  }
+
+  async function archiveEntry(entry: ExpressionEntryDetail) {
+    if (!window.confirm(`「${entry.inputJa}」を一覧から削除しますか？`)) return;
+
+    setDeletingId(entry.id);
+    setNotice(null);
+    try {
+      const response = await fetch(`/api/expressions/${encodeURIComponent(entry.id)}`, {
+        method: "DELETE",
+      });
+      const payload = await response.json().catch(() => null) as { error?: { message?: string } } | null;
+      if (!response.ok) {
+        throw new Error(payload?.error?.message ?? "表現を削除できませんでした。");
+      }
+
+      const removedIds = new Set(entry.sentenceCards.flatMap((card) =>
+        (card.variants ?? []).map((variant) => variant.id),
+      ));
+      setEntries((current) => current.filter((currentEntry) => currentEntry.id !== entry.id));
+      setSelectedIds((current) => new Set(Array.from(current).filter((id) => !removedIds.has(id))));
+      if (editingId === entry.id) {
+        setEditingId(null);
+        setEditingOriginal(null);
+      }
+      setNotice("表現を一覧から削除しました。");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "表現を削除できませんでした。");
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -154,7 +204,17 @@ export function ExpressionLibrary({ entries: initialEntries }: Props) {
               <h2>{entry.inputJa}</h2>
               <p>{entry.situationTags.join(" / ")}</p>
             </div>
-            <time dateTime={entry.updatedAt}>{formatDate(entry.updatedAt)}</time>
+            <div className="library-entry-meta">
+              <time dateTime={entry.updatedAt}>{formatDate(entry.updatedAt)}</time>
+              <div className="library-entry-actions">
+                <button className="secondary-button" disabled={deletingId === entry.id || savingId === entry.id} onClick={() => editingId === entry.id ? cancelEditing() : beginEditing(entry)} type="button">
+                  {editingId === entry.id ? "編集をやめる" : "編集"}
+                </button>
+                <button className="danger-button" disabled={deletingId === entry.id || savingId === entry.id} onClick={() => void archiveEntry(entry)} type="button">
+                  {deletingId === entry.id ? "削除中…" : "削除"}
+                </button>
+              </div>
+            </div>
           </div>
           <div className="capture-ai-metadata">
             <label className="capture-inline-editor"><span>ジャンル</span><select onChange={(event) => updateEntry(entry.id, (current) => ({ ...current, genreSlug: selectedGenre(event.target.value, current.genreSlug) }))} value={genreMode(entry.genreSlug)}><option value="">指定なし（AIに任せる）</option><option value="daily">日常生活</option><option value="skateboarding">スケートボード</option><option value="other">その他</option></select>{genreMode(entry.genreSlug) === "other" ? <input maxLength={120} onChange={(event) => updateEntry(entry.id, (current) => ({ ...current, genreSlug: event.target.value }))} value={entry.genreSlug} /> : null}</label>
@@ -164,23 +224,29 @@ export function ExpressionLibrary({ entries: initialEntries }: Props) {
             <div className="library-card" key={card.id}>
               <strong>{card.intentJa}</strong>
               {(card.variants ?? []).filter((variant) => !level || variant.profileCode === level).map((variant) => (
-                <label className="library-variant" key={variant.id}>
+                <div className={selectedIds.has(variant.id) ? "library-variant selected" : "library-variant"} key={variant.id}>
                   <input checked={selectedIds.has(variant.id)} onChange={() => toggleVariant(variant.id)} type="checkbox" />
                   <span className="capture-variant-level">{variant.profileCode}</span>
-                  <span className="capture-variant-copy">
-                    <input aria-label={`${variant.profileCode} 英文`} className="capture-inline-input" onChange={(event) => updateEntry(entry.id, (current) => updateVariant(current, variant.id, "english", event.target.value))} value={variant.english} />
-                    <input aria-label={`${variant.profileCode} 和訳`} className="capture-inline-input" onChange={(event) => updateEntry(entry.id, (current) => updateVariant(current, variant.id, "japanese", event.target.value))} value={variant.japanese} />
-                    <input aria-label={`${variant.profileCode} Word`} className="capture-inline-input" onChange={(event) => updateEntry(entry.id, (current) => updateVariant(current, variant.id, "keyExpression", event.target.value))} value={variant.keyExpression} />
-                    <input aria-label={`${variant.profileCode} Definition`} className="capture-inline-input" onChange={(event) => updateEntry(entry.id, (current) => updateVariant(current, variant.id, "definitionJa", event.target.value))} value={variant.definitionJa} />
-                    <input aria-label={`${variant.profileCode} Irregular Forms`} className="capture-inline-input" onChange={(event) => updateEntry(entry.id, (current) => updateVariant(current, variant.id, "irregularForms", event.target.value))} value={variant.irregularForms} />
-                  </span>
-                </label>
+                  {editingId === entry.id ? (
+                    <div className="capture-variant-copy">
+                      <input aria-label={`${variant.profileCode} 英文`} className="capture-inline-input" onChange={(event) => updateEntry(entry.id, (current) => updateVariant(current, variant.id, "english", event.target.value))} value={variant.english} />
+                      <input aria-label={`${variant.profileCode} 和訳`} className="capture-inline-input" onChange={(event) => updateEntry(entry.id, (current) => updateVariant(current, variant.id, "japanese", event.target.value))} value={variant.japanese} />
+                      <input aria-label={`${variant.profileCode} Word`} className="capture-inline-input" onChange={(event) => updateEntry(entry.id, (current) => updateVariant(current, variant.id, "keyExpression", event.target.value))} value={variant.keyExpression} />
+                      <input aria-label={`${variant.profileCode} Definition`} className="capture-inline-input" onChange={(event) => updateEntry(entry.id, (current) => updateVariant(current, variant.id, "definitionJa", event.target.value))} value={variant.definitionJa} />
+                      <input aria-label={`${variant.profileCode} Irregular Forms`} className="capture-inline-input" onChange={(event) => updateEntry(entry.id, (current) => updateVariant(current, variant.id, "irregularForms", event.target.value))} value={variant.irregularForms} />
+                    </div>
+                  ) : (
+                    <div className="capture-variant-copy">
+                      <strong>{variant.english}</strong>
+                      <span>{variant.japanese}</span>
+                      <small>基本ワード: {variant.keyExpression}</small>
+                    </div>
+                  )}
+                </div>
               ))}
             </div>
           ))}
-          <button className="secondary-button" disabled={savingId === entry.id} onClick={() => void saveEntry(entry)} type="button">
-            {savingId === entry.id ? "保存中…" : "この表現を保存"}
-          </button>
+          {editingId === entry.id ? <div className="library-edit-actions"><button className="primary-button" disabled={savingId === entry.id} onClick={() => void saveEntry(entry)} type="button">{savingId === entry.id ? "保存中…" : "編集を保存"}</button><button className="secondary-button" disabled={savingId === entry.id} onClick={cancelEditing} type="button">キャンセル</button></div> : null}
         </article>
       ))}
     </section>

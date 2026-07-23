@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { getExpressionOwnerLogin } from "@/lib/expression-auth";
 import {
   approveExpressionEntry,
+  archiveExpressionEntry,
   ExpressionDatabaseUnavailableError,
   ExpressionSelectionError,
   ExpressionSituationTagsRequiredError,
@@ -116,6 +117,38 @@ export async function PATCH(
     }
 
     return handleError("Failed to approve expression entry.", error);
+  }
+}
+
+export async function DELETE(
+  _request: Request,
+  context: { params: Promise<{ id: string }> },
+) {
+  const ownerLogin = await getExpressionOwnerLogin();
+
+  if (!ownerLogin) {
+    return NextResponse.json(
+      { error: { code: "unauthorized", message: "削除にはownerログインが必要です。" } },
+      { status: 401 },
+    );
+  }
+
+  try {
+    const archived = await archiveExpressionEntry({
+      ownerLogin,
+      entryId: decodeURIComponent((await context.params).id),
+    });
+
+    if (!archived) {
+      return NextResponse.json(
+        { error: { code: "not_found", message: "表現が見つかりません。" } },
+        { status: 404 },
+      );
+    }
+
+    return NextResponse.json({ archived: true });
+  } catch (error) {
+    return handleError("Failed to archive expression entry.", error);
   }
 }
 
