@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowDown, ArrowUp, Combine, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import type {
@@ -18,11 +17,6 @@ type CaptureQueue = {
 
 type GenreMode = "" | "daily" | "skateboarding" | "other";
 
-type SegmentDraft = {
-  id: string;
-  intentJa: string;
-};
-
 type Props = {
   initialQueue?: CaptureQueue | null;
 };
@@ -32,7 +26,6 @@ export function ExpressionCaptureForm({ initialQueue = null }: Props) {
   const [genreMode, setGenreMode] = useState<GenreMode>(() => getGenreMode(initialQueue?.genreSlug));
   const [otherGenre, setOtherGenre] = useState(() => getOtherGenre(initialQueue?.genreSlug));
   const [entry, setEntry] = useState<ExpressionEntryDetail | null>(null);
-  const [segmentDrafts, setSegmentDrafts] = useState<SegmentDraft[]>([]);
   const [selectedVariantIds, setSelectedVariantIds] = useState<Set<string>>(new Set());
   const [phase, setPhase] = useState<"idle" | "saving" | "generating" | "approving" | "done">("idle");
   const [error, setError] = useState<string | null>(null);
@@ -71,6 +64,8 @@ export function ExpressionCaptureForm({ initialQueue = null }: Props) {
       return;
     }
 
+    setEntry(null);
+    setSelectedVariantIds(new Set());
     persistQueue(payload);
     setPhase("saving");
 
@@ -95,22 +90,19 @@ export function ExpressionCaptureForm({ initialQueue = null }: Props) {
     }
   }
 
-  async function generateEntry(target: ExpressionEntryDetail, segmentIntents?: string[]) {
+  async function generateEntry(target: ExpressionEntryDetail) {
     setError(null);
     setPhase("generating");
 
     try {
       const generated = await requestJson<{ entry: ExpressionEntryDetail }>(
         `/api/expressions/${encodeURIComponent(target.id)}/generate`,
-        {
-          method: "POST",
-          body: segmentIntents ? JSON.stringify({ segmentIntents }) : undefined,
-        },
+        { method: "POST" },
       );
       const variants = generated.entry.sentenceCards.flatMap((card) => card.variants ?? []);
       applyEntry(generated.entry);
       setSelectedVariantIds(new Set(variants.map((variant) => variant.id)));
-      setNotice(segmentIntents ? "意味単位に合わせて候補を作り直しました。" : "候補を作成しました。残したいレベルを選んでください。");
+      setNotice("英文候補を作成しました。追加するレベルを選んでください。");
     } catch (caught) {
       setError(getErrorMessage(caught));
       setNotice("入力は保存済みです。設定を確認して候補生成を再試行できます。");
@@ -165,70 +157,14 @@ export function ExpressionCaptureForm({ initialQueue = null }: Props) {
     });
   }
 
-  function updateVariant(variantId: string, field: "english" | "japanese" | "keyExpression" | "definitionJa" | "irregularForms", value: string) {
-    setEntry((current) => current ? {
-      ...current,
-      sentenceCards: current.sentenceCards.map((card) => ({
-        ...card,
-        variants: (card.variants ?? []).map((variant) => variant.id === variantId ? { ...variant, [field]: value } : variant),
-      })),
-    } : current);
-  }
-
-  function updateEntryMetadata(field: "genreSlug", value: string) {
-    setEntry((current) => current ? {
-      ...current,
-      [field]: value,
-    } : current);
-  }
-
   function applyEntry(nextEntry: ExpressionEntryDetail) {
     setEntry(nextEntry);
-    setSegmentDrafts(nextEntry.sentenceCards.map((card) => ({ id: card.id, intentJa: card.intentJa })));
   }
 
-  function updateSegment(index: number, value: string) {
-    setSegmentDrafts((current) => current.map((segment, currentIndex) =>
-      currentIndex === index ? { ...segment, intentJa: value } : segment,
-    ));
-  }
-
-  function addSegmentAfter(index: number) {
-    setSegmentDrafts((current) => current.length >= 4 ? current : [
-      ...current.slice(0, index + 1),
-      { id: `new-${crypto.randomUUID()}`, intentJa: "" },
-      ...current.slice(index + 1),
-    ]);
-  }
-
-  function mergeWithNext(index: number) {
-    setSegmentDrafts((current) => {
-      if (!current[index + 1]) return current;
-      const merged = [current[index].intentJa, current[index + 1].intentJa]
-        .map((value) => value.trim()).filter(Boolean).join("。 ");
-      return [...current.slice(0, index), { ...current[index], intentJa: merged }, ...current.slice(index + 2)];
-    });
-  }
-
-  function moveSegment(index: number, direction: -1 | 1) {
-    setSegmentDrafts((current) => {
-      const target = index + direction;
-      if (target < 0 || target >= current.length) return current;
-      const next = [...current];
-      [next[index], next[target]] = [next[target], next[index]];
-      return next;
-    });
-  }
-
-  function regenerateSegments() {
-    if (!entry) return;
-    const intents = segmentDrafts.map((segment) => segment.intentJa.trim()).filter(Boolean);
-    if (intents.length === 0 || intents.length > 4) {
-      setError("意味単位は1〜4件で入力してください。");
-      return;
-    }
-    void generateEntry(entry, intents);
-  }
+  const generatedCards = entry?.sentenceCards.filter((card) =>
+    (card.variants ?? []).some((variant) => variant.english.trim()),
+  ) ?? [];
+  const hasGeneratedCandidates = generatedCards.length > 0;
 
   return (
     <main className="capture-page">
@@ -265,26 +201,26 @@ export function ExpressionCaptureForm({ initialQueue = null }: Props) {
           {genreMode === "other" ? <label className="capture-field"><span>その他のジャンル</span><input maxLength={120} onChange={(event) => setOtherGenre(event.target.value)} placeholder="travel" value={otherGenre} /></label> : null}
         </div>
         <button className="primary-button capture-submit" disabled={phase === "saving" || phase === "generating"} type="submit">
-          {phase === "saving" ? "保存中…" : phase === "generating" ? "AIが候補を作成中…" : "保存して英文候補を作る"}
+          {phase === "saving" ? "準備中…" : phase === "generating" ? "英文候補を作成中…" : "英文候補を作る"}
         </button>
       </form>
 
       {notice ? <p className="capture-notice" role="status">{notice}</p> : null}
       {error ? <p className="error-note capture-error" role="alert">{error}</p> : null}
 
-      {entry && entry.sentenceCards.length === 0 ? (
+      {entry && !hasGeneratedCandidates ? (
         <section className="capture-review">
           <h2>入力は保存しました</h2>
-          <p className="field-hint">候補生成に失敗しても、日本語入力は保存済みです。</p>
+          <p className="field-hint">英文候補はまだ作成されていません。日本語入力は保存済みなので、そのまま再試行できます。</p>
           <div className="capture-review-actions">
             <button className="secondary-button" disabled={phase === "generating"} onClick={() => void generateEntry(entry)} type="button">
-              {phase === "generating" ? "候補を作成中…" : "英文候補を再生成"}
+              {phase === "generating" ? "候補を作成中…" : "英文候補をもう一度作る"}
             </button>
           </div>
         </section>
       ) : null}
 
-      {entry?.sentenceCards.length ? (
+      {entry && hasGeneratedCandidates ? (
         <section className="capture-review" aria-labelledby="capture-review-title">
           <div className="capture-review-heading">
             <div>
@@ -293,57 +229,28 @@ export function ExpressionCaptureForm({ initialQueue = null }: Props) {
             </div>
             <span className="capture-count">{selectedVariantIds.size}件を登録予定</span>
           </div>
-          <div className="capture-ai-metadata">
-            <label className="capture-inline-editor"><span>ジャンル</span><select onChange={(event) => updateEntryMetadata("genreSlug", selectReviewGenre(event.target.value, entry.genreSlug))} value={getGenreMode(entry.genreSlug)}><option value="">指定なし（AIに任せる）</option><option value="daily">日常生活</option><option value="skateboarding">スケートボード</option><option value="other">その他</option></select>{getGenreMode(entry.genreSlug) === "other" ? <input maxLength={120} onChange={(event) => updateEntryMetadata("genreSlug", event.target.value)} value={entry.genreSlug} /> : null}</label>
-            <p className="field-hint">シチュエーションタグ: {entry.situationTags.join(" / ")}</p>
-          </div>
-          <section className="segment-editor" aria-labelledby="segment-editor-title">
-            <div>
-              <h3 id="segment-editor-title">意味単位を調整する</h3>
-              <p>1件が1枚のカードになります。調整後に候補を作り直します。</p>
-            </div>
-            <div className="segment-editor-list">
-              {segmentDrafts.map((segment, index) => (
-                <div className="segment-editor-row" key={segment.id}>
-                  <span>{index + 1}</span>
-                  <textarea aria-label={`意味単位 ${index + 1}`} maxLength={2000} onChange={(event) => updateSegment(index, event.target.value)} rows={2} value={segment.intentJa} />
-                  <div className="segment-editor-actions">
-                    <button aria-label="上へ移動" className="icon-button" disabled={index === 0 || phase === "generating"} onClick={() => moveSegment(index, -1)} title="上へ移動" type="button"><ArrowUp aria-hidden="true" size={16} /></button>
-                    <button aria-label="下へ移動" className="icon-button" disabled={index === segmentDrafts.length - 1 || phase === "generating"} onClick={() => moveSegment(index, 1)} title="下へ移動" type="button"><ArrowDown aria-hidden="true" size={16} /></button>
-                    <button aria-label="下に意味単位を追加" className="icon-button" disabled={segmentDrafts.length >= 4 || phase === "generating"} onClick={() => addSegmentAfter(index)} title="下に意味単位を追加" type="button"><Plus aria-hidden="true" size={16} /></button>
-                    <button aria-label="次の意味単位と結合" className="icon-button" disabled={index === segmentDrafts.length - 1 || phase === "generating"} onClick={() => mergeWithNext(index)} title="次の意味単位と結合" type="button"><Combine aria-hidden="true" size={16} /></button>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <button className="secondary-button" disabled={phase === "generating"} onClick={regenerateSegments} type="button">
-              {phase === "generating" ? "候補を作成中…" : "この意味単位で候補を作り直す"}
-            </button>
-          </section>
-          {entry.sentenceCards.map((card) => (
+          {generatedCards.map((card) => (
             <article className="capture-segment" key={card.id}>
               <h3>{card.intentJa}</h3>
               <div className="capture-variants">
                 {(card.variants ?? []).map((variant) => (
                   <label className={selectedVariantIds.has(variant.id) ? "capture-variant selected" : "capture-variant"} key={variant.id}>
-                    <input checked={selectedVariantIds.has(variant.id)} onChange={() => toggleVariant(variant)} type="checkbox" />
+                    <input aria-label={`${variant.profileCode}をカードへ追加する`} checked={selectedVariantIds.has(variant.id)} onChange={() => toggleVariant(variant)} type="checkbox" />
                     <span className="capture-variant-level">{variant.profileCode}</span>
                     <span className="capture-variant-copy">
-                      <input aria-label={`${variant.profileCode} 英文`} className="capture-inline-input" onChange={(event) => updateVariant(variant.id, "english", event.target.value)} value={variant.english} />
-                      <input aria-label={`${variant.profileCode} 和訳`} className="capture-inline-input" onChange={(event) => updateVariant(variant.id, "japanese", event.target.value)} value={variant.japanese} />
-                      <input aria-label={`${variant.profileCode} Word`} className="capture-inline-input" onChange={(event) => updateVariant(variant.id, "keyExpression", event.target.value)} value={variant.keyExpression} />
-                      <input aria-label={`${variant.profileCode} Definition`} className="capture-inline-input" onChange={(event) => updateVariant(variant.id, "definitionJa", event.target.value)} value={variant.definitionJa} />
-                      <input aria-label={`${variant.profileCode} Irregular Forms`} className="capture-inline-input" onChange={(event) => updateVariant(variant.id, "irregularForms", event.target.value)} value={variant.irregularForms} />
-                      <small>{variant.constraints}</small>
+                      <strong>{variant.english}</strong>
+                      <span>{variant.japanese}</span>
+                      <small>基本ワード: {variant.keyExpression}</small>
                     </span>
                   </label>
                 ))}
               </div>
             </article>
           ))}
+          <p className="field-hint">英文や分類の編集は、カード追加後にLISTSから行えます。</p>
           <div className="capture-review-actions">
           <button className="primary-button" disabled={phase === "approving"} onClick={() => void approve()} type="button">
-              {phase === "approving" ? "保存中…" : phase === "done" ? "保存済み" : "選択した候補を保存"}
+              {phase === "approving" ? "保存中…" : phase === "done" ? "保存済み" : "カードを保存"}
             </button>
             {phase === "done" ? <Link className="secondary-button" href="/lists">LISTSを見る</Link> : null}
           </div>
@@ -395,10 +302,4 @@ function getOtherGenre(genreSlug: string | undefined): string {
 
 function selectedGenre(mode: GenreMode, otherGenre: string): string {
   return mode === "other" ? otherGenre.trim() : mode;
-}
-
-function selectReviewGenre(mode: string, currentValue: string): string {
-  if (mode === "daily" || mode === "skateboarding") return mode;
-  if (mode === "other") return getGenreMode(currentValue) === "other" ? currentValue : "";
-  return "";
 }
