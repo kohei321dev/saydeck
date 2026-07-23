@@ -71,6 +71,9 @@ export function ExpressionCaptureForm({ initialQueue = null }: Props) {
       return;
     }
 
+    setEntry(null);
+    setSegmentDrafts([]);
+    setSelectedVariantIds(new Set());
     persistQueue(payload);
     setPhase("saving");
 
@@ -230,6 +233,11 @@ export function ExpressionCaptureForm({ initialQueue = null }: Props) {
     void generateEntry(entry, intents);
   }
 
+  const generatedCards = entry?.sentenceCards.filter((card) =>
+    (card.variants ?? []).some((variant) => variant.english.trim()),
+  ) ?? [];
+  const hasGeneratedCandidates = generatedCards.length > 0;
+
   return (
     <main className="capture-page">
       <section className="capture-intro">
@@ -265,26 +273,26 @@ export function ExpressionCaptureForm({ initialQueue = null }: Props) {
           {genreMode === "other" ? <label className="capture-field"><span>その他のジャンル</span><input maxLength={120} onChange={(event) => setOtherGenre(event.target.value)} placeholder="travel" value={otherGenre} /></label> : null}
         </div>
         <button className="primary-button capture-submit" disabled={phase === "saving" || phase === "generating"} type="submit">
-          {phase === "saving" ? "保存中…" : phase === "generating" ? "AIが候補を作成中…" : "保存して英文候補を作る"}
+          {phase === "saving" ? "準備中…" : phase === "generating" ? "英文候補を作成中…" : "英文候補を作る"}
         </button>
       </form>
 
       {notice ? <p className="capture-notice" role="status">{notice}</p> : null}
       {error ? <p className="error-note capture-error" role="alert">{error}</p> : null}
 
-      {entry && entry.sentenceCards.length === 0 ? (
+      {entry && !hasGeneratedCandidates ? (
         <section className="capture-review">
           <h2>入力は保存しました</h2>
-          <p className="field-hint">候補生成に失敗しても、日本語入力は保存済みです。</p>
+          <p className="field-hint">英文候補はまだ作成されていません。日本語入力は保存済みなので、そのまま再試行できます。</p>
           <div className="capture-review-actions">
             <button className="secondary-button" disabled={phase === "generating"} onClick={() => void generateEntry(entry)} type="button">
-              {phase === "generating" ? "候補を作成中…" : "英文候補を再生成"}
+              {phase === "generating" ? "候補を作成中…" : "英文候補をもう一度作る"}
             </button>
           </div>
         </section>
       ) : null}
 
-      {entry?.sentenceCards.length ? (
+      {entry && hasGeneratedCandidates ? (
         <section className="capture-review" aria-labelledby="capture-review-title">
           <div className="capture-review-heading">
             <div>
@@ -297,53 +305,58 @@ export function ExpressionCaptureForm({ initialQueue = null }: Props) {
             <label className="capture-inline-editor"><span>ジャンル</span><select onChange={(event) => updateEntryMetadata("genreSlug", selectReviewGenre(event.target.value, entry.genreSlug))} value={getGenreMode(entry.genreSlug)}><option value="">指定なし（AIに任せる）</option><option value="daily">日常生活</option><option value="skateboarding">スケートボード</option><option value="other">その他</option></select>{getGenreMode(entry.genreSlug) === "other" ? <input maxLength={120} onChange={(event) => updateEntryMetadata("genreSlug", event.target.value)} value={entry.genreSlug} /> : null}</label>
             <p className="field-hint">シチュエーションタグ: {entry.situationTags.join(" / ")}</p>
           </div>
-          <section className="segment-editor" aria-labelledby="segment-editor-title">
-            <div>
-              <h3 id="segment-editor-title">意味単位を調整する</h3>
-              <p>1件が1枚のカードになります。調整後に候補を作り直します。</p>
-            </div>
-            <div className="segment-editor-list">
-              {segmentDrafts.map((segment, index) => (
-                <div className="segment-editor-row" key={segment.id}>
-                  <span>{index + 1}</span>
-                  <textarea aria-label={`意味単位 ${index + 1}`} maxLength={2000} onChange={(event) => updateSegment(index, event.target.value)} rows={2} value={segment.intentJa} />
-                  <div className="segment-editor-actions">
-                    <button aria-label="上へ移動" className="icon-button" disabled={index === 0 || phase === "generating"} onClick={() => moveSegment(index, -1)} title="上へ移動" type="button"><ArrowUp aria-hidden="true" size={16} /></button>
-                    <button aria-label="下へ移動" className="icon-button" disabled={index === segmentDrafts.length - 1 || phase === "generating"} onClick={() => moveSegment(index, 1)} title="下へ移動" type="button"><ArrowDown aria-hidden="true" size={16} /></button>
-                    <button aria-label="下に意味単位を追加" className="icon-button" disabled={segmentDrafts.length >= 4 || phase === "generating"} onClick={() => addSegmentAfter(index)} title="下に意味単位を追加" type="button"><Plus aria-hidden="true" size={16} /></button>
-                    <button aria-label="次の意味単位と結合" className="icon-button" disabled={index === segmentDrafts.length - 1 || phase === "generating"} onClick={() => mergeWithNext(index)} title="次の意味単位と結合" type="button"><Combine aria-hidden="true" size={16} /></button>
+          <details className="segment-editor">
+            <summary>意味単位を調整する（必要な場合のみ）</summary>
+            <div className="segment-editor-content">
+              <p>1件が1枚のカードになります。分割を変えたときだけ候補を作り直します。</p>
+              <div className="segment-editor-list">
+                {segmentDrafts.map((segment, index) => (
+                  <div className="segment-editor-row" key={segment.id}>
+                    <span>{index + 1}</span>
+                    <textarea aria-label={`意味単位 ${index + 1}`} maxLength={2000} onChange={(event) => updateSegment(index, event.target.value)} rows={2} value={segment.intentJa} />
+                    <div className="segment-editor-actions">
+                      <button aria-label="上へ移動" className="icon-button" disabled={index === 0 || phase === "generating"} onClick={() => moveSegment(index, -1)} title="上へ移動" type="button"><ArrowUp aria-hidden="true" size={16} /></button>
+                      <button aria-label="下へ移動" className="icon-button" disabled={index === segmentDrafts.length - 1 || phase === "generating"} onClick={() => moveSegment(index, 1)} title="下へ移動" type="button"><ArrowDown aria-hidden="true" size={16} /></button>
+                      <button aria-label="下に意味単位を追加" className="icon-button" disabled={segmentDrafts.length >= 4 || phase === "generating"} onClick={() => addSegmentAfter(index)} title="下に意味単位を追加" type="button"><Plus aria-hidden="true" size={16} /></button>
+                      <button aria-label="次の意味単位と結合" className="icon-button" disabled={index === segmentDrafts.length - 1 || phase === "generating"} onClick={() => mergeWithNext(index)} title="次の意味単位と結合" type="button"><Combine aria-hidden="true" size={16} /></button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
+              <button className="secondary-button" disabled={phase === "generating"} onClick={regenerateSegments} type="button">
+                {phase === "generating" ? "候補を作成中…" : "この意味単位で候補を作り直す"}
+              </button>
             </div>
-            <button className="secondary-button" disabled={phase === "generating"} onClick={regenerateSegments} type="button">
-              {phase === "generating" ? "候補を作成中…" : "この意味単位で候補を作り直す"}
-            </button>
-          </section>
-          {entry.sentenceCards.map((card) => (
+          </details>
+          {generatedCards.map((card) => (
             <article className="capture-segment" key={card.id}>
               <h3>{card.intentJa}</h3>
               <div className="capture-variants">
                 {(card.variants ?? []).map((variant) => (
-                  <label className={selectedVariantIds.has(variant.id) ? "capture-variant selected" : "capture-variant"} key={variant.id}>
-                    <input checked={selectedVariantIds.has(variant.id)} onChange={() => toggleVariant(variant)} type="checkbox" />
-                    <span className="capture-variant-level">{variant.profileCode}</span>
-                    <span className="capture-variant-copy">
-                      <input aria-label={`${variant.profileCode} 英文`} className="capture-inline-input" onChange={(event) => updateVariant(variant.id, "english", event.target.value)} value={variant.english} />
-                      <input aria-label={`${variant.profileCode} 和訳`} className="capture-inline-input" onChange={(event) => updateVariant(variant.id, "japanese", event.target.value)} value={variant.japanese} />
-                      <input aria-label={`${variant.profileCode} Word`} className="capture-inline-input" onChange={(event) => updateVariant(variant.id, "keyExpression", event.target.value)} value={variant.keyExpression} />
-                      <input aria-label={`${variant.profileCode} Definition`} className="capture-inline-input" onChange={(event) => updateVariant(variant.id, "definitionJa", event.target.value)} value={variant.definitionJa} />
-                      <input aria-label={`${variant.profileCode} Irregular Forms`} className="capture-inline-input" onChange={(event) => updateVariant(variant.id, "irregularForms", event.target.value)} value={variant.irregularForms} />
+                  <div className={selectedVariantIds.has(variant.id) ? "capture-variant selected" : "capture-variant"} key={variant.id}>
+                    <input aria-label={`${variant.profileCode}を保存対象にする`} checked={selectedVariantIds.has(variant.id)} onChange={() => toggleVariant(variant)} type="checkbox" />
+                    <label className="capture-variant-level" htmlFor={`english-${variant.id}`}>{variant.profileCode}</label>
+                    <div className="capture-variant-copy">
+                      <label className="capture-variant-field"><span>英文</span><textarea id={`english-${variant.id}`} className="capture-inline-input" onChange={(event) => updateVariant(variant.id, "english", event.target.value)} rows={2} value={variant.english} /></label>
+                      <label className="capture-variant-field"><span>日本語訳</span><textarea className="capture-inline-input" onChange={(event) => updateVariant(variant.id, "japanese", event.target.value)} rows={2} value={variant.japanese} /></label>
+                      <details className="capture-variant-details">
+                        <summary>Anki項目を確認・編集</summary>
+                        <div className="capture-variant-details-fields">
+                          <label className="capture-variant-field"><span>基本ワード</span><input className="capture-inline-input" onChange={(event) => updateVariant(variant.id, "keyExpression", event.target.value)} value={variant.keyExpression} /></label>
+                          <label className="capture-variant-field"><span>意味</span><input className="capture-inline-input" onChange={(event) => updateVariant(variant.id, "definitionJa", event.target.value)} value={variant.definitionJa} /></label>
+                          <label className="capture-variant-field"><span>不規則変化</span><input className="capture-inline-input" onChange={(event) => updateVariant(variant.id, "irregularForms", event.target.value)} value={variant.irregularForms} /></label>
+                        </div>
+                      </details>
                       <small>{variant.constraints}</small>
-                    </span>
-                  </label>
+                    </div>
+                  </div>
                 ))}
               </div>
             </article>
           ))}
           <div className="capture-review-actions">
           <button className="primary-button" disabled={phase === "approving"} onClick={() => void approve()} type="button">
-              {phase === "approving" ? "保存中…" : phase === "done" ? "保存済み" : "選択した候補を保存"}
+              {phase === "approving" ? "保存中…" : phase === "done" ? "保存済み" : "カードを保存"}
             </button>
             {phase === "done" ? <Link className="secondary-button" href="/lists">LISTSを見る</Link> : null}
           </div>

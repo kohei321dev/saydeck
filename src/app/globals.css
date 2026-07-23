@@ -2122,6 +2122,7 @@ button:disabled {
 }
 
 .capture-inline-input {
+  box-sizing: border-box;
   display: block;
   width: 100%;
 }
@@ -2166,7 +2167,7 @@ button:disabled {
   border-color: var(--accent);
 }
 
-.capture-variant input {
+.capture-variant > input[type="checkbox"] {
   accent-color: var(--accent);
   height: 18px;
   margin: 2px 0 0;
@@ -2187,8 +2188,45 @@ button:disabled {
 
 .capture-variant-copy {
   display: grid;
-  gap: 4px;
+  gap: 10px;
   min-width: 0;
+}
+
+.capture-variant-field {
+  display: grid;
+  gap: 4px;
+}
+
+.capture-variant-field > span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+textarea.capture-inline-input {
+  line-height: 1.5;
+  min-height: 58px;
+  resize: vertical;
+}
+
+.capture-variant-details,
+.segment-editor {
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+
+.capture-variant-details summary,
+.segment-editor summary {
+  color: var(--accent-dark);
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.capture-variant-details-fields,
+.segment-editor-content {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
 }
 
 .capture-variant-copy strong {
@@ -2408,11 +2446,8 @@ button:disabled {
 }
 
 .segment-editor {
-  border-top: 1px solid var(--line);
-  display: grid;
-  gap: 14px;
   margin-top: 20px;
-  padding-top: 20px;
+  padding-top: 16px;
 }
 
 .segment-editor h3,
