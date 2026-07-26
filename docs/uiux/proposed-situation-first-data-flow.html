@@ -224,14 +224,17 @@
     └── 04_別の自然な言い方 (L4 / 任意)
 
 例: SayDeck::友人への返信::01_基本表現</div>
+      <p class="notice"><strong>この例の副シチュエーション:</strong> <code>久しぶりの連絡</code>。これはdeckの階層には加えず、<code>secondary_situation::friend-reply::reconnect-after-silence</code> というAnki tagだけに投影する。</p>
       <div class="entity-grid" style="margin-top: 16px">
         <article class="tile">
           <strong>ノートタイプ</strong>
           <p><code>SayDeck</code>。deckのルート名と同名でも、Ankiでは別の名前空間のため衝突しない。過去データを削除する前提で、旧<code>ES1Kv2</code>の8フィールド契約は引き継がない。</p>
         </article>
         <article class="tile">
-          <strong>Anki tags</strong>
-          <p><span class="tag">source::saydeck</span><span class="tag">situation::friend-reply</span><span class="tag">situation::friend-reply::reconnect-after-silence</span><span class="tag">difficulty::l2</span></p>
+          <strong>Anki tags（同じカードの例）</strong>
+          <p><strong>主:</strong> 友人への返信<br><span class="tag">primary_situation::friend-reply</span></p>
+          <p><strong>副:</strong> 久しぶりの連絡<br><span class="tag">secondary_situation::friend-reply::reconnect-after-silence</span></p>
+          <p><span class="tag">source::saydeck</span><span class="tag">difficulty::l2</span></p>
           <p class="muted">ジャンルタグは出力しない。主シチュエーションはdeckとtagへ、副シチュエーションはtagだけへ投影する。</p>
         </article>
       </div>
