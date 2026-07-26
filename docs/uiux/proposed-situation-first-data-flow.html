@@ -1,0 +1,422 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SayDeck — シチュエーション主軸データ設計（提案）</title>
+  <style>
+    :root {
+      --ink: #102a2a;
+      --muted: #5d7473;
+      --line: #d3dfdc;
+      --paper: #f5f8f7;
+      --card: #ffffff;
+      --teal: #157064;
+      --teal-soft: #e6f3f0;
+      --yellow: #fff5cf;
+      --red: #b64632;
+      --red-soft: #fff0ec;
+      --blue: #315b87;
+      --blue-soft: #edf4fb;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", "Yu Gothic", sans-serif;
+      line-height: 1.65;
+    }
+
+    .page { max-width: 1320px; margin: 0 auto; padding: 28px 22px 72px; }
+    .hero {
+      padding: 34px;
+      border-radius: 18px;
+      color: white;
+      background: linear-gradient(135deg, #125b52, #173f50);
+      box-shadow: 0 12px 30px rgba(15, 56, 53, .16);
+    }
+    .eyebrow { margin: 0 0 6px; color: #ace7da; font-size: 12px; font-weight: 800; letter-spacing: .14em; }
+    h1 { margin: 0; font-size: clamp(28px, 5vw, 44px); line-height: 1.25; }
+    h2 { margin: 0 0 12px; font-size: 23px; line-height: 1.35; }
+    h3 { margin: 0 0 8px; font-size: 16px; }
+    .hero p:last-child { max-width: 800px; margin: 15px 0 0; color: #e1f5f0; }
+    .status { display: inline-block; margin-top: 18px; padding: 4px 10px; border: 1px solid #9adccf; border-radius: 999px; color: #dffff7; font-size: 13px; font-weight: 700; }
+
+    nav { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0 28px; }
+    nav a { padding: 7px 11px; border: 1px solid var(--line); border-radius: 999px; color: var(--teal); background: white; text-decoration: none; font-size: 13px; font-weight: 700; }
+    section { margin-top: 28px; }
+    .panel { padding: 24px; border: 1px solid var(--line); border-radius: 16px; background: var(--card); }
+    .notice { padding: 15px 17px; border: 1px solid #e8d27c; border-radius: 12px; background: var(--yellow); }
+    .warning { padding: 15px 17px; border: 1px solid #efb9ab; border-radius: 12px; background: var(--red-soft); }
+    .muted { color: var(--muted); }
+    .mono { font-family: var(--mono); font-size: .92em; }
+    code { padding: 1px 4px; border-radius: 4px; background: #edf2f1; font-family: var(--mono); font-size: .9em; }
+    ul { margin: 8px 0; padding-left: 22px; }
+    li + li { margin-top: 4px; }
+
+    .decision-grid, .flow-grid, .entity-grid { display: grid; gap: 14px; }
+    .decision-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .flow-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .entity-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .tile { padding: 17px; border: 1px solid var(--line); border-radius: 12px; background: #fbfcfc; }
+    .tile strong { display: block; margin-bottom: 5px; }
+    .tile .label { color: var(--teal); font-size: 12px; font-weight: 800; letter-spacing: .08em; }
+    .tile p { margin: 5px 0 0; }
+
+    .deck {
+      overflow-x: auto;
+      padding: 18px;
+      border: 1px solid #bfdcd5;
+      border-radius: 12px;
+      background: #f5fbf9;
+      font-family: var(--mono);
+      white-space: pre;
+      color: #164d45;
+      font-weight: 700;
+    }
+
+    .schema-table { width: 100%; min-width: 850px; border-collapse: collapse; font-size: 14px; }
+    .schema-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; }
+    .schema-table th, .schema-table td { padding: 11px 12px; border-bottom: 1px solid var(--line); vertical-align: top; text-align: left; }
+    .schema-table th { color: #244746; background: #edf5f3; font-size: 12px; letter-spacing: .04em; }
+    .schema-table tr:last-child td { border-bottom: 0; }
+    .schema-table .key { color: var(--teal); font-family: var(--mono); font-weight: 700; }
+    .schema-table .removed { color: var(--red); text-decoration: line-through; }
+    .schema-table .new { color: var(--blue); font-weight: 700; }
+
+    .relationship { display: grid; grid-template-columns: 1fr 60px 1fr 60px 1fr 60px 1fr; align-items: center; gap: 0; margin: 16px 0 0; }
+    .entity { min-height: 108px; padding: 15px; border: 1px solid #b9d9d3; border-radius: 12px; background: #f7fcfa; }
+    .entity h3 { color: var(--teal); }
+    .entity p { margin: 0; font-size: 13px; }
+    .arrow { color: var(--teal); text-align: center; font-size: 28px; font-weight: 800; }
+    .card-title { margin: 0; color: var(--teal); font-size: 14px; font-weight: 800; letter-spacing: .04em; }
+    .flow-card { position: relative; padding: 18px; border: 1px solid var(--line); border-radius: 13px; background: #fff; }
+    .flow-card::after { content: "↓"; position: absolute; right: -12px; top: 45%; z-index: 1; color: var(--teal); font-size: 25px; font-weight: 800; }
+    .flow-card:last-child::after { display: none; }
+    .step { display: inline-grid; width: 25px; height: 25px; place-items: center; margin-right: 6px; border-radius: 50%; color: white; background: var(--teal); font-size: 12px; font-weight: 800; }
+    .columns { margin: 10px 0 0; padding: 10px; border-radius: 8px; background: #f2f6f5; color: #294342; font-family: var(--mono); font-size: 12px; }
+
+    .operation { display: grid; grid-template-columns: 92px minmax(160px, .8fr) minmax(180px, 1fr) minmax(220px, 1.25fr); gap: 0; overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; }
+    .operation > div { min-width: 180px; padding: 13px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+    .operation > div:nth-child(4n) { border-right: 0; }
+    .operation > div:nth-last-child(-n + 4) { border-bottom: 0; }
+    .operation .head { min-width: 0; padding: 9px 13px; color: #244746; background: #edf5f3; font-size: 12px; font-weight: 800; }
+    .operation .op { color: var(--teal); font-family: var(--mono); font-weight: 800; }
+
+    .source-map { display: grid; grid-template-columns: minmax(200px, .7fr) 34px minmax(220px, 1fr) 34px minmax(220px, 1fr); gap: 8px; align-items: stretch; }
+    .source-box { padding: 15px; border: 1px solid var(--line); border-radius: 12px; background: #fcfdfd; }
+    .source-box h3 { color: var(--teal); }
+    .source-arrow { display: grid; place-items: center; color: var(--teal); font-size: 23px; font-weight: 800; }
+    .tag { display: inline-block; margin: 3px 3px 0 0; padding: 3px 7px; border: 1px solid #bcd8d2; border-radius: 999px; color: #215c54; background: #eef8f5; font-family: var(--mono); font-size: 12px; }
+    .checklist { display: grid; gap: 9px; margin: 0; padding: 0; list-style: none; }
+    .checklist li { padding-left: 29px; position: relative; }
+    .checklist li::before { content: "□"; position: absolute; left: 0; color: var(--teal); font-size: 20px; line-height: 1.25; }
+    details { border: 1px solid var(--line); border-radius: 10px; background: #fff; }
+    summary { padding: 13px 15px; cursor: pointer; color: var(--teal); font-weight: 800; }
+    details > div { padding: 0 15px 15px; }
+    pre { overflow-x: auto; margin: 0; padding: 16px; border-radius: 10px; color: #e8f4ef; background: #162b2a; font-family: var(--mono); font-size: 12px; line-height: 1.6; }
+    footer { margin-top: 36px; color: var(--muted); font-size: 13px; }
+
+    @media (max-width: 940px) {
+      .decision-grid, .flow-grid { grid-template-columns: 1fr; }
+      .flow-card::after { content: "↓"; right: 48%; top: auto; bottom: -26px; }
+      .entity-grid { grid-template-columns: 1fr; }
+      .relationship { grid-template-columns: 1fr; gap: 8px; }
+      .arrow { transform: rotate(90deg); }
+      .source-map { grid-template-columns: 1fr; }
+      .source-arrow { transform: rotate(90deg); }
+    }
+
+    @media print {
+      body { background: white; }
+      .page { max-width: none; padding: 0; }
+      .hero { box-shadow: none; }
+      nav { display: none; }
+      section { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="hero">
+      <p class="eyebrow">SAYDECK / PROPOSED DESIGN / 2026-07-26</p>
+      <h1>シチュエーション主軸の<br>データ設計・処理設計</h1>
+      <p>実装前の合意用資料です。ジャンルを完全に廃止し、保存した英語表現を主シチュエーションと難易度でAnki deckへ整理するための、DB・UI・API・exportの一貫した設計を示します。</p>
+      <span class="status">状態: Proposed — 承認後にのみ実装へ進む</span>
+    </header>
+
+    <nav aria-label="目次">
+      <a href="#decision">決定事項</a>
+      <a href="#deck">Anki deck</a>
+      <a href="#schema">DBテーブル</a>
+      <a href="#flow">全体フロー</a>
+      <a href="#operations">UI操作とDB更新</a>
+      <a href="#migration">移行</a>
+      <a href="#approval">承認チェック</a>
+    </nav>
+
+    <section id="decision" class="panel">
+      <p class="eyebrow" style="color: var(--teal)">01 / DECISION</p>
+      <h2>この設計で固定すること</h2>
+      <div class="decision-grid">
+        <article class="tile">
+          <span class="label">CLASSIFICATION</span>
+          <strong>ジャンルを廃止する</strong>
+          <p><code>genre_slug</code>、ジャンル入力、ジャンルfilter、AIのジャンル提案、<code>genre::</code> Ankiタグをすべて削除する。</p>
+        </article>
+        <article class="tile">
+          <span class="label">PRIMARY SITUATION</span>
+          <strong>主シチュエーションを1つ決める</strong>
+          <p><code>situation_tags[0]</code>を主シチュエーションとする。2件目・3件目は検索用Ankiタグとして残し、同じカードを複製しない。</p>
+        </article>
+        <article class="tile">
+          <span class="label">STABLE ID</span>
+          <strong>IndexはSayDeck固有IDのまま</strong>
+          <p><code>sentence_variants.anki_index</code>をAnkiの<code>Index</code>へ投影する。英語本文の重複に影響されない恒久IDとする。</p>
+        </article>
+      </div>
+      <p class="notice"><strong>設計上の前提:</strong> シチュエーションの命名がdeck名になるため、AI任せの自由な表記揺れは許容しません。AIの提案後、保存前に「主シチュエーション」を既存候補から選び直せるようにします。候補は定義済みプールと最近使ったシチュエーションから出し、未知のものは <code>未分類</code> として明示的に扱います。</p>
+    </section>
+
+    <section id="deck" class="panel">
+      <p class="eyebrow" style="color: var(--teal)">02 / ANKI PROJECTION</p>
+      <h2>Ankiへ取り込まれるdeckとtags</h2>
+      <p>各variantは、主シチュエーションと難易度から<strong>1つだけ</strong>のdeckへ投影します。Ankiの1 noteを複数deckに複製しません。</p>
+      <div class="deck" aria-label="Anki deck hierarchy example">SayDeck
+└── 友人への返信                  ← situation_tags[0]（主シチュエーション）
+    ├── L1                         ← profile_code
+    ├── L2
+    ├── L3
+    └── L4
+
+例: SayDeck::友人への返信::L2</div>
+      <div class="entity-grid" style="margin-top: 16px">
+        <article class="tile">
+          <strong>ノートタイプ</strong>
+          <p><code>SayDeck ES1Kv2</code>。既存の<code>ES1Kv2</code>とは別ノートタイプとして維持する。8フィールドの名称と順序は既存Ankiファイルと揃える。</p>
+        </article>
+        <article class="tile">
+          <strong>Anki tags</strong>
+          <p><span class="tag">source::saydeck</span><span class="tag">situation::友人への返信</span><span class="tag">situation::SNS-DM</span><span class="tag">difficulty::l2</span></p>
+          <p class="muted">ジャンルタグは出力しない。主シチュエーション以外もtagには残す。</p>
+        </article>
+      </div>
+      <p class="warning"><strong>再分類の扱い:</strong> 初回export後に主シチュエーションを変更しても、既存Ankiカードを別deckへ自動移動することは保証しません。MVPでは主シチュエーションを「登録時に確定する分類」とし、変更は新しい入力として扱います。再import時のdeck移動を保証したくなった場合は、別要件としてAnki Desktopでの検証と移行仕様を追加します。</p>
+    </section>
+
+    <section id="schema" class="panel">
+      <p class="eyebrow" style="color: var(--teal)">03 / PROPOSED DATABASE MODEL</p>
+      <h2>DBテーブル設計</h2>
+      <p>既存のexpression domainを維持し、ジャンル列だけを削除します。シチュエーションを別テーブルに正規化せず、MVPでは親entryの順序付き配列を正本にします。単一ownerの小規模運用では、これが最も少ない変更で「最近使ったシチュエーション」の再選択にも対応できます。</p>
+
+      <div class="relationship" aria-label="Entity relationship diagram">
+        <article class="entity"><h3>expression_entries</h3><p>日本語入力とシチュエーション分類</p></article>
+        <div class="arrow" aria-hidden="true">1 ──&lt;</div>
+        <article class="entity"><h3>sentence_cards</h3><p>入力を分割した意味単位</p></article>
+        <div class="arrow" aria-hidden="true">1 ──&lt;</div>
+        <article class="entity"><h3>sentence_variants</h3><p>意味単位ごとのL1〜L4</p></article>
+        <div class="arrow" aria-hidden="true">1 ──&lt;</div>
+        <article class="entity"><h3>audio_assets</h3><p>Word / Sentence のen-US音声</p></article>
+      </div>
+      <div class="relationship" style="grid-template-columns: 1fr 60px 1fr; max-width: 600px">
+        <article class="entity"><h3>sentence_variants</h3><p>選択されたvariantをAPKG化</p></article>
+        <div class="arrow" aria-hidden="true">──&gt;</div>
+        <article class="entity"><h3>anki_exports</h3><p>生成済みAPKG artifactの状態</p></article>
+      </div>
+
+      <h3 style="margin-top: 28px">A. <code>expression_entries</code> — 変更対象</h3>
+      <div class="schema-wrap">
+        <table class="schema-table">
+          <thead><tr><th>Column</th><th>Type / 制約</th><th>作成・更新の主体</th><th>役割</th></tr></thead>
+          <tbody>
+            <tr><td class="key">id</td><td>text / PK</td><td>API: INPUT作成時</td><td>親entryのSayDeck ID</td></tr>
+            <tr><td class="key">owner_login</td><td>text / not null</td><td>認証コンテキスト</td><td>owner scope</td></tr>
+            <tr><td class="key">input_ja</td><td>text / 1〜2000文字</td><td>INPUT</td><td>言いたいこと（日本語）</td></tr>
+            <tr><td class="key">situation_ja</td><td>text / default 空</td><td>既存データのみ</td><td>旧互換用。現行UIとAIの正本には使わない</td></tr>
+            <tr><td class="key">situation_tags</td><td>text[] / 登録時1〜3件</td><td>AI提案 + 保存前のユーザー確定</td><td><strong>分類の唯一の正本。</strong>先頭が主シチュエーション。残りは補助タグ</td></tr>
+            <tr><td class="key">status</td><td>draft / generating / generated / registered / archived</td><td>各処理</td><td>entryのライフサイクル</td></tr>
+            <tr><td class="key">registered_at</td><td>timestamptz / nullable</td><td>カード保存時</td><td>LISTSの作成日・export対象判定</td></tr>
+            <tr><td class="key">created_at / updated_at</td><td>timestamptz</td><td>DB / 更新処理</td><td>監査・日時filter</td></tr>
+            <tr><td class="key removed">genre_slug</td><td class="removed">text</td><td class="removed">廃止</td><td class="removed">DB migrationで削除する</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="muted">追加index: <code>expression_entries_situation_tags_gin</code>（<code>situation_tags</code>の検索用GIN index）。既存の<code>owner_login + status/updated_at</code>、<code>owner_login + registered_at</code> indexは維持する。</p>
+
+      <div class="entity-grid" style="margin-top: 20px">
+        <article class="tile">
+          <h3>B. <code>generation_profiles</code> — 維持</h3>
+          <p><code>owner_login</code>、<code>code</code>（L1〜L4）、語数・文数制約、instruction。生成の難易度定義であり、分類とは独立。</p>
+        </article>
+        <article class="tile">
+          <h3>C. <code>sentence_cards</code> — 維持</h3>
+          <p><code>entry_id</code>、<code>position</code>、<code>intent_ja</code>。1つの日本語入力に複数の独立した意味単位がある場合だけ複数行になる。</p>
+        </article>
+        <article class="tile">
+          <h3>D. <code>sentence_variants</code> — 維持</h3>
+          <p><code>sentence_card_id</code>、<code>profile_code</code>、英文・和訳・基本フレーズ・Anki ID・選択状態。意味単位ごとにL1〜L4を必ず1行ずつ作る。</p>
+        </article>
+        <article class="tile">
+          <h3>E. <code>audio_assets</code> — 維持</h3>
+          <p><code>variant_id</code>ごとに<code>word</code>と<code>sentence</code>を1行ずつ。en-USで生成した音声binaryの保存先と検証metadataだけを持つ。</p>
+        </article>
+        <article class="tile">
+          <h3>F. <code>anki_exports</code> — 維持</h3>
+          <p>APKG artifactのID、状態、カード数、private storage path、エラーコード。個々のvariantは正本である<code>sentence_variants</code>から都度投影する。</p>
+        </article>
+        <article class="tile">
+          <h3>新規テーブル</h3>
+          <p><strong>作らない。</strong>シチュエーションカタログは初期MVPでは<code>src/lib/situation-tags.ts</code>の定義済みプールと、既存entryから得る最近使ったタグで提供する。複数ユーザー向けのタグ管理が必要になった時点で別テーブルを検討する。</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="flow" class="panel">
+      <p class="eyebrow" style="color: var(--teal)">04 / END-TO-END FLOW</p>
+      <h2>INPUT → LISTS → EXPORT の全体フロー</h2>
+      <div class="flow-grid">
+        <article class="flow-card">
+          <p class="card-title"><span class="step">1</span>INPUT: 日本語を保存</p>
+          <p>ユーザーは「言いたいこと」を入力する。任意で、最近使った主シチュエーションを選べる。ジャンル操作は存在しない。</p>
+          <p class="columns">INSERT expression_entries<br>input_ja, situation_tags（任意の先行指定）, status='draft'</p>
+        </article>
+        <article class="flow-card">
+          <p class="card-title"><span class="step">2</span>AI: L1〜L4を生成</p>
+          <p>AIは意味単位、L1〜L4、シチュエーション候補を構造化して返す。ユーザーが主シチュエーションを指定済みなら、その分類を優先する。</p>
+          <p class="columns">UPDATE expression_entries.situation_tags<br>INSERT sentence_cards<br>INSERT sentence_variants × L1〜L4</p>
+        </article>
+        <article class="flow-card">
+          <p class="card-title"><span class="step">3</span>REVIEW: 分類と候補を確定</p>
+          <p>ユーザーは英文候補と「主シチュエーション」を確認する。主タグを配列の先頭にし、選んだL1〜L4だけを登録する。</p>
+          <p class="columns">UPDATE situation_tags, status='registered', registered_at<br>UPDATE sentence_variants.is_selected/status</p>
+        </article>
+        <article class="flow-card">
+          <p class="card-title"><span class="step">4</span>LISTS: 検索・編集・選択</p>
+          <p>主シチュエーション、補助タグ、レベル、日付、キーワードで絞り込む。英文・訳・Word等は編集できる。登録済みの主分類は変更しない。</p>
+          <p class="columns">SELECT expression_entries + children<br>UPDATE sentence_variants<br>UPDATE is_selected</p>
+        </article>
+        <article class="flow-card">
+          <p class="card-title"><span class="step">5</span>EXPORT: 音声・APKGを生成</p>
+          <p>選択variantごとにWord/Example Sentenceのen-US音声を確認・生成し、主シチュエーションとレベルでdeckを決めてAPKGを作る。</p>
+          <p class="columns">UPSERT audio_assets × 2<br>INSERT anki_exports<br>private storageへAPKG保存</p>
+        </article>
+        <article class="flow-card">
+          <p class="card-title"><span class="step">6</span>ANKI: import</p>
+          <p><code>SayDeck ES1Kv2</code>のnoteとして読み込まれる。<code>Index</code>とGUIDはDBの恒久値を使うため、同一variantの再importでは重複ではなく更新を目指す。</p>
+          <p class="columns">Deck: SayDeck::主シチュエーション::Lx<br>Tags: source / situation / difficulty</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="operations" class="panel">
+      <p class="eyebrow" style="color: var(--teal)">05 / UI OPERATION → PROCESS → DATABASE</p>
+      <h2>画面上の操作ごとに何が起き、どのカラムが変わるか</h2>
+      <div class="operation" role="table" aria-label="UI operation data flow">
+        <div class="head" role="columnheader">UI操作</div><div class="head" role="columnheader">API / 処理</div><div class="head" role="columnheader">DB処理</div><div class="head" role="columnheader">作成・更新される主なカラム</div>
+
+        <div class="op">INPUT<br>入力開始</div><div>ブラウザlocalStorageへ一時退避</div><div>なし</div><div>DB未更新。<code>inputJa</code>と選択中の主シチュエーションだけを端末に保持</div>
+        <div class="op">INPUT<br>英文候補を作る</div><div><code>POST /api/expressions</code> → <code>POST /:id/generate</code></div><div>親entryを作成し、AI結果をtransactionで保存</div><div><code>expression_entries.id/input_ja/situation_tags/status</code><br><code>sentence_cards.*</code><br><code>sentence_variants.*</code>（各意味単位×L1〜L4）</div>
+        <div class="op">REVIEW<br>主分類を選ぶ</div><div>AI提案、最近使ったタグ、定義済みプールから選択</div><div>主タグを先頭にして1〜3件へ正規化</div><div><code>expression_entries.situation_tags</code><br>例: <code>['友人への返信', 'SNS・DM']</code></div>
+        <div class="op">REVIEW<br>カードを保存</div><div><code>PATCH /api/expressions/:id</code></div><div>選択variantを承認しentryを登録状態にする</div><div><code>expression_entries.status='registered'</code><br><code>registered_at</code><br><code>sentence_variants.is_selected/status</code></div>
+        <div class="op">LISTS<br>絞り込む</div><div>GET済みデータのfilter（将来はserver filterへ移行可能）</div><div>SELECTのみ</div><div><code>situation_tags</code>、<code>profile_code</code>、<code>registered_at</code>、<code>updated_at</code>、<code>input_ja</code></div>
+        <div class="op">LISTS<br>英文を編集</div><div><code>PATCH /api/expressions/:id</code></div><div>variant本文を更新し、対応音声をstaleにする</div><div><code>english/japanese/key_expression/definition_ja/irregular_forms</code><br><code>audio_assets.status='stale'</code></div>
+        <div class="op">LISTS<br>削除</div><div><code>DELETE /api/expressions/:id</code></div><div>論理削除。子データは保全</div><div><code>expression_entries.status='archived'</code></div>
+        <div class="op">EXPORT<br>対象を選ぶ</div><div>ブラウザsessionStorageで選択を引き継ぐ</div><div>なし</div><div>DB未更新（export実行時に選択variant IDを送る）</div>
+        <div class="op">EXPORT<br>APKGを作る</div><div><code>POST /api/anki-exports</code></div><div>音声を生成・再利用し、APKG artifactを記録</div><div><code>audio_assets</code>（word/sentence）<br><code>anki_exports.id/status/card_count/blob_path/error_code</code></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <p class="eyebrow" style="color: var(--teal)">06 / ANKI FIELD SOURCE MAP</p>
+      <h2>DBのvariantからAnki 8フィールドへの投影</h2>
+      <div class="source-map">
+        <article class="source-box">
+          <h3><code>sentence_variants</code></h3>
+          <p><code>anki_index</code><br><code>key_expression</code><br><code>definition_ja</code><br><code>irregular_forms</code><br><code>english</code><br><code>japanese</code></p>
+        </article>
+        <div class="source-arrow" aria-hidden="true">→</div>
+        <article class="source-box">
+          <h3>SayDeck ES1Kv2</h3>
+          <p><code>Index</code><br><code>Word</code><br><code>Definition</code><br><code>Irregular Forms</code><br><code>Example Sentence</code><br><code>Translation</code></p>
+        </article>
+        <div class="source-arrow" aria-hidden="true">←</div>
+        <article class="source-box">
+          <h3><code>audio_assets</code></h3>
+          <p><code>kind='word'</code> → <code>word_audio</code><br><code>kind='sentence'</code> → <code>sentence_audio</code></p>
+          <p class="muted">どちらも <code>locale='en-US'</code> かつ <code>status='ready'</code> が必須</p>
+        </article>
+      </div>
+      <p class="warning"><strong>実装時に是正する差分:</strong> 現在のexportは<code>anki_index</code>をDBへ保存済みにもかかわらず、Ankiの<code>Index</code>へはvariant IDから再計算した値を書いています。新設計では必ず<code>sentence_variants.anki_index</code>を読んで投影し、DBを唯一のID正本にします。</p>
+    </section>
+
+    <section id="migration" class="panel">
+      <p class="eyebrow" style="color: var(--teal)">07 / MIGRATION PLAN</p>
+      <h2>ジャンル廃止のDB移行案</h2>
+      <p>このページは実行用SQLではありません。承認後に、番号付きmigrationとして作成・検証します。</p>
+      <details open>
+        <summary>予定するmigrationの内容</summary>
+        <div>
+          <pre>BEGIN;
+
+-- 1. 登録済みでタグが空のentryを安全な主分類へ補完
+UPDATE expression_entries
+SET situation_tags = ARRAY['未分類']::text[]
+WHERE status = 'registered'
+  AND cardinality(situation_tags) = 0;
+
+-- 2. 登録済みentryのシチュエーションを1〜3件に保証
+UPDATE expression_entries
+SET situation_tags = situation_tags[1:3]
+WHERE cardinality(situation_tags) &gt; 3;
+
+ALTER TABLE expression_entries
+  DROP CONSTRAINT IF EXISTS expression_entries_registered_situation_tags_check;
+
+ALTER TABLE expression_entries
+  ADD CONSTRAINT expression_entries_registered_situation_tags_check
+  CHECK (status &lt;&gt; 'registered' OR cardinality(situation_tags) BETWEEN 1 AND 3);
+
+-- 3. ジャンルを物理削除（新アプリコードの配備後に実行）
+ALTER TABLE expression_entries DROP COLUMN genre_slug;
+
+-- 4. シチュエーションfilterを支えるindex
+CREATE INDEX IF NOT EXISTS expression_entries_situation_tags_gin
+  ON expression_entries USING GIN (situation_tags);
+
+COMMIT;</pre>
+        </div>
+      </details>
+      <ul>
+        <li>現在の接続先DBでは、6件中5件にジャンル値があり、削除によりその値は意図どおり破棄される。</li>
+        <li>登録済み3件のうち1件はシチュエーションが空だった。上記の補完がないと、シチュエーション主軸のdeckへ安全に投影できない。</li>
+        <li>既存の<code>0007-situation-tag-taxonomy.sql</code>はこの補完・制約を含むが、現行DBには未適用とみられる。READMEとデプロイ手順のmigration一覧も<code>0006</code>までのため、文書改訂時に是正する。</li>
+        <li>削除順序は「ジャンルを読まないアプリコードを先に配備 → DB migrationで列をdrop」。旧コードが削除済み列を読む時間帯を作らない。</li>
+      </ul>
+    </section>
+
+    <section id="approval" class="panel">
+      <p class="eyebrow" style="color: var(--teal)">08 / HUMAN APPROVAL GATE</p>
+      <h2>実装開始前に合意するチェック項目</h2>
+      <ul class="checklist">
+        <li>deck名を <code>SayDeck::主シチュエーション::L1〜L4</code> にする。</li>
+        <li>ジャンルをUI、API、AI出力、DB、Ankiタグ、LISTS filterから完全に削除する。</li>
+        <li>主シチュエーションは<code>situation_tags[0]</code>とし、登録時に確定する。補助タグはdeckを増やさず検索タグとして使う。</li>
+        <li>INPUT / REVIEWに「最近使ったシチュエーションから選ぶ」導線を追加する。ジャンル選択の代わりに、ユーザーが必要な時だけ使える任意操作とする。</li>
+        <li>シチュエーション名の表記揺れを避けるため、AI提案を定義済み候補・最近使った候補へ正規化する。未知の分類は<code>未分類</code>として明示する。</li>
+        <li>既存のジャンル値は保持せず破棄する。空の登録済みシチュエーションは<code>未分類</code>へ補完する。</li>
+        <li>Indexは<code>anki_index</code>を唯一の正本にし、同一variantの再export・再importで同じ値を使う。</li>
+        <li>空のAnki profileで「初回import」「同一variant再import」「L1〜L4と主シチュエーションのdeck階層」「en-US音声」を確認してからリリースする。</li>
+      </ul>
+      <p class="notice" style="margin-top: 18px"><strong>承認後の実装順序:</strong> ① 要求定義・設計・APKG仕様・ADR・README/デプロイ手順を改訂 → ② migration作成・検証 → ③ INPUT/LISTS/API/AI/export実装 → ④ typecheck・lint・build・APKG/Anki import検証。承認前にはmigration適用・DB変更・機能実装を行わない。</p>
+    </section>
+
+    <footer>
+      この文書は現行ソース（expression store / generation / export / migrations）を基にした提案設計です。実装された仕様ではありません。
+    </footer>
+  </main>
+</body>
+</html>
