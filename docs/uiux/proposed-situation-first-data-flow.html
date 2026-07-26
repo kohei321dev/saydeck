@@ -79,9 +79,13 @@
       font-weight: 700;
     }
 
-    .schema-table { width: 100%; min-width: 850px; border-collapse: collapse; font-size: 14px; }
-    .schema-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; }
-    .schema-table th, .schema-table td { padding: 11px 12px; border-bottom: 1px solid var(--line); vertical-align: top; text-align: left; }
+    .schema-table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 14px; }
+    .schema-wrap { overflow: hidden; border: 1px solid var(--line); border-radius: 12px; }
+    .schema-table th:nth-child(1) { width: 21%; }
+    .schema-table th:nth-child(2) { width: 19%; }
+    .schema-table th:nth-child(3) { width: 23%; }
+    .schema-table th:nth-child(4) { width: 37%; }
+    .schema-table th, .schema-table td { padding: 11px 12px; overflow-wrap: anywhere; word-break: break-word; border-bottom: 1px solid var(--line); vertical-align: top; text-align: left; }
     .schema-table th { color: #244746; background: #edf5f3; font-size: 12px; letter-spacing: .04em; }
     .schema-table tr:last-child td { border-bottom: 0; }
     .schema-table .key { color: var(--teal); font-family: var(--mono); font-weight: 700; }
@@ -100,8 +104,8 @@
     .step { display: inline-grid; width: 25px; height: 25px; place-items: center; margin-right: 6px; border-radius: 50%; color: white; background: var(--teal); font-size: 12px; font-weight: 800; }
     .columns { margin: 10px 0 0; padding: 10px; border-radius: 8px; background: #f2f6f5; color: #294342; font-family: var(--mono); font-size: 12px; }
 
-    .operation { display: grid; grid-template-columns: 92px minmax(160px, .8fr) minmax(180px, 1fr) minmax(220px, 1.25fr); gap: 0; overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; }
-    .operation > div { min-width: 180px; padding: 13px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+    .operation { display: grid; grid-template-columns: 92px minmax(0, .8fr) minmax(0, 1fr) minmax(0, 1.25fr); gap: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 12px; }
+    .operation > div { min-width: 0; padding: 13px; overflow-wrap: anywhere; word-break: break-word; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
     .operation > div:nth-child(4n) { border-right: 0; }
     .operation > div:nth-last-child(-n + 4) { border-bottom: 0; }
     .operation .head { min-width: 0; padding: 9px 13px; color: #244746; background: #edf5f3; font-size: 12px; font-weight: 800; }
@@ -112,6 +116,11 @@
     .source-box h3 { color: var(--teal); }
     .source-arrow { display: grid; place-items: center; color: var(--teal); font-size: 23px; font-weight: 800; }
     .tag { display: inline-block; margin: 3px 3px 0 0; padding: 3px 7px; border: 1px solid #bcd8d2; border-radius: 999px; color: #215c54; background: #eef8f5; font-family: var(--mono); font-size: 12px; }
+    .fixture-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 13px; }
+    .fixture { padding: 16px; border: 1px solid #b9d9d3; border-radius: 12px; background: #f7fcfa; }
+    .fixture .fixture-id { display: inline-block; margin-bottom: 8px; padding: 3px 7px; border-radius: 6px; color: white; background: var(--teal); font-family: var(--mono); font-size: 12px; font-weight: 800; }
+    .fixture p { margin: 7px 0; }
+    .fixture .expected { padding: 9px; border-radius: 8px; color: #264846; background: #eaf5f1; font-family: var(--mono); font-size: 12px; }
     .checklist { display: grid; gap: 9px; margin: 0; padding: 0; list-style: none; }
     .checklist li { padding-left: 29px; position: relative; }
     .checklist li::before { content: "□"; position: absolute; left: 0; color: var(--teal); font-size: 20px; line-height: 1.25; }
@@ -129,6 +138,20 @@
       .arrow { transform: rotate(90deg); }
       .source-map { grid-template-columns: 1fr; }
       .source-arrow { transform: rotate(90deg); }
+      .fixture-grid { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 680px) {
+      .schema-wrap { overflow: visible; border: 0; }
+      .schema-table, .schema-table tbody, .schema-table tr, .schema-table td { display: block; width: 100%; }
+      .schema-table thead { display: none; }
+      .schema-table tr { margin-bottom: 12px; overflow: hidden; border: 1px solid var(--line); border-radius: 11px; background: white; }
+      .schema-table tr:last-child { margin-bottom: 0; }
+      .schema-table td { display: grid; grid-template-columns: 116px minmax(0, 1fr); gap: 10px; border-bottom: 1px solid var(--line); }
+      .schema-table td:last-child { border-bottom: 0; }
+      .schema-table td::before { content: attr(data-label); color: var(--muted); font-size: 11px; font-weight: 800; letter-spacing: .04em; }
+      .operation { grid-template-columns: 76px minmax(0, .8fr) minmax(0, 1fr) minmax(0, 1.1fr); font-size: 12px; }
+      .operation > div { padding: 9px 7px; }
     }
 
     @media print {
@@ -155,6 +178,7 @@
       <a href="#schema">DBテーブル</a>
       <a href="#flow">全体フロー</a>
       <a href="#operations">UI操作とDB更新</a>
+      <a href="#verification">動作確認</a>
       <a href="#migration">移行</a>
       <a href="#approval">承認チェック</a>
     </nav>
@@ -178,6 +202,11 @@
           <strong>IndexはSayDeck固有IDのまま</strong>
           <p><code>sentence_variants.anki_index</code>をAnkiの<code>Index</code>へ投影する。英語本文の重複に影響されない恒久IDとする。</p>
         </article>
+        <article class="tile">
+          <span class="label">EXPRESSION LAYERS</span>
+          <strong>L1のみ必須、L2〜L4は任意</strong>
+          <p>L1は基本表現として必ず1つ作る。L2〜L4は、情報量・会話性・言い換えに実用上の差がある場合だけ生成し、似た文を水増ししない。</p>
+        </article>
       </div>
       <p class="notice"><strong>設計上の前提:</strong> シチュエーションの命名がdeck名になるため、AI任せの自由な表記揺れは許容しません。AIの提案後、保存前に「主シチュエーション」を既存候補から選び直せるようにします。候補は定義済みプールと最近使ったシチュエーションから出し、未知のものは <code>未分類</code> として明示的に扱います。</p>
     </section>
@@ -185,15 +214,15 @@
     <section id="deck" class="panel">
       <p class="eyebrow" style="color: var(--teal)">02 / ANKI PROJECTION</p>
       <h2>Ankiへ取り込まれるdeckとtags</h2>
-      <p>各variantは、主シチュエーションと難易度から<strong>1つだけ</strong>のdeckへ投影します。Ankiの1 noteを複数deckに複製しません。</p>
+      <p>各variantは、主シチュエーションと表現レイヤーから<strong>1つだけ</strong>のdeckへ投影します。Ankiの1 noteを複数deckに複製しません。</p>
       <div class="deck" aria-label="Anki deck hierarchy example">SayDeck
 └── 友人への返信                  ← situation_tags[0]（主シチュエーション）
-    ├── L1                         ← profile_code
-    ├── L2
-    ├── L3
-    └── L4
+    ├── 01_基本表現 (L1 / 必須)    ← profile_code
+    ├── 02_詳細表現 (L2 / 任意)
+    ├── 03_会話表現 (L3 / 任意)
+    └── 04_別の自然な言い方 (L4 / 任意)
 
-例: SayDeck::友人への返信::L2</div>
+例: SayDeck::友人への返信::01_基本表現</div>
       <div class="entity-grid" style="margin-top: 16px">
         <article class="tile">
           <strong>ノートタイプ</strong>
@@ -218,7 +247,7 @@
         <div class="arrow" aria-hidden="true">1 ──&lt;</div>
         <article class="entity"><h3>sentence_cards</h3><p>入力を分割した意味単位</p></article>
         <div class="arrow" aria-hidden="true">1 ──&lt;</div>
-        <article class="entity"><h3>sentence_variants</h3><p>意味単位ごとのL1〜L4</p></article>
+        <article class="entity"><h3>sentence_variants</h3><p>意味単位ごとのL1（必須）と任意レイヤー</p></article>
         <div class="arrow" aria-hidden="true">1 ──&lt;</div>
         <article class="entity"><h3>audio_assets</h3><p>Word / Sentence のen-US音声</p></article>
       </div>
@@ -233,15 +262,16 @@
         <table class="schema-table">
           <thead><tr><th>Column</th><th>Type / 制約</th><th>作成・更新の主体</th><th>役割</th></tr></thead>
           <tbody>
-            <tr><td class="key">id</td><td>text / PK</td><td>API: INPUT作成時</td><td>親entryのSayDeck ID</td></tr>
-            <tr><td class="key">owner_login</td><td>text / not null</td><td>認証コンテキスト</td><td>owner scope</td></tr>
-            <tr><td class="key">input_ja</td><td>text / 1〜2000文字</td><td>INPUT</td><td>言いたいこと（日本語）</td></tr>
-            <tr><td class="key">situation_ja</td><td>text / default 空</td><td>既存データのみ</td><td>旧互換用。現行UIとAIの正本には使わない</td></tr>
-            <tr><td class="key">situation_tags</td><td>text[] / 登録時1〜3件</td><td>AI提案 + 保存前のユーザー確定</td><td><strong>分類の唯一の正本。</strong>先頭が主シチュエーション。残りは補助タグ</td></tr>
-            <tr><td class="key">status</td><td>draft / generating / generated / registered / archived</td><td>各処理</td><td>entryのライフサイクル</td></tr>
-            <tr><td class="key">registered_at</td><td>timestamptz / nullable</td><td>カード保存時</td><td>LISTSの作成日・export対象判定</td></tr>
-            <tr><td class="key">created_at / updated_at</td><td>timestamptz</td><td>DB / 更新処理</td><td>監査・日時filter</td></tr>
-            <tr><td class="key removed">genre_slug</td><td class="removed">text</td><td class="removed">廃止</td><td class="removed">DB migrationで削除する</td></tr>
+            <tr><td class="key" data-label="Column">id</td><td data-label="Type / 制約">text / PK</td><td data-label="作成・更新の主体">API: INPUT作成時</td><td data-label="役割">親entryのSayDeck ID</td></tr>
+            <tr><td class="key" data-label="Column">owner_login</td><td data-label="Type / 制約">text / not null</td><td data-label="作成・更新の主体">認証コンテキスト</td><td data-label="役割">owner scope</td></tr>
+            <tr><td class="key" data-label="Column">input_ja</td><td data-label="Type / 制約">text / 1〜2000文字</td><td data-label="作成・更新の主体">INPUT</td><td data-label="役割">言いたいこと（日本語）</td></tr>
+            <tr><td class="key" data-label="Column">situation_ja</td><td data-label="Type / 制約">text / default 空</td><td data-label="作成・更新の主体">既存データのみ</td><td data-label="役割">旧互換用。現行UIとAIの正本には使わない</td></tr>
+            <tr><td class="key" data-label="Column">situation_tags</td><td data-label="Type / 制約">text[] / 登録時1〜3件</td><td data-label="作成・更新の主体">AI提案 + 保存前のユーザー確定</td><td data-label="役割"><strong>分類の唯一の正本。</strong>先頭が主シチュエーション。残りは補助タグ</td></tr>
+            <tr><td class="key new" data-label="Column">situation_sequence <span class="muted">(提案)</span></td><td data-label="Type / 制約">integer / nullable → 登録時not null</td><td data-label="作成・更新の主体">主シチュエーション確定時に採番</td><td data-label="役割">主シチュエーションごとの入力連番。DBは整数、表示・Anki Indexでは<code>001</code>のように整形する</td></tr>
+            <tr><td class="key" data-label="Column">status</td><td data-label="Type / 制約">draft / generating / generated / registered / archived</td><td data-label="作成・更新の主体">各処理</td><td data-label="役割">entryのライフサイクル</td></tr>
+            <tr><td class="key" data-label="Column">registered_at</td><td data-label="Type / 制約">timestamptz / nullable</td><td data-label="作成・更新の主体">カード保存時</td><td data-label="役割">LISTSの作成日・export対象判定</td></tr>
+            <tr><td class="key" data-label="Column">created_at / updated_at</td><td data-label="Type / 制約">timestamptz</td><td data-label="作成・更新の主体">DB / 更新処理</td><td data-label="役割">監査・日時filter</td></tr>
+            <tr><td class="key removed" data-label="Column">genre_slug</td><td class="removed" data-label="Type / 制約">text</td><td class="removed" data-label="作成・更新の主体">廃止</td><td class="removed" data-label="役割">DB migrationで削除する</td></tr>
           </tbody>
         </table>
       </div>
@@ -250,7 +280,7 @@
       <div class="entity-grid" style="margin-top: 20px">
         <article class="tile">
           <h3>B. <code>generation_profiles</code> — 維持</h3>
-          <p><code>owner_login</code>、<code>code</code>（L1〜L4）、語数・文数制約、instruction。生成の難易度定義であり、分類とは独立。</p>
+          <p><code>owner_login</code>、<code>code</code>（L1〜L4）、語数・文数制約、instruction。難易度ではなく表現レイヤーの定義として使う。L1のみ必須、L2〜L4は任意。</p>
         </article>
         <article class="tile">
           <h3>C. <code>sentence_cards</code> — 維持</h3>
@@ -258,7 +288,7 @@
         </article>
         <article class="tile">
           <h3>D. <code>sentence_variants</code> — 維持</h3>
-          <p><code>sentence_card_id</code>、<code>profile_code</code>、英文・和訳・基本フレーズ・Anki ID・選択状態。意味単位ごとにL1〜L4を必ず1行ずつ作る。</p>
+          <p><code>sentence_card_id</code>、<code>profile_code</code>、英文・和訳・基本フレーズ・Anki ID・選択状態。意味単位ごとにL1を必ず1行作り、L2〜L4は学習価値のある差がある場合だけ作る。</p>
         </article>
         <article class="tile">
           <h3>E. <code>audio_assets</code> — 維持</h3>
@@ -269,8 +299,8 @@
           <p>APKG artifactのID、状態、カード数、private storage path、エラーコード。個々のvariantは正本である<code>sentence_variants</code>から都度投影する。</p>
         </article>
         <article class="tile">
-          <h3>新規テーブル</h3>
-          <p><strong>作らない。</strong>シチュエーションカタログは初期MVPでは<code>src/lib/situation-tags.ts</code>の定義済みプールと、既存entryから得る最近使ったタグで提供する。複数ユーザー向けのタグ管理が必要になった時点で別テーブルを検討する。</p>
+          <h3><code>situation_sequence_counters</code> — 条件付き追加</h3>
+          <p><code>owner_login</code>、<code>situation_tag</code>、<code>last_sequence</code>、<code>updated_at</code>を持つ。<code>001</code>を主シチュエーション内の入力連番とする合意が得られた場合だけ追加し、transactionで重複採番を防ぐ。</p>
         </article>
       </div>
     </section>
@@ -285,14 +315,14 @@
           <p class="columns">INSERT expression_entries<br>input_ja, situation_tags（任意の先行指定）, status='draft'</p>
         </article>
         <article class="flow-card">
-          <p class="card-title"><span class="step">2</span>AI: L1〜L4を生成</p>
-          <p>AIは意味単位、L1〜L4、シチュエーション候補を構造化して返す。ユーザーが主シチュエーションを指定済みなら、その分類を優先する。</p>
-          <p class="columns">UPDATE expression_entries.situation_tags<br>INSERT sentence_cards<br>INSERT sentence_variants × L1〜L4</p>
+          <p class="card-title"><span class="step">2</span>AI: L1と必要な任意表現を生成</p>
+          <p>AIは意味単位、必須のL1、学習価値がある場合だけL2〜L4、シチュエーション候補を構造化して返す。ユーザーが主シチュエーションを指定済みなら、その分類を優先する。</p>
+          <p class="columns">UPDATE expression_entries.situation_tags<br>INSERT sentence_cards<br>INSERT sentence_variants × L1（必須）+ 任意L2〜L4</p>
         </article>
         <article class="flow-card">
           <p class="card-title"><span class="step">3</span>REVIEW: 分類と候補を確定</p>
-          <p>ユーザーは英文候補と「主シチュエーション」を確認する。主タグを配列の先頭にし、選んだL1〜L4だけを登録する。</p>
-          <p class="columns">UPDATE situation_tags, status='registered', registered_at<br>UPDATE sentence_variants.is_selected/status</p>
+          <p>ユーザーは英文候補と「主シチュエーション」を確認する。主タグを配列の先頭にし、L1を必ず選ぶ。主シチュエーション内の入力番号を採番する案もここで実行する。</p>
+          <p class="columns">UPDATE situation_tags, situation_sequence, status='registered', registered_at<br>UPDATE sentence_variants.is_selected/status</p>
         </article>
         <article class="flow-card">
           <p class="card-title"><span class="step">4</span>LISTS: 検索・編集・選択</p>
@@ -319,9 +349,9 @@
         <div class="head" role="columnheader">UI操作</div><div class="head" role="columnheader">API / 処理</div><div class="head" role="columnheader">DB処理</div><div class="head" role="columnheader">作成・更新される主なカラム</div>
 
         <div class="op">INPUT<br>入力開始</div><div>ブラウザlocalStorageへ一時退避</div><div>なし</div><div>DB未更新。<code>inputJa</code>と選択中の主シチュエーションだけを端末に保持</div>
-        <div class="op">INPUT<br>英文候補を作る</div><div><code>POST /api/expressions</code> → <code>POST /:id/generate</code></div><div>親entryを作成し、AI結果をtransactionで保存</div><div><code>expression_entries.id/input_ja/situation_tags/status</code><br><code>sentence_cards.*</code><br><code>sentence_variants.*</code>（各意味単位×L1〜L4）</div>
+        <div class="op">INPUT<br>英文候補を作る</div><div><code>POST /api/expressions</code> → <code>POST /:id/generate</code></div><div>親entryを作成し、AI結果をtransactionで保存</div><div><code>expression_entries.id/input_ja/situation_tags/status</code><br><code>sentence_cards.*</code><br><code>sentence_variants.*</code>（各意味単位×L1必須、L2〜L4任意）</div>
         <div class="op">REVIEW<br>主分類を選ぶ</div><div>AI提案、最近使ったタグ、定義済みプールから選択</div><div>主タグを先頭にして1〜3件へ正規化</div><div><code>expression_entries.situation_tags</code><br>例: <code>['友人への返信', 'SNS・DM']</code></div>
-        <div class="op">REVIEW<br>カードを保存</div><div><code>PATCH /api/expressions/:id</code></div><div>選択variantを承認しentryを登録状態にする</div><div><code>expression_entries.status='registered'</code><br><code>registered_at</code><br><code>sentence_variants.is_selected/status</code></div>
+        <div class="op">REVIEW<br>カードを保存</div><div><code>PATCH /api/expressions/:id</code></div><div>L1選択を検証し、主シチュエーションごとの連番を採番してentryを登録状態にする</div><div><code>expression_entries.situation_sequence</code><br><code>status='registered'</code> / <code>registered_at</code><br><code>sentence_variants.is_selected/status</code></div>
         <div class="op">LISTS<br>絞り込む</div><div>GET済みデータのfilter（将来はserver filterへ移行可能）</div><div>SELECTのみ</div><div><code>situation_tags</code>、<code>profile_code</code>、<code>registered_at</code>、<code>updated_at</code>、<code>input_ja</code></div>
         <div class="op">LISTS<br>英文を編集</div><div><code>PATCH /api/expressions/:id</code></div><div>variant本文を更新し、対応音声をstaleにする</div><div><code>english/japanese/key_expression/definition_ja/irregular_forms</code><br><code>audio_assets.status='stale'</code></div>
         <div class="op">LISTS<br>削除</div><div><code>DELETE /api/expressions/:id</code></div><div>論理削除。子データは保全</div><div><code>expression_entries.status='archived'</code></div>
@@ -353,8 +383,52 @@
       <p class="warning"><strong>実装時に是正する差分:</strong> 現在のexportは<code>anki_index</code>をDBへ保存済みにもかかわらず、Ankiの<code>Index</code>へはvariant IDから再計算した値を書いています。新設計では必ず<code>sentence_variants.anki_index</code>を読んで投影し、DBを唯一のID正本にします。</p>
     </section>
 
+    <section id="verification" class="panel">
+      <p class="eyebrow" style="color: var(--teal)">07 / MANUAL VERIFICATION</p>
+      <h2>動作確認: 同じシチュエーション内で複数prefixを持つ入力</h2>
+      <p>主シチュエーションを<strong>約束・予定調整</strong>に固定し、短い入力・複数センテンスの入力・会話的な言い換えを順に保存します。これはAIが返す英文そのものを固定するテストではなく、<strong>意味単位の分割、連番、任意レイヤー、deck投影</strong>を確認するための手動シナリオです。</p>
+      <p class="notice"><strong>prefixの設計案:</strong> DBには整数の<code>situation_sequence</code>を保存し、画面とAnkiの<code>Index</code>では3桁ゼロ埋めします。意味単位の番号は既存の<code>sentence_cards.position</code>から得ます。例: <code>002-03</code>は「このシチュエーションで2つ目の入力の、3つ目の意味単位」です。999を超えた場合は<code>1000-01</code>と自然に拡張し、文字列切り詰めは行いません。</p>
+      <div class="fixture-grid">
+        <article class="fixture">
+          <span class="fixture-id">FIXTURE 001</span>
+          <h3>短い入力 / L1のみ</h3>
+          <p><strong>言いたいこと:</strong><br>「今日は予定があるので行けない。また別の日にしよう。」</p>
+          <p><strong>主シチュエーション:</strong> 約束・予定調整</p>
+          <p class="expected">期待する意味単位<br>001-01<br><br>必須: L1<br>不要: L2 / L3 / L4</p>
+        </article>
+        <article class="fixture">
+          <span class="fixture-id">FIXTURE 002</span>
+          <h3>長い入力 / 3つの意味単位</h3>
+          <p><strong>言いたいこと:</strong><br>「仕事が長引いていて、待ち合わせに30分ほど遅れそうです。先に始めていてください。着いたらすぐ連絡します。」</p>
+          <p><strong>主シチュエーション:</strong> 約束・予定調整<br><span class="muted">補助タグ候補: 遅刻・欠席の連絡</span></p>
+          <p class="expected">期待する意味単位<br>002-01 / 002-02 / 002-03<br><br>各意味単位にL1必須<br>L2〜L4は差がなければ生成しない</p>
+        </article>
+        <article class="fixture">
+          <span class="fixture-id">FIXTURE 003</span>
+          <h3>会話的な言い換えを許可</h3>
+          <p><strong>言いたいこと:</strong><br>「来週末なら時間が取れそうなんだけど、土曜と日曜のどちらが都合いい？」</p>
+          <p><strong>主シチュエーション:</strong> 約束・予定調整</p>
+          <p class="expected">期待する意味単位<br>003-01<br><br>必須: L1<br>任意: L3（会話として明確に別の言い方がある場合のみ）</p>
+        </article>
+      </div>
+
+      <h3 style="margin-top: 24px">確認手順と期待結果</h3>
+      <div class="schema-wrap">
+        <table class="schema-table">
+          <thead><tr><th>手順</th><th>画面で確認すること</th><th>DBで確認すること</th><th>Anki exportで確認すること</th></tr></thead>
+          <tbody>
+            <tr><td data-label="手順">1. Fixture 001を保存</td><td data-label="画面で確認すること">L1は必ず表示される。意味の薄いL2〜L4は表示されない。</td><td data-label="DBで確認すること"><code>situation_sequence=1</code>、<code>position=0</code>、L1 variantが1件。</td><td data-label="Anki exportで確認すること"><code>SayDeck::約束・予定調整::01_基本表現</code> に <code>001-01</code> が入る。</td></tr>
+            <tr><td data-label="手順">2. Fixture 002を保存</td><td data-label="画面で確認すること">同じ主シチュエーションのまま、3つの意味単位が順番に表示される。</td><td data-label="DBで確認すること"><code>situation_sequence=2</code>、<code>position=0/1/2</code>、L1 variantが3件。</td><td data-label="Anki exportで確認すること">同じL1 deckに <code>002-01</code>、<code>002-02</code>、<code>002-03</code> が追加される。</td></tr>
+            <tr><td data-label="手順">3. Fixture 003を保存</td><td data-label="画面で確認すること">L1を必ず確認。会話上の明確な差がある場合だけL3を候補表示する。</td><td data-label="DBで確認すること"><code>situation_sequence=3</code>、L1必須。L3は生成された場合のみ1件。</td><td data-label="Anki exportで確認すること">L3が存在する場合だけ <code>03_会話表現</code> deckが作られる。L2/L4だけの空deckは作られない。</td></tr>
+            <tr><td data-label="手順">4. Fixture 002を再export</td><td data-label="画面で確認すること">同じ候補を選び直せる。</td><td data-label="DBで確認すること"><code>anki_guid</code> と <code>anki_index</code> が初回から不変。</td><td data-label="Anki exportで確認すること">Anki Desktopへ再importしても、同じvariantが重複カードにならない。</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="warning"><strong>合意が必要な点:</strong> このシナリオは<code>001</code>を「主シチュエーションごとに増える入力番号」として扱います。もし<code>001</code>を「1つの入力内だけの意味単位番号」としたい場合は、既存の<code>sentence_cards.position</code>だけで足り、<code>situation_sequence</code>の追加は不要です。</p>
+    </section>
+
     <section id="migration" class="panel">
-      <p class="eyebrow" style="color: var(--teal)">07 / MIGRATION PLAN</p>
+      <p class="eyebrow" style="color: var(--teal)">08 / MIGRATION PLAN</p>
       <h2>ジャンル廃止のDB移行案</h2>
       <p>このページは実行用SQLではありません。承認後に、番号付きmigrationとして作成・検証します。</p>
       <details open>
@@ -399,17 +473,18 @@ COMMIT;</pre>
     </section>
 
     <section id="approval" class="panel">
-      <p class="eyebrow" style="color: var(--teal)">08 / HUMAN APPROVAL GATE</p>
+      <p class="eyebrow" style="color: var(--teal)">09 / HUMAN APPROVAL GATE</p>
       <h2>実装開始前に合意するチェック項目</h2>
       <ul class="checklist">
-        <li>deck名を <code>SayDeck::主シチュエーション::L1〜L4</code> にする。</li>
+        <li>deck名を <code>SayDeck::主シチュエーション::01_基本表現〜04_別の自然な言い方</code> にする。L1だけ必須で、L2〜L4のdeckは候補がある時だけ作る。</li>
         <li>ジャンルをUI、API、AI出力、DB、Ankiタグ、LISTS filterから完全に削除する。</li>
         <li>主シチュエーションは<code>situation_tags[0]</code>とし、登録時に確定する。補助タグはdeckを増やさず検索タグとして使う。</li>
         <li>INPUT / REVIEWに「最近使ったシチュエーションから選ぶ」導線を追加する。ジャンル選択の代わりに、ユーザーが必要な時だけ使える任意操作とする。</li>
         <li>シチュエーション名の表記揺れを避けるため、AI提案を定義済み候補・最近使った候補へ正規化する。未知の分類は<code>未分類</code>として明示する。</li>
         <li>既存のジャンル値は保持せず破棄する。空の登録済みシチュエーションは<code>未分類</code>へ補完する。</li>
         <li>Indexは<code>anki_index</code>を唯一の正本にし、同一variantの再export・再importで同じ値を使う。</li>
-        <li>空のAnki profileで「初回import」「同一variant再import」「L1〜L4と主シチュエーションのdeck階層」「en-US音声」を確認してからリリースする。</li>
+        <li><code>001</code>を主シチュエーション内で増える入力番号とするか、1入力内の意味単位番号とするかを合意する。前者なら<code>situation_sequence</code>とcounter tableを追加する。</li>
+        <li>空のAnki profileで「初回import」「同一variant再import」「主シチュエーションと任意レイヤーのdeck階層」「001-01形式の並び」「en-US音声」を確認してからリリースする。</li>
       </ul>
       <p class="notice" style="margin-top: 18px"><strong>承認後の実装順序:</strong> ① 要求定義・設計・APKG仕様・ADR・README/デプロイ手順を改訂 → ② migration作成・検証 → ③ INPUT/LISTS/API/AI/export実装 → ④ typecheck・lint・build・APKG/Anki import検証。承認前にはmigration適用・DB変更・機能実装を行わない。</p>
     </section>
