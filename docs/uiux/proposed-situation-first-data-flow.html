@@ -194,8 +194,8 @@
         </article>
         <article class="tile">
           <span class="label">PRIMARY + SECONDARY</span>
-          <strong>主を1つ、副を0〜2つ決める</strong>
-          <p>主シチュエーションは復習用のdeckを決める大きな場面。副シチュエーションは「久しぶりの連絡」「遊びに誘う」のような目的・文脈で、検索とAnki tagに使う。同じカードは複製しない。</p>
+          <strong>主と副を1つずつ決める</strong>
+          <p>主シチュエーションは広い場面、副シチュエーションは「久しぶりの連絡」「遊びに誘う」のような目的・文脈。両方をdeck階層に使い、同じカードは複製しない。</p>
         </article>
         <article class="tile">
           <span class="label">STABLE ID</span>
@@ -215,16 +215,17 @@
     <section id="deck" class="panel">
       <p class="eyebrow" style="color: var(--teal)">02 / ANKI PROJECTION</p>
       <h2>Ankiへ取り込まれるdeckとtags</h2>
-      <p>各variantは、主シチュエーションと表現レイヤーから<strong>1つだけ</strong>のdeckへ投影します。Ankiの1 noteを複数deckに複製しません。</p>
+      <p>各variantは、主シチュエーション・副シチュエーション・表現レイヤーから<strong>1つだけ</strong>のdeckへ投影します。Ankiの1 noteを複数deckに複製しません。</p>
       <div class="deck" aria-label="Anki deck hierarchy example">SayDeck
-└── 友人への返信                  ← 主シチュエーション
-    ├── 01_基本表現 (L1 / 必須)    ← profile_code
-    ├── 02_詳細表現 (L2 / 任意)
-    ├── 03_会話表現 (L3 / 任意)
-    └── 04_別の自然な言い方 (L4 / 任意)
+└── 友人への返信                    ← 主シチュエーション
+    └── 久しぶりの連絡              ← 副シチュエーション
+        ├── 01_基本表現 (L1 / 必須)  ← profile_code
+        ├── 02_詳細表現 (L2 / 任意)
+        ├── 03_会話表現 (L3 / 任意)
+        └── 04_別の自然な言い方 (L4 / 任意)
 
-例: SayDeck::友人への返信::01_基本表現</div>
-      <p class="notice"><strong>この例の副シチュエーション:</strong> <code>久しぶりの連絡</code>。これはdeckの階層には加えず、<code>secondary_situation::friend-reply::reconnect-after-silence</code> というAnki tagだけに投影する。</p>
+例: SayDeck::友人への返信::久しぶりの連絡::01_基本表現</div>
+      <p class="notice"><strong>deck投影の規則:</strong> 主と副の組を、1カードにつき1つだけ確定する。副シチュエーションもdeck階層に必ず含め、Anki tagにも同じ分類を投影する。</p>
       <div class="entity-grid" style="margin-top: 16px">
         <article class="tile">
           <strong>ノートタイプ</strong>
@@ -235,10 +236,10 @@
           <p><strong>主:</strong> 友人への返信<br><span class="tag">primary_situation::friend-reply</span></p>
           <p><strong>副:</strong> 久しぶりの連絡<br><span class="tag">secondary_situation::friend-reply::reconnect-after-silence</span></p>
           <p><span class="tag">source::saydeck</span><span class="tag">difficulty::l2</span></p>
-          <p class="muted">ジャンルタグは出力しない。主シチュエーションはdeckとtagへ、副シチュエーションはtagだけへ投影する。</p>
+          <p class="muted">ジャンルタグは出力しない。主・副シチュエーションの両方をdeckとtagへ投影する。</p>
         </article>
       </div>
-      <p class="warning"><strong>再分類の扱い:</strong> 初回export後に主シチュエーションを変更しても、既存Ankiカードを別deckへ自動移動することは保証しません。MVPでは主シチュエーションを「登録時に確定する分類」とし、変更は新しい入力として扱います。副シチュエーションはdeckに影響しないため、再export時にAnki tagを更新できます。</p>
+      <p class="warning"><strong>再分類の扱い:</strong> 初回export後に主または副シチュエーションを変更しても、既存Ankiカードを別deckへ自動移動することは保証しません。MVPでは主・副を「登録時に確定する分類」とし、変更は新しい入力として扱います。</p>
     </section>
 
     <section id="schema" class="panel">
@@ -276,7 +277,7 @@
             <tr><td class="key" data-label="Column">id</td><td data-label="Type / 制約">text / PK</td><td data-label="作成・更新の主体">API: INPUT作成時</td><td data-label="役割">親entryのSayDeck ID</td></tr>
             <tr><td class="key" data-label="Column">owner_login</td><td data-label="Type / 制約">text / not null</td><td data-label="作成・更新の主体">認証コンテキスト</td><td data-label="役割">owner scope</td></tr>
             <tr><td class="key" data-label="Column">input_ja</td><td data-label="Type / 制約">text / 1〜2000文字</td><td data-label="作成・更新の主体">INPUT</td><td data-label="役割">言いたいこと（日本語）</td></tr>
-            <tr><td class="key new" data-label="Column">（対応表で保持）</td><td data-label="Type / 制約">主1件 / 副0〜2件</td><td data-label="作成・更新の主体">AI提案 + 保存前のユーザー確定</td><td data-label="役割"><code>expression_entry_situations</code>に主・副シチュエーションを保持する。配列の順番には依存しない</td></tr>
+            <tr><td class="key new" data-label="Column">（対応表で保持）</td><td data-label="Type / 制約">主1件 / 副1件</td><td data-label="作成・更新の主体">AI提案 + 保存前のユーザー確定</td><td data-label="役割"><code>expression_entry_situations</code>に主・副シチュエーションを保持する。両方をAnki deck階層に投影する</td></tr>
             <tr><td class="key new" data-label="Column">situation_sequence <span class="muted">(提案)</span></td><td data-label="Type / 制約">integer / nullable → 登録時not null</td><td data-label="作成・更新の主体">主シチュエーション確定時に採番</td><td data-label="役割">主シチュエーションごとの入力連番。DBは整数、表示・Anki Indexでは<code>001</code>のように整形する</td></tr>
             <tr><td class="key" data-label="Column">status</td><td data-label="Type / 制約">draft / generating / generated / registered / archived</td><td data-label="作成・更新の主体">各処理</td><td data-label="役割">entryのライフサイクル</td></tr>
             <tr><td class="key" data-label="Column">registered_at</td><td data-label="Type / 制約">timestamptz / nullable</td><td data-label="作成・更新の主体">カード保存時</td><td data-label="役割">LISTSの作成日・export対象判定</td></tr>
@@ -285,7 +286,7 @@
           </tbody>
         </table>
       </div>
-      <p class="muted">追加index: <code>expression_entry_situations(entry_id)</code>、<code>expression_entry_situations(situation_id, entry_id)</code>、主割当を1件に制限するpartial unique index。既存の<code>owner_login + status/updated_at</code>、<code>owner_login + registered_at</code> indexは維持する。</p>
+      <p class="muted">追加index: <code>expression_entry_situations(entry_id)</code>、<code>expression_entry_situations(situation_id, entry_id)</code>、主割当・副割当をそれぞれ1件に制限するpartial unique index。既存の<code>owner_login + status/updated_at</code>、<code>owner_login + registered_at</code> indexは維持する。</p>
 
       <h3 style="margin-top: 28px">B. <code>situation_definitions</code> — 主・副分類のマスタ</h3>
       <div class="schema-wrap">
@@ -314,18 +315,18 @@
           <tbody>
             <tr><td class="key new" data-label="Column">entry_id</td><td data-label="Type / 制約">text / FK / not null</td><td data-label="作成・更新の主体">AI提案・REVIEW確定</td><td data-label="役割"><code>expression_entries.id</code>への参照</td></tr>
             <tr><td class="key new" data-label="Column">situation_id</td><td data-label="Type / 制約">text / FK / not null</td><td data-label="作成・更新の主体">AI提案・REVIEW確定</td><td data-label="役割"><code>situation_definitions.id</code>への参照</td></tr>
-            <tr><td class="key new" data-label="Column">role</td><td data-label="Type / 制約"><code>primary</code> / <code>secondary</code></td><td data-label="作成・更新の主体">AI提案・REVIEW確定</td><td data-label="役割">entryごとに<code>primary</code>は1件だけ、<code>secondary</code>は0〜2件</td></tr>
+            <tr><td class="key new" data-label="Column">role</td><td data-label="Type / 制約"><code>primary</code> / <code>secondary</code></td><td data-label="作成・更新の主体">AI提案・REVIEW確定</td><td data-label="役割">entryごとに<code>primary</code>と<code>secondary</code>をそれぞれ1件ずつ。1つのAnki deck pathを一意に決める</td></tr>
             <tr><td class="key new" data-label="Column">selected_by</td><td data-label="Type / 制約"><code>ai</code> / <code>user</code></td><td data-label="作成・更新の主体">AI / REVIEW</td><td data-label="役割">AI提案のままか、ユーザーが確定・変更したかを区別する</td></tr>
             <tr><td class="key new" data-label="Column">created_at / updated_at</td><td data-label="Type / 制約">timestamptz</td><td data-label="作成・更新の主体">DB / 更新処理</td><td data-label="役割">監査</td></tr>
           </tbody>
         </table>
       </div>
-      <p class="muted">制約: <code>unique(entry_id, situation_id)</code>。<code>role='primary'</code>は<code>entry_id</code>ごとに1件だけ。副の<code>parent_id</code>が選択中の主<code>situation_id</code>と一致し、分類の<code>owner_login</code>がentryのownerと一致することを保存transactionで検証する。</p>
+      <p class="muted">制約: <code>unique(entry_id, situation_id)</code>。<code>role='primary'</code>と<code>role='secondary'</code>をそれぞれ<code>entry_id</code>ごとに1件だけにする。副の<code>parent_id</code>が選択中の主<code>situation_id</code>と一致し、分類の<code>owner_login</code>がentryのownerと一致することを保存transactionで検証する。</p>
 
       <div class="entity-grid" style="margin-top: 20px">
         <article class="tile">
           <h3>主・副分類の利用方針</h3>
-          <p>主は広い場面を表す1件だけ、たとえば「友人への返信」。副はその主の下にある目的・文脈を0〜2件、たとえば「久しぶりの連絡」「遊びに誘う」「近況を尋ねる」として使う。</p>
+          <p>主は広い場面を表す1件だけ、たとえば「友人への返信」。副はその主の下にある目的・文脈を1件、たとえば「久しぶりの連絡」「遊びに誘う」「近況を尋ねる」として使う。主・副の組が復習用deckを決める。</p>
         </article>
         <article class="tile">
           <h3>AI提案とユーザー確定</h3>
@@ -379,7 +380,7 @@
       <div class="flow-grid">
         <article class="flow-card">
           <p class="card-title"><span class="step">1</span>INPUT: 日本語を保存</p>
-          <p>ユーザーは「言いたいこと」を入力する。任意で最近使った主シチュエーションを選べる。副シチュエーションは未選択のままでもよい。ジャンル操作は存在しない。</p>
+          <p>ユーザーは「言いたいこと」を入力する。任意で最近使った主シチュエーションを選べる。副シチュエーションはAIが必ず提案し、保存前に1つ確定する。ジャンル操作は存在しない。</p>
           <p class="columns">INSERT expression_entries<br>input_ja, status='draft'<br>（主を先行指定した場合だけ対応表へ仮保存）</p>
         </article>
         <article class="flow-card">
@@ -389,7 +390,7 @@
         </article>
         <article class="flow-card">
           <p class="card-title"><span class="step">3</span>REVIEW: 分類と候補を確定</p>
-          <p>ユーザーは英文候補、主シチュエーション1つ、副シチュエーション0〜2つを確認する。既存主なら再利用し、新規主ならここで作成する。副の完全一致は保存transactionで<code>-001</code>以降を付ける。L1を必ず選び、主シチュエーション内の入力番号を採番する案もここで実行する。</p>
+          <p>ユーザーは英文候補、主シチュエーション1つ、副シチュエーション1つを確認する。既存主なら再利用し、新規主ならここで作成する。副の完全一致は保存transactionで<code>-001</code>以降を付ける。L1を必ず選び、主シチュエーション内の入力番号を採番する案もここで実行する。</p>
           <p class="columns">UPSERT situation_definitions<br>UPSERT expression_entry_situations（ユーザー確定）<br>UPDATE situation_sequence, status='registered', registered_at<br>UPDATE sentence_variants.is_selected/status</p>
         </article>
         <article class="flow-card">
@@ -405,7 +406,7 @@
         <article class="flow-card">
           <p class="card-title"><span class="step">6</span>ANKI: import</p>
           <p><code>SayDeck</code>のnoteとして読み込まれる。<code>Index</code>とGUIDはDBの恒久値を使うため、同一variantの再importでは重複ではなく更新を目指す。</p>
-          <p class="columns">Deck: SayDeck::主シチュエーション::Lx<br>Tags: source / primary situation / secondary situation / difficulty</p>
+          <p class="columns">Deck: SayDeck::主シチュエーション::副シチュエーション::Lx<br>Tags: source / primary situation / secondary situation / difficulty</p>
         </article>
       </div>
     </section>
@@ -418,7 +419,7 @@
 
         <div class="op">INPUT<br>入力開始</div><div>ブラウザlocalStorageへ一時退避</div><div>なし</div><div>DB未更新。<code>inputJa</code>と選択中の主シチュエーションだけを端末に保持</div>
         <div class="op">INPUT<br>英文候補を作る</div><div><code>POST /api/expressions</code> → <code>POST /:id/generate</code></div><div>登録済み主シチュエーション一覧をAIへ渡し、親entryと英文候補をtransactionで保存。分類候補はREVIEWの一時状態にだけ保持</div><div><code>SELECT situation_definitions</code>（active primary）<br><code>expression_entries.id/input_ja/status</code><br><code>sentence_cards.*</code><br><code>sentence_variants.*</code>（各意味単位×L1必須、L2〜L4任意）</div>
-        <div class="op">REVIEW<br>主・副分類を確認</div><div>AIの既存主ID／新規主名と副の基底名を表示。ユーザーが必要なら変更</div><div>DB未更新。主1件・副0〜2件になることだけ画面で検証</div><div>例: 主=<code>友人への返信</code><br>副基底名=<code>久しぶりの連絡</code></div>
+        <div class="op">REVIEW<br>主・副分類を確認</div><div>AIの既存主ID／新規主名と副の基底名を表示。ユーザーが必要なら変更</div><div>DB未更新。主1件・副1件になることを画面で検証</div><div>例: 主=<code>友人への返信</code><br>副基底名=<code>久しぶりの連絡</code></div>
         <div class="op">REVIEW<br>カードを保存</div><div><code>PATCH /api/expressions/:id</code></div><div>L1選択を検証。主を再利用または新規作成し、副の完全一致には<code>-001</code>以降を採番して対応表へ保存。主シチュエーションごとの連番を採番してentryを登録状態にする</div><div><code>situation_definitions.*</code><br><code>expression_entry_situations.*</code><br><code>expression_entries.situation_sequence</code><br><code>status='registered'</code> / <code>registered_at</code><br><code>sentence_variants.is_selected/status</code></div>
         <div class="op">LISTS<br>絞り込む</div><div>GET済みデータのfilter（将来はserver filterへ移行可能）</div><div>対応表と分類マスタをJOINしてSELECT</div><div><code>primary_situation</code>、<code>secondary_situations</code>、<code>profile_code</code>、<code>registered_at</code>、<code>updated_at</code>、<code>input_ja</code></div>
         <div class="op">LISTS<br>表現を編集</div><div><code>PATCH /api/expressions/:id</code></div><div>Expressionまたは和訳を更新し、対応音声をstaleにする</div><div><code>expression_en / translation_ja</code><br><code>audio_assets.status='stale'</code></div>
@@ -485,10 +486,10 @@
         <table class="schema-table">
           <thead><tr><th>手順</th><th>画面で確認すること</th><th>DBで確認すること</th><th>Anki exportで確認すること</th></tr></thead>
           <tbody>
-            <tr><td data-label="手順">1. Fixture 001を保存</td><td data-label="画面で確認すること">L1は必ず表示される。主「約束・予定調整」と副「予定を断る・変更する」が確認できる。</td><td data-label="DBで確認すること"><code>situation_sequence=1</code>、<code>position=0</code>、主1件・副1件の対応行、L1 variantが1件。</td><td data-label="Anki exportで確認すること"><code>SayDeck::約束・予定調整::01_基本表現</code> に <code>001-01</code> が入り、副はtagだけに出る。</td></tr>
-            <tr><td data-label="手順">2. Fixture 002を保存</td><td data-label="画面で確認すること">同じ主シチュエーションのまま、副「遅刻・欠席の連絡」と3つの意味単位が順番に表示される。</td><td data-label="DBで確認すること"><code>situation_sequence=2</code>、<code>position=0/1/2</code>、主1件・副1件、L1 variantが3件。</td><td data-label="Anki exportで確認すること">同じL1 deckに <code>002-01</code>、<code>002-02</code>、<code>002-03</code> が追加される。副でdeckは増えない。</td></tr>
-            <tr><td data-label="手順">3. Fixture 003を保存</td><td data-label="画面で確認すること">L1を必ず確認。会話上の明確な差がある場合だけL3を候補表示する。</td><td data-label="DBで確認すること"><code>situation_sequence=3</code>、L1必須。L3は生成された場合のみ1件。</td><td data-label="Anki exportで確認すること">L3が存在する場合だけ <code>03_会話表現</code> deckが作られる。L2/L4だけの空deckは作られない。</td></tr>
-            <tr><td data-label="手順">4. 同じ副基底名をもう一度保存</td><td data-label="画面で確認すること">AI候補が既存の副「遅刻・欠席の連絡」と完全一致する場合、保存後の表示は「遅刻・欠席の連絡-001」になる。</td><td data-label="DBで確認すること"><code>base_label_ja='遅刻・欠席の連絡'</code>、<code>duplicate_sequence=1</code>、<code>label_ja='遅刻・欠席の連絡-001'</code>の副分類が作られる。</td><td data-label="Anki exportで確認すること">主のdeckは変わらず、副tagだけ末尾<code>-001</code>のキーで追加される。</td></tr>
+            <tr><td data-label="手順">1. Fixture 001を保存</td><td data-label="画面で確認すること">L1は必ず表示される。主「約束・予定調整」と副「予定を断る・変更する」が確認できる。</td><td data-label="DBで確認すること"><code>situation_sequence=1</code>、<code>position=0</code>、主1件・副1件の対応行、L1 variantが1件。</td><td data-label="Anki exportで確認すること"><code>SayDeck::約束・予定調整::予定を断る・変更する::01_基本表現</code> に <code>001-01</code> が入る。</td></tr>
+            <tr><td data-label="手順">2. Fixture 002を保存</td><td data-label="画面で確認すること">同じ主シチュエーションのまま、副「遅刻・欠席の連絡」と3つの意味単位が順番に表示される。</td><td data-label="DBで確認すること"><code>situation_sequence=2</code>、<code>position=0/1/2</code>、主1件・副1件、L1 variantが3件。</td><td data-label="Anki exportで確認すること"><code>SayDeck::約束・予定調整::遅刻・欠席の連絡::01_基本表現</code> に <code>002-01</code>、<code>002-02</code>、<code>002-03</code> が追加される。</td></tr>
+            <tr><td data-label="手順">3. Fixture 003を保存</td><td data-label="画面で確認すること">L1を必ず確認。会話上の明確な差がある場合だけL3を候補表示する。</td><td data-label="DBで確認すること"><code>situation_sequence=3</code>、L1必須。L3は生成された場合のみ1件。</td><td data-label="Anki exportで確認すること">L3が存在する場合だけ <code>SayDeck::約束・予定調整::日程を決める::03_会話表現</code> deckが作られる。L2/L4だけの空deckは作られない。</td></tr>
+            <tr><td data-label="手順">4. 同じ副基底名をもう一度保存</td><td data-label="画面で確認すること">AI候補が既存の副「遅刻・欠席の連絡」と完全一致する場合、保存後の表示は「遅刻・欠席の連絡-001」になる。</td><td data-label="DBで確認すること"><code>base_label_ja='遅刻・欠席の連絡'</code>、<code>duplicate_sequence=1</code>、<code>label_ja='遅刻・欠席の連絡-001'</code>の副分類が作られる。</td><td data-label="Anki exportで確認すること"><code>SayDeck::約束・予定調整::遅刻・欠席の連絡-001::Lx</code> の別deckに入る。</td></tr>
             <tr><td data-label="手順">5. Fixture 002を再export</td><td data-label="画面で確認すること">同じ候補を選び直せる。</td><td data-label="DBで確認すること"><code>anki_guid</code> と <code>anki_index</code> が初回から不変。</td><td data-label="Anki exportで確認すること">Anki Desktopへ再importしても、同じvariantが重複カードにならない。</td></tr>
           </tbody>
         </table>
@@ -523,6 +524,8 @@ CREATE TABLE situation_definitions (... parent_id, kind, base_label_ja,
 CREATE TABLE expression_entry_situations (... entry_id, situation_id, role, selected_by ...);
 CREATE UNIQUE INDEX expression_entry_situations_one_primary
   ON expression_entry_situations (entry_id) WHERE role = 'primary';
+CREATE UNIQUE INDEX expression_entry_situations_one_secondary
+  ON expression_entry_situations (entry_id) WHERE role = 'secondary';
 CREATE INDEX expression_entry_situations_by_situation
   ON expression_entry_situations (situation_id, entry_id);
 
@@ -557,17 +560,17 @@ COMMIT;</pre>
       <p class="eyebrow" style="color: var(--teal)">09 / HUMAN APPROVAL GATE</p>
       <h2>実装開始前に合意するチェック項目</h2>
       <ul class="checklist">
-        <li>deck名を <code>SayDeck::主シチュエーション::01_基本表現〜04_別の自然な言い方</code> にする。副シチュエーションでdeckは増やさない。L1だけ必須で、L2〜L4のdeckは候補がある時だけ作る。</li>
+        <li>deck名を <code>SayDeck::主シチュエーション::副シチュエーション::01_基本表現〜04_別の自然な言い方</code> にする。主・副を各1件必須とし、L1だけ必須、L2〜L4のdeckは候補がある時だけ作る。</li>
         <li>ジャンルをUI、API、AI出力、DB、Ankiタグ、LISTS filterから完全に削除する。</li>
-        <li>主シチュエーションを1件、副シチュエーションを0〜2件とし、<code>expression_entry_situations</code>で役割を明示して保存する。副は選んだ主の配下に限定し、deckを増やさず検索・Anki tagとして使う。</li>
+        <li>主シチュエーションと副シチュエーションを各1件とし、<code>expression_entry_situations</code>で役割を明示して保存する。副は選んだ主の配下に限定し、主・副の組をAnki deckとtagへ投影する。</li>
         <li>INPUT生成時に登録済み主シチュエーション一覧をAIへ渡す。AIは既存主に該当すればIDを返し、該当しなければ新しい主の基底名を返す。新規主のDB登録は、ユーザーが保存を確定した時だけ行う。</li>
         <li>AIは副シチュエーションの基底名を返す。選択中の主の配下に完全一致する副があれば、保存transactionが最小の未使用3桁連番を<code>-001</code>から末尾に付ける。意味的に似ているだけの副は統合しない。</li>
-        <li>ユーザーが分類マスタを直接増やす専用画面はMVPの対象外とし、AI提案を保存することで主・副分類が増える。該当しない副シチュエーションは空で保存できる。</li>
+        <li>ユーザーが分類マスタを直接増やす専用画面はMVPの対象外とし、AI提案を保存することで主・副分類が増える。副シチュエーションは空で保存できない。</li>
         <li>既存のジャンル値・表現・音声・APKG履歴は保持せず削除する。新規登録では空の主シチュエーションを許可しない。</li>
         <li>Ankiノートタイプ名を<code>SayDeck</code>とし、fieldを<code>Index</code>、<code>Expression</code>、<code>Translation</code>、<code>expression_audio</code>の4つにする。</li>
         <li>Indexは<code>anki_index</code>を唯一の正本にし、同一variantの再export・再importで同じ値を使う。</li>
         <li><code>001</code>を主シチュエーション内で増える入力番号とするか、1入力内の意味単位番号とするかを合意する。前者なら<code>situation_sequence</code>と<code>primary_situation_id</code>をキーにしたcounter tableを追加する。</li>
-        <li>空のAnki profileで「初回import」「同一variant再import」「主シチュエーションと任意レイヤーのdeck階層」「副シチュエーションtagによる絞り込み」「001-01形式の並び」「en-US音声」を確認してからリリースする。</li>
+        <li>空のAnki profileで「初回import」「同一variant再import」「主・副シチュエーションと任意レイヤーのdeck階層」「副シチュエーションtagによる絞り込み」「001-01形式の並び」「en-US音声」を確認してからリリースする。</li>
       </ul>
       <p class="notice" style="margin-top: 18px"><strong>承認後の実装順序:</strong> ① 要求定義・設計・APKG仕様・ADR・README/デプロイ手順を改訂 → ② migration作成・検証 → ③ INPUT/LISTS/API/AI/export実装 → ④ typecheck・lint・build・APKG/Anki import検証。承認前にはmigration適用・DB変更・機能実装を行わない。</p>
     </section>
