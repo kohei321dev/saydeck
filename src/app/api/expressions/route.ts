@@ -66,7 +66,6 @@ export async function POST(request: Request) {
     const entry = await createExpressionEntry({
       ownerLogin,
       inputJa,
-      genreSlug: normalizeGenre(body?.genreSlug),
     });
 
     return NextResponse.json({ entry }, { status: 201 });
@@ -92,8 +91,4 @@ function handleStoreError(message: string, error: unknown) {
 
 function getString(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
-}
-
-function normalizeGenre(value: unknown): string {
-  return getString(value).slice(0, 120);
 }

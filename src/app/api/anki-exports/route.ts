@@ -30,14 +30,12 @@ export async function POST(request: Request) {
 
   const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
   const variantIds = readStringList(body.variantIds);
-  const tags = readStringList(body.tags);
   const from = getString(body.from);
   const to = getString(body.to);
 
   try {
     const requestedRecords = await getAnkiExportRecords(ownerLogin, {
       variantIds,
-      tags,
       from,
       to,
       requireAudio: false,
@@ -57,7 +55,6 @@ export async function POST(request: Request) {
 
     const records = await getAnkiExportRecords(ownerLogin, {
       variantIds,
-      tags,
       from,
       to,
       requireAudio: true,
@@ -96,7 +93,7 @@ export async function POST(request: Request) {
 
     if (error instanceof AnkiAudioNotReadyError) {
       return NextResponse.json(
-        { error: { code: "audio_not_ready", message: "WordとExample Sentenceの両方の音声が必要です。" } },
+        { error: { code: "audio_not_ready", message: "英文の米国英語音声を準備できませんでした。" } },
         { status: 409 },
       );
     }

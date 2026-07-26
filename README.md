@@ -2,25 +2,35 @@
 
 現実の場面で「こう言いたい」と思った日本語を、AIでAnki向けの英語表現へ変換・蓄積し、米国英語音声付きAPKGとして書き出す個人向けアプリです。
 
-スケートボード場面を主な出発点にしつつ、日常会話や旅行などにも使える表現を蓄積します。
-
 ## Production
 
 - [SayDeckを開く](https://scene-builder-tau.vercel.app)
 
-## Current direction
+## Product flow
 
 ```text
-INPUT: 日本語の言いたいこと + シチュエーション
-  -> AIがL1〜L4の基本ワード・例文・Ankiフィールドを生成
-  -> 確認・修正してDBへ保存
-LISTS: ジャンル・シチュエーション・レベル・作成日時で一覧・選択
-EXPORT: 米国英語音声を内部生成し、音声同梱Anki APKGをdownload
+INPUT
+  日本語の「言いたいこと」
+  → AIが意味単位、主・副シチュエーション、英語表現を提案
+  → ユーザーが分類と候補を確認して保存
+
+LISTS
+  主・副シチュエーション、表現レイヤー、登録日、キーワードで一覧
+  → 英文・和訳の編集、削除、EXPORT対象の選択
+
+EXPORT
+  選択した英文のen-US音声を内部生成
+  → SayDeckノート5フィールドと音声を1つのAPKGへ同梱
 ```
 
-SayDeckの主要画面は`INPUT`、`LISTS`、`EXPORT`の3つです。アプリ内学習・AI添削・練習履歴は現行要件に含めず、復習はAnkiで行います。正式なexport形式はAPKGのみで、TSVや個別WAV操作は提供しません。
+主要画面は`INPUT`、`LISTS`、`EXPORT`の3つです。アプリ内学習、AI添削、練習履歴は扱わず、復習はAnkiで行います。正式な出力形式はAPKGだけで、TSVや個別WAV操作は提供しません。
 
-MVP実装は、最初に旧学習・TSV・手動音声導線を削除し、その後`INPUT` → `LISTS` → `EXPORT`の順で進めます。
+表現レイヤーは次の4つです。
+
+- `01_基本表現`（`basic`）: 各意味単位に必須
+- `02_詳細表現`（`detail`）: 有用な具体情報を加えられる場合だけ
+- `03_会話表現`（`conversation`）: 明確に異なる口語表現がある場合だけ
+- `04_別の自然な言い方`（`natural_alternative`）: 別構文・別視点の自然な表現がある場合だけ
 
 ## Documentation
 
@@ -28,62 +38,36 @@ MVP実装は、最初に旧学習・TSV・手動音声導線を削除し、そ�
 - [要求定義](docs/requirements.md)
 - [設計](docs/design.md)
 - [Anki Export Specification](docs/specifications/anki-export.md)
-- [ADR 0010: Expression capture and Anki export pipeline](docs/adr/0010-expression-capture-and-anki-export.md)
-- [ADR 0011: Rename to SayDeck](docs/adr/0011-rename-to-saydeck.md)
-- [ADR 0013: Expression production and APKG-only product scope](docs/adr/0013-expression-production-and-apkg-only.md)
-- [ADR 0014: Private object storage selection for APKG media](docs/adr/0014-private-object-storage-selection.md)
-- [既存ADR運用ガイド](docs/ADR.md)
+- [Situation-first data flow](docs/uiux/proposed-situation-first-data-flow.html)
+- [ADR 0016: Situation-first expression and Anki contract](docs/adr/0016-situation-first-expression-and-anki-contract.md)
+- [Deployment guide](docs/vercel-deployment.md)
 
-旧アプリ名由来のブラウザ保存キーと本番domainは、既存データとOAuthを守るために移行完了まで維持する。詳細はADR 0011とdeployment guideを参照する。
+過去のADRとmigrationは意思決定・適用履歴として残します。現行仕様は上記の要求定義、設計、APKG仕様、ADR 0016を正本とします。
 
 ## Local development
 
 ```bash
 npm install
-DEV_AUTH_BYPASS=1 npm run dev
+npm run dev
 ```
 
-`DEV_AUTH_BYPASS=1`はローカル確認専用です。`NODE_ENV=production`では無効になります。
+ローカル画面確認では`.env.local`に`DEV_AUTH_BYPASS=1`を設定できます。この設定は`NODE_ENV=production`では無効です。
 
-表現作成を実データで確認する場合は、`DATABASE_URL`を設定し、既存migrationに続けて
-`db/migrations/0004-saydeck-expressions.sql`と`0005-expression-learning-and-export.sql`をNeonへ適用してください。英文候補の生成には
-server-sideの`OWNER_AI_KEY`（許可モデル`grok-4.3`）も必要です。どちらかが未設定でも、入力画面は表示され、DB保存失敗時は入力をlocalStorageへ退避します。
+実データを使う場合は次のserver-side環境変数を設定します。
 
-`LISTS`では生成済み表現を個別選択し、ジャンル、シチュエーション、レベル、作成日時などで絞り込めます。`EXPORT`では選択した表現から米国英語音声付き`.apkg`を作成します。音声生成はAPKG作成の内部処理です。TTS keyがあれば、Blob tokenがないlocalhostでも`.saydeck-storage`を使ってAPKGまで検証できます。
-
-ownerでログインした状態では、既存画面の診断パネルからDB接続、表現schema、AI providerの疎通を確認できます。APIでは`GET /api/diagnostics?probe=1`が同じ確認を行い、secretやprovider本文は返しません。
-
-### Vercel環境変数をlocalhostで使う場合
-
-localhostはVercelのProduction環境ではないため、Vercelの値を自動継承しません。ローカルではProduction用secretを直接使わず、Development用の限定された`DATABASE_URL`とAI keyをVercelに登録してから、次のように取得します。
-
-```bash
-npx vercel env pull .env.local --environment=development --project saydecks --scope uechikoheis-projects --yes
-DEV_AUTH_BYPASS=1 npm run dev
+```text
+DATABASE_URL
+OWNER_AI_KEY
+OWNER_AI_MODEL=grok-4.3
+SAYDECK_TTS_VOICE=eve
+SAYDECK_TTS_SPEED=1.0
 ```
 
-secretをローカルファイルへ書きたくない場合は、VercelのDevelopment runtimeで起動します。
+localhostではBlob tokenがなくても`.saydeck-storage`へ音声・APKGを保存できます。Productionではprivate Blob用の`BLOB_READ_WRITE_TOKEN`が必要です。
 
-```bash
-DEV_AUTH_BYPASS=1 npx vercel dev --project saydecks --scope uechikoheis-projects --listen 3000
-```
+## Database migrations
 
-現在のプロジェクトではDevelopment/Previewの環境変数は未登録です。ProductionのsecretはVercel CLIでも`[sensitive]`としてマスクされるため、Production secretをlocalhostへコピーする運用にはしません。Development環境を追加できない場合は、ownerログイン後のVercel runtime probeでProduction接続を確認してください。
-
-```bash
-npm run lint
-npm run typecheck
-npm run build
-```
-
-## Current persistence
-
-- Neon/Postgres: 表現入力、意味単位、L1〜L4 variant、分類metadata、Anki index、音声metadata、export状態。旧カード・練習状態・練習履歴・保存ノートは移行安全性のため当面保持するが、現行UIでは使用しない。
-- private object storage: 新仕様の音声binaryとAPKG artifact。本文やAPI keyは保存しない。
-- local development storage: TTS/APKGのlocalhost検証時だけ`.saydeck-storage`へ保存できる。Productionではprivate Blobを必須にする。
-- localStorage: 未同期のQuick Capture入力だけを一時退避する。
-
-現在のDB migrationは順に適用します。
+migration runnerは未導入のため、次を番号順に手動適用します。
 
 1. `db/migrations/0001-practice-records.sql`
 2. `db/migrations/0002-scene-cards.sql`
@@ -91,16 +75,42 @@ npm run build
 4. `db/migrations/0004-saydeck-expressions.sql`
 5. `db/migrations/0005-expression-learning-and-export.sql`
 6. `db/migrations/0006-apkg-only-cleanup.sql`
+7. `db/migrations/0007-situation-tag-taxonomy.sql`
+8. `db/migrations/0008-situation-first-expression-contract.sql`
 
-音声付きAPKGは、英文候補生成と同じserver-onlyの`OWNER_AI_KEY`でxAI Text to Speechを呼び出します。Productionでは`BLOB_READ_WRITE_TOKEN`も設定します。`SAYDECK_TTS_VOICE`、`SAYDECK_TTS_SPEED`でxAI TTSの既定値を変更できます。
+`0008`は承認済みの破壊的migrationです。既存のSayDeck表現、音声metadata、APKG履歴を削除し、ジャンル、旧シチュエーションタグ、L1〜L4、旧8フィールド・2音声契約を新仕様へ置き換えます。旧practice系テーブルは削除しません。
 
-migration runnerはまだ導入していないため、Neonへ上記の順で手動適用します。既存migrationは適用済み環境の再現性のため削除しません。
+ローカルでVercel Development環境を取得する場合:
+
+```bash
+npx vercel env pull .env.local --environment=development --project saydecks --scope uechikoheis-projects --yes
+npm run dev
+```
+
+## Verification
+
+```bash
+npm run lint
+npm run typecheck
+npm run build
+```
+
+owner認証済みの`GET /api/diagnostics?probe=1`では、secretを返さずにDB、現行expression schema、AI、TTS、storageの設定状態を確認できます。
+
+リリース前には、[Anki Export Specification](docs/specifications/anki-export.md)の手動確認に従い、空のAnki profileで初回importと同一variantの再importを確認します。
+
+## Persistence
+
+- Neon/Postgres: 日本語入力、意味単位、英語表現、主・副分類、主分類内連番、恒久Anki ID、音声metadata、export履歴
+- private object storage: en-US英文音声とAPKG artifact
+- localStorage: 未同期のINPUTと任意の優先主シチュエーションだけ
+- sessionStorage: LISTSからEXPORTへ渡す一時的なvariant選択
 
 ## Security
 
-- API key、OAuth secret、Blob token、raw AI responseはGitへ保存しない。
-- 書き込み・音声再生・APKG downloadはowner認証で保護する。
-- 認証、Vercel、Neonの現行設定は[deployment guide](docs/vercel-deployment.md)を参照する。
+- API key、OAuth secret、Blob token、raw AI responseをGitやapplication logへ保存しない。
+- DB・AI・TTS・storageはserver側からだけ利用する。
+- 作成・編集・削除・APKG downloadはowner認証で保護する。
 
 ## License
 

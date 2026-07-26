@@ -1,10 +1,9 @@
 import { getSql, isDatabaseConfigured } from "@/lib/db";
+import { profileDisplayName } from "@/lib/generation-profiles";
 import type { GenerationProfileCode } from "@/lib/expression-types";
-import { deckSituationTag } from "@/lib/situation-tags";
 
 export type AnkiExportFilter = {
   variantIds?: string[];
-  tags?: string[];
   from?: string;
   to?: string;
   requireAudio?: boolean;
@@ -13,7 +12,6 @@ export type AnkiExportFilter = {
 export type AnkiMediaRef = {
   filename: string;
   blobPath: string;
-  kind: "word" | "sentence";
 };
 
 export type AnkiExportRecord = {
@@ -21,7 +19,7 @@ export type AnkiExportRecord = {
   ankiGuid: string;
   registeredAt: string;
   deckName: string;
-  fields: [string, string, string, string, string, string, string, string];
+  fields: [string, string, string, string, string];
   tags: string[];
   media?: AnkiMediaRef[];
 };
@@ -37,16 +35,15 @@ export type AnkiExportArtifact = {
 type ExportRow = {
   variant_id: string;
   anki_guid: string;
+  anki_index: string;
   profile_code: GenerationProfileCode;
-  english: string;
-  japanese: string;
-  key_expression: string;
-  definition_ja: string;
-  irregular_forms: string;
+  expression_en: string;
+  translation_ja: string;
   registered_at: Date | string;
-  genre_slug: string;
-  situation_tags: string[] | null;
-  audio_kind: "word" | "sentence" | null;
+  primary_label_ja: string;
+  primary_canonical_key: string;
+  secondary_label_ja: string;
+  secondary_canonical_key: string;
   audio_blob_path: string | null;
   audio_provider: string | null;
   audio_locale: string | null;
@@ -62,7 +59,7 @@ export class AnkiExportUnavailableError extends Error {
 
 export class AnkiAudioNotReadyError extends Error {
   constructor() {
-    super("Selected cards do not have both provider-backed audio assets ready.");
+    super("Selected cards do not have provider-backed en-US expression audio ready.");
     this.name = "AnkiAudioNotReadyError";
   }
 }
@@ -77,49 +74,67 @@ export async function getAnkiExportRecords(
 
   const sql = getSql();
   const variantIds = normalizeList(filter.variantIds);
-  const tags = normalizeList(filter.tags);
   const from = normalizeDate(filter.from);
-  const to = normalizeDate(filter.to);
+  const to = normalizeDate(filter.to, true);
   const variantFilter = variantIds.length > 0
     ? sql`v.id in ${sql(variantIds)}`
-    : sql`v.is_selected = true`;
-  const tagFilter = tags.length > 0
-    ? sql`e.situation_tags && array[${sql(tags)}]::text[]`
     : sql`true`;
   const rows = await sql<ExportRow[]>`
     select
       v.id as variant_id,
       v.anki_guid,
+      v.anki_index,
       v.profile_code,
-      v.english,
-      v.japanese,
-      v.key_expression,
-      v.definition_ja,
-      v.irregular_forms,
+      v.expression_en,
+      v.translation_ja,
       e.registered_at,
-      e.genre_slug,
-      e.situation_tags,
-      a.kind as audio_kind,
-      a.blob_path as audio_blob_path,
-      a.provider as audio_provider,
-      a.locale as audio_locale,
-      a.status as audio_status
+      primary_situation.label_ja as primary_label_ja,
+      primary_situation.canonical_key as primary_canonical_key,
+      secondary_situation.label_ja as secondary_label_ja,
+      secondary_situation.canonical_key as secondary_canonical_key,
+      audio.blob_path as audio_blob_path,
+      audio.provider as audio_provider,
+      audio.locale as audio_locale,
+      audio.status as audio_status
     from sentence_variants v
-    join sentence_cards c on c.id = v.sentence_card_id and c.owner_login = v.owner_login
-    join expression_entries e on e.id = c.entry_id and e.owner_login = c.owner_login
-    left join audio_assets a on a.variant_id = v.id and a.owner_login = v.owner_login
+    join sentence_cards c
+      on c.id = v.sentence_card_id and c.owner_login = v.owner_login
+    join expression_entries e
+      on e.id = c.entry_id and e.owner_login = c.owner_login
+    join expression_entry_situations primary_assignment
+      on primary_assignment.entry_id = e.id
+      and primary_assignment.role = 'primary'
+    join situation_definitions primary_situation
+      on primary_situation.id = primary_assignment.situation_id
+      and primary_situation.owner_login = e.owner_login
+    join expression_entry_situations secondary_assignment
+      on secondary_assignment.entry_id = e.id
+      and secondary_assignment.role = 'secondary'
+    join situation_definitions secondary_situation
+      on secondary_situation.id = secondary_assignment.situation_id
+      and secondary_situation.owner_login = e.owner_login
+      and secondary_situation.parent_id = primary_situation.id
+    left join audio_assets audio
+      on audio.variant_id = v.id and audio.owner_login = v.owner_login
     where v.owner_login = ${ownerLogin}
       and e.status = 'registered'
+      and v.is_selected = true
       and ${variantFilter}
       and v.status <> 'archived'
       and e.registered_at is not null
-      and ${tagFilter}
       and (${from ? sql`e.registered_at >= ${from}` : sql`true`})
       and (${to ? sql`e.registered_at < ${to}` : sql`true`})
-    order by e.registered_at asc, v.anki_guid asc
+    order by e.registered_at asc, c.position asc,
+      case v.profile_code
+        when 'basic' then 1
+        when 'detail' then 2
+        when 'conversation' then 3
+        else 4
+      end,
+      v.anki_guid asc
   `;
 
-  const records = rowsToRecords(rows);
+  const records = rows.map(rowToRecord);
 
   if (filter.requireAudio && records.some((record) => !hasReadyAudio(record))) {
     throw new AnkiAudioNotReadyError();
@@ -158,7 +173,8 @@ export async function getAnkiExportArtifact(
 
   const sql = getSql();
   const rows = await sql<AnkiExportArtifact[]>`
-    select id, status, card_count as "cardCount", blob_path as "blobPath", error_code as "errorCode"
+    select id, status, card_count as "cardCount", blob_path as "blobPath",
+      error_code as "errorCode"
     from anki_exports
     where owner_login = ${ownerLogin} and id = ${exportId}
     limit 1
@@ -167,87 +183,92 @@ export async function getAnkiExportArtifact(
   return rows[0] ?? null;
 }
 
-function rowsToRecords(rows: ExportRow[]): AnkiExportRecord[] {
-  const grouped = new Map<string, { row: ExportRow; media: AnkiMediaRef[] }>();
+function rowToRecord(row: ExportRow): AnkiExportRecord {
+  const safeId = row.variant_id.replace(/[^A-Za-z0-9_-]/g, "_");
+  const layerLabel = profileDisplayName(row.profile_code);
+  const context = [
+    `主: ${row.primary_label_ja}`,
+    `副: ${row.secondary_label_ja}`,
+    `表現: ${layerLabel}`,
+  ].join(" / ");
+  const media = appendMedia(row, safeId);
 
-  for (const row of rows) {
-    const current = grouped.get(row.variant_id);
-    if (current) {
-      appendMedia(current.media, row);
-      continue;
-    }
-
-    const media: AnkiMediaRef[] = [];
-    appendMedia(media, row);
-    grouped.set(row.variant_id, { row, media });
-  }
-
-  return Array.from(grouped.values()).map(({ row, media }) => {
-    const registeredAt = toIso(row.registered_at);
-    const safeId = row.variant_id.replace(/[^A-Za-z0-9_-]/g, "_");
-    const genre = slug(row.genre_slug || "expression");
-    const rawSituationTags = row.situation_tags ?? [];
-    const situationTags = rawSituationTags.map((tag) => `situation::${slug(tag)}`);
-    const exportTags = [
+  return {
+    variantId: row.variant_id,
+    ankiGuid: row.anki_guid,
+    registeredAt: toIso(row.registered_at),
+    deckName: [
+      "SayDeck",
+      safeDeckSegment(row.primary_label_ja),
+      safeDeckSegment(row.secondary_label_ja),
+      layerLabel,
+    ].join("::"),
+    fields: [
+      row.anki_index,
+      context,
+      row.expression_en,
+      row.translation_ja,
+      `[sound:saydeck_expression_${safeId}.wav]`,
+    ],
+    tags: [
       "source::saydeck",
-      `genre::${genre}`,
-      ...situationTags,
-      `difficulty::${row.profile_code.toLowerCase()}`,
-    ];
-
-    return {
-      variantId: row.variant_id,
-      ankiGuid: row.anki_guid,
-      registeredAt,
-      deckName: `SayDeck::${row.profile_code}::${deckSituationTag(rawSituationTags)}`,
-      fields: [
-        `sb_${safeId}`,
-        row.key_expression,
-        row.definition_ja,
-        row.irregular_forms,
-        row.english,
-        row.japanese,
-        `[sound:saydeck_word_${safeId}.wav]`,
-        `[sound:saydeck_sentence_${safeId}.wav]`,
-      ] as AnkiExportRecord["fields"],
-      tags: exportTags,
-      media,
-    };
-  });
+      `primary_situation::${safeTag(row.primary_canonical_key)}`,
+      `secondary_situation::${safeTag(row.primary_canonical_key)}::${safeTag(row.secondary_canonical_key)}`,
+      `layer::${row.profile_code}`,
+    ],
+    media,
+  };
 }
 
-function appendMedia(media: AnkiMediaRef[], row: ExportRow): void {
-  if (!row.audio_kind || !row.audio_blob_path || row.audio_status !== "ready" || row.audio_locale !== "en-US") return;
-  const safeId = row.variant_id.replace(/[^A-Za-z0-9_-]/g, "_");
-  const filename = row.audio_kind === "word"
-    ? `saydeck_word_${safeId}.wav`
-    : `saydeck_sentence_${safeId}.wav`;
+function appendMedia(row: ExportRow, safeId: string): AnkiMediaRef[] {
+  if (
+    !row.audio_blob_path
+    || row.audio_status !== "ready"
+    || row.audio_locale !== "en-US"
+    || !row.audio_provider
+  ) {
+    return [];
+  }
 
-  if (media.some((item) => item.kind === row.audio_kind)) return;
-  media.push({ filename, blobPath: row.audio_blob_path, kind: row.audio_kind });
+  return [{
+    filename: `saydeck_expression_${safeId}.wav`,
+    blobPath: row.audio_blob_path,
+  }];
 }
 
 function hasReadyAudio(record: AnkiExportRecord): boolean {
-  return record.media?.some((item) => item.kind === "word") === true
-    && record.media?.some((item) => item.kind === "sentence") === true;
+  return record.media?.length === 1;
 }
 
 function normalizeList(value: string[] | undefined): string[] {
-  return Array.from(new Set((value ?? []).map((item) => item.trim()).filter(Boolean))).slice(0, 200);
+  return Array.from(
+    new Set((value ?? []).map((item) => item.trim()).filter(Boolean)),
+  ).slice(0, 200);
 }
 
-function normalizeDate(value: string | undefined): string | null {
+function normalizeDate(
+  value: string | undefined,
+  moveToNextDay = false,
+): string | null {
   if (!value) return null;
   const date = new Date(value);
+  if (moveToNextDay && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    date.setUTCDate(date.getUTCDate() + 1);
+  }
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
-function slug(value: string): string {
+function safeDeckSegment(value: string): string {
   return value
-    .toLowerCase()
-    .replace(/[^a-z0-9ぁ-んァ-ン一-龥]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 80) || "uncategorized";
+    .replace(/::/g, "・")
+    .replace(/[\u0000-\u001f\u007f]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 80) || "未分類";
+}
+
+function safeTag(value: string): string {
+  return value.replace(/[^A-Za-z0-9_-]/g, "-").slice(0, 160) || "unknown";
 }
 
 function toIso(value: Date | string): string {

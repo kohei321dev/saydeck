@@ -157,15 +157,19 @@ Preview用のEnvironment Variablesは現在は管理しない。Preview deployme
    - `db/migrations/0004-saydeck-expressions.sql`
    - `db/migrations/0005-expression-learning-and-export.sql`
    - `db/migrations/0006-apkg-only-cleanup.sql`
+   - `db/migrations/0007-situation-tag-taxonomy.sql`
+   - `db/migrations/0008-situation-first-expression-contract.sql`
 4. Redeploy the Vercel project after setting `DATABASE_URL`.
 
 `0003` creates `practice_attempts` and `saved_notes`, which are required for DB-backed practice history and saved notes.
 
 `0004` creates the SayDeck expression capture, sentence variant, audio metadata, and Anki export state tables.
 
-`0005` adds registration timestamps and deterministic Anki indexes. `0006` removes derived browser-speech assets and adds `en-US` locale metadata for APKG audio.
+`0005` adds registration timestamps and deterministic Anki indexes. `0006` removes derived browser-speech assets and adds `en-US` locale metadata for APKG audio. `0007` is retained as migration history.
 
-The APKG path reuses `OWNER_AI_KEY` for xAI Text to Speech and also requires `BLOB_READ_WRITE_TOKEN`. EXPORT internally creates the `en-US` Word and Example Sentence audio, and private Blob stores both the media and generated APKG. The browser only uses the owner-authenticated package download route.
+`0008` is an approved destructive migration. It deletes existing SayDeck expression, audio metadata, and APKG history, then replaces genre/tags/L1-L4/8-field storage with primary-secondary situations, semantic expression layers, five Anki fields, and one Expression audio asset. It does not delete the old practice tables. Pause owner writes, confirm the target database, apply `0008`, and immediately deploy the matching application commit.
+
+The APKG path reuses `OWNER_AI_KEY` for xAI Text to Speech and also requires `BLOB_READ_WRITE_TOKEN`. EXPORT internally creates one `en-US` Expression audio asset per variant, and private Blob stores both the media and generated APKG. The browser only uses the owner-authenticated package download route.
 
 If `DATABASE_URL` is not set, INPUT keeps unsynchronized Japanese input in browser `localStorage` so it can be retried after configuration is restored.
 
@@ -199,9 +203,9 @@ the INPUT page after provider authentication.
 
 ## Runtime connection probe
 
-After deploying the current source and applying migrations `0004` through `0006`, sign in as the owner and request `GET /api/diagnostics?probe=1`. The probe reports only boolean/status information for the database connection, SayDeck expression schema, and owner AI provider. It never returns `DATABASE_URL`, API keys, raw provider responses, or connection strings.
+After deploying the current source and applying migrations through `0008`, sign in as the owner and request `GET /api/diagnostics?probe=1`. The probe reports only boolean/status information for the database connection, SayDeck expression schema, and owner AI provider. It verifies the situation master, entry assignments, sequence counter, and new expression columns without returning `DATABASE_URL`, API keys, raw provider responses, or connection strings.
 
-If the probe reports `Database connection: 未接続`, check the Production `DATABASE_URL` value and Neon network access. If it reports `expression schema: 未適用`, apply migrations `0004` through `0006` in order. If it reports `AI connection: 未接続`, check `OWNER_AI_KEY` and `OWNER_AI_MODEL=grok-4.3` in the Production environment.
+If the probe reports `Database connection: 未接続`, check the Production `DATABASE_URL` value and Neon network access. If it reports `expression schema: 未適用`, confirm that migrations through `0008` were applied in order. If it reports `AI connection: 未接続`, check `OWNER_AI_KEY` and `OWNER_AI_MODEL=grok-4.3` in the Production environment.
 
 Do not paste client secrets, tokens, or raw provider error payloads into issues
 or docs. If an env value changes in Vercel, redeploy before retesting because

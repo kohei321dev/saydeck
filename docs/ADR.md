@@ -14,6 +14,7 @@ ADR本体は `docs/adr/` に集約する。機能別メモ、Issue、PRからADR
 
 ## 現行プロダクト判断
 
+- `docs/adr/0016-situation-first-expression-and-anki-contract.md`: 主・副シチュエーション、semantic表現レイヤー、SayDeck 5フィールド、1音声、破壊的migration
 - `docs/adr/0013-expression-production-and-apkg-only.md`: INPUT / LISTS / EXPORT、アプリ内学習の廃止、APKG-only export
 - `docs/adr/0014-private-object-storage-selection.md`: 音声・APKGのprivate object storage選定、移行境界、見直し条件
 - `docs/adr/0011-rename-to-saydeck.md`: SayDeckへの名称変更

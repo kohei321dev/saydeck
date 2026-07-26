@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SayDeck — シチュエーション主軸データ設計（提案）</title>
+  <title>SayDeck — シチュエーション主軸データ設計（実装済みソース）</title>
   <style>
     :root {
       --ink: #102a2a;
@@ -177,10 +177,10 @@
 <body>
   <main class="page">
     <header class="hero">
-      <p class="eyebrow">SAYDECK / PROPOSED DESIGN / 2026-07-26</p>
+      <p class="eyebrow">SAYDECK / IMPLEMENTED SOURCE DESIGN / 2026-07-27</p>
       <h1>シチュエーション主軸の<br>データ設計・処理設計</h1>
-      <p>実装前の合意用資料です。ジャンルを完全に廃止し、保存した英語表現を主・副シチュエーションと表現レイヤーで整理するための、DB・UI・API・exportの一貫した設計を示します。</p>
-      <span class="status">状態: Proposed — 承認後にのみ実装へ進む</span>
+      <p>合意した設計と実装済みソースの対応資料です。ジャンルを完全に廃止し、保存した英語表現を主・副シチュエーションと表現レイヤーで整理するための、DB・UI・API・exportの一貫した契約を示します。</p>
+      <span class="status">状態: Source implemented — migration 0008の共有DB適用はリリース時に実施</span>
     </header>
 
     <nav aria-label="目次">
@@ -255,7 +255,7 @@
     </section>
 
     <section id="schema" class="panel">
-      <p class="eyebrow" style="color: var(--teal)">03 / PROPOSED DATABASE MODEL</p>
+      <p class="eyebrow" style="color: var(--teal)">03 / IMPLEMENTED DATABASE MODEL</p>
       <h2>DBテーブル設計</h2>
       <p>既存のexpression domainを維持し、ジャンル列を削除します。シチュエーションは分類マスタとentryの対応表に分けます。AIは登録済み主シチュエーション一覧を照合して再利用または新規作成を提案し、保存transactionが主・副の一意性を保証します。これにより、AI提案・最近使った候補・LISTS filterを同じ正本から扱えます。</p>
 
@@ -290,7 +290,7 @@
             <tr><td class="key" data-label="Column">owner_login</td><td data-label="Type / 制約">text / not null</td><td data-label="作成・更新の主体">認証コンテキスト</td><td data-label="役割">owner scope</td></tr>
             <tr><td class="key" data-label="Column">input_ja</td><td data-label="Type / 制約">text / 1〜2000文字</td><td data-label="作成・更新の主体">INPUT</td><td data-label="役割">言いたいこと（日本語）</td></tr>
             <tr><td class="key new" data-label="Column">（対応表で保持）</td><td data-label="Type / 制約">主1件 / 副1件</td><td data-label="作成・更新の主体">AI提案 + 保存前のユーザー確定</td><td data-label="役割"><code>expression_entry_situations</code>に主・副シチュエーションを保持する。両方をAnki deck階層に投影する</td></tr>
-            <tr><td class="key new" data-label="Column">situation_sequence <span class="muted">(提案)</span></td><td data-label="Type / 制約">integer / nullable → 登録時not null</td><td data-label="作成・更新の主体">主シチュエーション確定時に採番</td><td data-label="役割">主シチュエーションごとの入力連番。DBは整数、表示・Anki Indexでは<code>001</code>のように整形する</td></tr>
+            <tr><td class="key new" data-label="Column">situation_sequence</td><td data-label="Type / 制約">integer / nullable → 登録時not null</td><td data-label="作成・更新の主体">主シチュエーション確定時に採番</td><td data-label="役割">主シチュエーションごとの入力連番。DBは整数、表示・Anki Indexでは<code>001</code>のように整形する</td></tr>
             <tr><td class="key" data-label="Column">status</td><td data-label="Type / 制約">draft / generating / generated / registered / archived</td><td data-label="作成・更新の主体">各処理</td><td data-label="役割">entryのライフサイクル</td></tr>
             <tr><td class="key" data-label="Column">registered_at</td><td data-label="Type / 制約">timestamptz / nullable</td><td data-label="作成・更新の主体">カード保存時</td><td data-label="役割">LISTSの作成日・export対象判定</td></tr>
             <tr><td class="key" data-label="Column">created_at / updated_at</td><td data-label="Type / 制約">timestamptz</td><td data-label="作成・更新の主体">DB / 更新処理</td><td data-label="役割">監査・日時filter</td></tr>
@@ -365,8 +365,8 @@
           <p>APKG artifactのID、状態、カード数、private storage path、エラーコード。個々のvariantは正本である<code>sentence_variants</code>から都度投影する。</p>
         </article>
         <article class="tile">
-          <h3>I. <code>situation_sequence_counters</code> — 条件付き追加</h3>
-          <p><code>owner_login</code>、<code>primary_situation_id</code>、<code>last_sequence</code>、<code>updated_at</code>を持つ。<code>001</code>を主シチュエーション内の入力連番とする合意が得られた場合だけ追加し、transactionで重複採番を防ぐ。</p>
+          <h3>I. <code>situation_sequence_counters</code> — 追加済み</h3>
+          <p><code>owner_login</code>、<code>primary_situation_id</code>、<code>last_sequence</code>、<code>updated_at</code>を持つ。<code>001</code>を主シチュエーション内の入力連番として採番し、transactionで重複を防ぐ。</p>
         </article>
       </div>
 
@@ -542,15 +542,15 @@
           </tbody>
         </table>
       </div>
-      <p class="warning"><strong>合意が必要な点:</strong> このシナリオは<code>001</code>を「主シチュエーションごとに増える入力番号」として扱います。もし<code>001</code>を「1つの入力内だけの意味単位番号」としたい場合は、既存の<code>sentence_cards.position</code>だけで足り、<code>situation_sequence</code>の追加は不要です。</p>
+      <p class="warning"><strong>実装済みの判断:</strong> <code>001</code>は「主シチュエーションごとに増える入力番号」として扱い、入力内の意味単位は<code>001-01</code>の後半で表します。<code>situation_sequence_counters</code>と<code>sentence_cards.position</code>を組み合わせて重複なく採番します。</p>
     </section>
 
     <section id="migration" class="panel">
       <p class="eyebrow" style="color: var(--teal)">09 / MIGRATION PLAN</p>
       <h2>ジャンル廃止・カード契約簡素化のDB移行案</h2>
-      <p>このページは実行用SQLではありません。既存のSayDeck表現・音声・exportデータを削除する前提で、承認後に破壊的migrationとして作成・検証します。</p>
+      <p>実行用SQLは<code>db/migrations/0008-situation-first-expression-contract.sql</code>として実装済みです。既存のSayDeck表現・音声・exportデータを削除する破壊的migrationのため、共有DBにはアプリの切替と同じリリース単位で適用します。既存データを持つNeon DBではtransaction内で最後まで適用し、ROLLBACKして無変更に戻す検証を完了しています。</p>
       <details open>
-        <summary>予定するmigrationの内容</summary>
+        <summary>実装したmigrationの内容</summary>
         <div>
           <pre>BEGIN;
 
@@ -605,8 +605,8 @@ COMMIT;</pre>
     </section>
 
     <section id="approval" class="panel">
-      <p class="eyebrow" style="color: var(--teal)">10 / HUMAN APPROVAL GATE</p>
-      <h2>実装開始前に合意するチェック項目</h2>
+      <p class="eyebrow" style="color: var(--teal)">10 / IMPLEMENTATION STATUS</p>
+      <h2>合意内容と実装・リリース確認項目</h2>
       <ul class="checklist">
         <li>deck名を <code>SayDeck::主シチュエーション::副シチュエーション::01_基本表現〜04_別の自然な言い方</code> にする。主・副を各1件必須とし、<code>01_基本表現</code>だけ必須、02〜04のdeckは候補がある時だけ作る。</li>
         <li>ジャンルをUI、API、AI出力、DB、Ankiタグ、LISTS filterから完全に削除する。</li>
@@ -620,11 +620,11 @@ COMMIT;</pre>
         <li><code>001</code>を主シチュエーション内で増える入力番号とするか、1入力内の意味単位番号とするかを合意する。前者なら<code>situation_sequence</code>と<code>primary_situation_id</code>をキーにしたcounter tableを追加する。</li>
         <li>空のAnki profileで「初回import」「同一variant再import」「主・副シチュエーションと任意レイヤーのdeck階層」「表・裏の<code>Context</code>表示」「表面だけのen-US音声」「001-01形式の並び」を確認してからリリースする。</li>
       </ul>
-      <p class="notice" style="margin-top: 18px"><strong>承認後の実装順序:</strong> ① 要求定義・設計・APKG仕様・ADR・README/デプロイ手順を改訂 → ② migration作成・検証 → ③ INPUT/LISTS/API/AI/export実装 → ④ typecheck・lint・build・APKG/Anki import検証。承認前にはmigration適用・DB変更・機能実装を行わない。</p>
+      <p class="notice" style="margin-top: 18px"><strong>実装状況:</strong> 要求定義・設計・APKG仕様・ADR・README/デプロイ手順、migration、INPUT/LISTS/API/AI/exportは実装済みです。typecheck・lint・build、隔離DBでのINPUTからAPKG downloadまで、APKG内部の5 field・deck階層・表裏template・en-US WAVを確認済みです。残るリリース作業は、アプリ切替と同時に共有DBへmigration 0008を適用し、空のAnki profileへ最終importすることです。</p>
     </section>
 
     <footer>
-      この文書は現行ソース（expression store / generation / export / migrations）を基にした提案設計です。実装された仕様ではありません。
+      この文書は現行ソース（expression store / generation / export / migrations）と一致する実装設計です。共有DBへの破壊的migration適用はリリース操作として分離しています。
     </footer>
   </main>
 </body>

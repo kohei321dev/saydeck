@@ -1,24 +1,21 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 
-import initSqlJs from "sql.js";
 import { Deck, Model, Note, Package } from "ankipack";
+import initSqlJs from "sql.js";
 
 import { readPrivateBinary } from "@/lib/binary-store";
 import type { AnkiExportRecord } from "@/lib/anki-export";
 
-const modelId = 1_740_000_000_001;
-const baseDeckId = 1_740_000_000_100;
+const modelId = 1_785_000_000_001;
+const baseDeckId = 1_785_000_000_100;
 
 const fieldNames = [
   "Index",
-  "Word",
-  "Definition",
-  "Irregular Forms",
-  "Example Sentence",
+  "Context",
+  "Expression",
   "Translation",
-  "word_audio",
-  "sentence_audio",
+  "expression_audio",
 ] as const;
 
 export class AnkiPackageError extends Error {
@@ -28,7 +25,9 @@ export class AnkiPackageError extends Error {
   }
 }
 
-export async function buildAnkiPackage(records: AnkiExportRecord[]): Promise<Uint8Array> {
+export async function buildAnkiPackage(
+  records: AnkiExportRecord[],
+): Promise<Uint8Array> {
   if (records.length === 0) {
     throw new AnkiPackageError("No cards were selected for the Anki package.");
   }
@@ -39,8 +38,8 @@ export async function buildAnkiPackage(records: AnkiExportRecord[]): Promise<Uin
   const addedMedia = new Set<string>();
 
   for (const record of records) {
-    if (!record.media || record.media.length !== 2) {
-      throw new AnkiPackageError(`Audio media is incomplete for ${record.variantId}.`);
+    if (!record.media || record.media.length !== 1) {
+      throw new AnkiPackageError(`Expression audio is incomplete for ${record.variantId}.`);
     }
 
     for (const media of record.media) {
@@ -53,7 +52,9 @@ export async function buildAnkiPackage(records: AnkiExportRecord[]): Promise<Uin
     const deck = decks.get(record.deckName) ?? createDeck(record.deckName);
     deck.addNote(new Note({
       model,
-      fields: record.fields.map((field, index) => index >= 6 ? field : escapeHtml(field)) as AnkiExportRecord["fields"],
+      fields: record.fields.map((field, index) =>
+        index === 4 ? field : escapeHtml(field),
+      ) as AnkiExportRecord["fields"],
       tags: record.tags,
       guid: record.ankiGuid,
     }));
@@ -71,18 +72,52 @@ export async function buildAnkiPackage(records: AnkiExportRecord[]): Promise<Uin
 function createModel(): Model {
   return new Model({
     id: modelId,
-    name: "SayDeck ES1Kv2",
+    name: "SayDeck",
     sortFieldIndex: 0,
     fields: fieldNames.map((name, index) => ({
       name,
-      plainText: index !== 6 && index !== 7,
+      plainText: index !== 4,
     })),
     templates: [{
-      name: "ES1K Vocab",
-      questionFormat: "{{Word}}<br>{{word_audio}}",
-      answerFormat: "{{FrontSide}}<hr id=\"answer\">{{Word}}<br>{{Definition}}<br>{{Irregular Forms}}<br>{{Example Sentence}}<br>{{Translation}}<br>{{sentence_audio}}",
+      name: "SayDeck Expression",
+      questionFormat: [
+        '<div class="context">{{Context}}</div>',
+        '<main class="expression">{{Expression}}</main>',
+        '<div class="audio">{{expression_audio}}</div>',
+      ].join(""),
+      answerFormat: [
+        '<div class="context">{{Context}}</div>',
+        '<main class="translation">{{Translation}}</main>',
+      ].join(""),
     }],
-    css: ".card { font-family: arial; font-size: 20px; text-align: left; color: black; background-color: white; }",
+    css: [
+      ".card {",
+      '  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;',
+      "  color: #172321;",
+      "  background: #f7faf8;",
+      "  text-align: left;",
+      "  padding: 22px;",
+      "}",
+      ".context {",
+      "  color: #37645b;",
+      "  background: #e8f2ef;",
+      "  border: 1px solid #c6dad4;",
+      "  border-radius: 10px;",
+      "  font-size: 13px;",
+      "  font-weight: 700;",
+      "  line-height: 1.55;",
+      "  padding: 10px 12px;",
+      "}",
+      ".expression, .translation {",
+      "  font-size: 27px;",
+      "  font-weight: 700;",
+      "  line-height: 1.5;",
+      "  margin: 30px 2px 22px;",
+      "}",
+      ".translation { font-size: 23px; }",
+      ".audio { margin-top: 20px; }",
+      ".replay-button svg { width: 36px; height: 36px; }",
+    ].join("\n"),
   });
 }
 
@@ -103,7 +138,13 @@ function stableDeckId(name: string): number {
 }
 
 async function initializeSqlJs() {
-  const wasmPath = path.join(process.cwd(), "node_modules", "sql.js", "dist", "sql-wasm.wasm");
+  const wasmPath = path.join(
+    process.cwd(),
+    "node_modules",
+    "sql.js",
+    "dist",
+    "sql-wasm.wasm",
+  );
   const wasmBytes = await readFile(wasmPath);
   const wasmBinary = wasmBytes.buffer.slice(
     wasmBytes.byteOffset,

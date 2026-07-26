@@ -3,25 +3,26 @@ import {
   MissingAiApiKeyError,
   getOwnerAiConfig,
 } from "@/lib/ai-config";
-import { generationProfileCodes } from "@/lib/expression-types";
+import {
+  generationProfileCodes,
+} from "@/lib/expression-types";
 import type {
+  GenerationProfile,
+  GenerationProfileCode,
   GenerationResult,
   GenerationSegment,
   GenerationVariant,
-  GenerationProfileCode,
-  GenerationProfile,
+  SituationDefinition,
 } from "@/lib/expression-types";
-import { profileByCode } from "@/lib/generation-profiles";
 import {
-  normalizeSituationTags,
-  situationTagPoolPrompt,
-} from "@/lib/situation-tags";
+  profileByCode,
+  profileOrder,
+} from "@/lib/generation-profiles";
 
 type GenerateExpressionInput = {
   inputJa: string;
-  genreSlug: string;
-  legacySituationJa?: string;
-  existingSituationTags: string[];
+  existingPrimarySituations: SituationDefinition[];
+  preferredPrimarySituationId?: string;
   segmentIntents?: string[];
   profiles: GenerationProfile[];
 };
@@ -82,11 +83,13 @@ export async function generateExpressionWithAi(
           {
             role: "system",
             content: [
-              "あなたは日本人学習者向けの英語教材作成者です。",
-              "日本語の気づきを、自然な英語表現カードへ変換してください。",
-              "言いたいことからシチュエーションを分類し、必ず1〜3件の日本語タグを返してください。",
+              "あなたは日本人学習者が、実際の場面で言いたい英語をAnki用に整理する編集者です。",
+              "入力を必要な意味単位へ分け、各意味単位に必須の基本表現と、学習価値がある場合だけ任意の表現レイヤーを作ってください。",
+              "似た英文を数合わせで増やしてはいけません。",
+              "主シチュエーションは登録済み一覧と照合し、該当する場合だけそのIDを返してください。",
+              "副シチュエーションは短い日本語の基底名を1つ返してください。",
+              "英語は自然な米国英語、和訳はその英文に対応する自然な日本語にしてください。",
               "必ずJSONだけを返し、Markdownやコードフェンスは使わないでください。",
-              "独立した発話意図が複数ある場合だけsegmentsを分割してください。",
             ].join("\n"),
           },
           {
@@ -94,7 +97,7 @@ export async function generateExpressionWithAi(
             content: buildPrompt(input),
           },
         ],
-        max_output_tokens: 2400,
+        max_output_tokens: 3_600,
         reasoning: { effort: config.reasoningEffort },
         store: false,
       }),
@@ -110,8 +113,8 @@ export async function generateExpressionWithAi(
 
   if (!response.ok) {
     const message = data.error?.message ?? `AI request failed (${response.status}).`;
-    const quota = response.status === 402 || response.status === 429 ||
-      /quota|credit|rate.?limit|too many requests/i.test(message);
+    const quota = response.status === 402 || response.status === 429
+      || /quota|credit|rate.?limit|too many requests/i.test(message);
 
     throw new ExpressionGenerationError(
       quota ? "external_ai_quota_exceeded" : "external_ai_unavailable",
@@ -130,7 +133,7 @@ export async function generateExpressionWithAi(
   }
 
   try {
-    const result = normalizeGeneration(parseJsonObject(text), input.profiles);
+    const result = normalizeGeneration(parseJsonObject(text), input);
     if (!input.segmentIntents?.length) return result;
     if (result.segments.length !== input.segmentIntents.length) {
       throw new Error("AI generation did not return the requested meaning units.");
@@ -151,46 +154,56 @@ export async function generateExpressionWithAi(
 }
 
 function buildPrompt(input: GenerateExpressionInput): string {
+  const profiles = profileByCode(input.profiles);
+  const primarySituations = input.existingPrimarySituations.slice(0, 200).map((situation) => ({
+    id: situation.id,
+    labelJa: situation.labelJa,
+    canonicalKey: situation.canonicalKey,
+  }));
+
   return [
     `言いたいこと（日本語）: ${input.inputJa}`,
-    `ジャンル: ${input.genreSlug || "未指定（英語slugを提案）"}`,
-    `旧シチュエーション入力（存在する場合だけ参考にする）: ${input.legacySituationJa || "なし"}`,
-    `既存シチュエーションタグ（再生成時の参考。正しいとは限らない）: ${input.existingSituationTags.join(", ") || "なし"}`,
-    `優先タグプール: ${situationTagPoolPrompt()}`,
+    `登録済み主シチュエーション一覧: ${JSON.stringify(primarySituations)}`,
+    `入力時にユーザーが優先した主シチュエーションID: ${input.preferredPrimarySituationId || "なし"}`,
     input.segmentIntents?.length
       ? `意味単位（この順序と件数を必ず使用）: ${input.segmentIntents.map((intent, index) => `${index + 1}. ${intent}`).join(" / ")}`
-      : "意味単位: AIが独立した発話意図だけを分割する。",
+      : "意味単位: 1枚で扱うと意味が欠ける場合だけ、独立して復習できる単位へ分割する。",
     "",
-    "出力要件:",
-    "- segmentsは意味単位ごとの配列。通常は1件、独立した発話意図があれば最大4件。指定された意味単位がある場合は、その件数と順序を守る。",
-    "- suggestedSituationTagsは必ず1〜3件。入力に合う優先タグプールの値を完全一致で優先し、最も中心となるタグを先頭に置く。プールに該当しない場合だけ短い日本語タグを生成する。",
-    "- 各segmentにintentJaとL1〜L4のvariantsを必ず作る。",
-    ...Object.values(profileByCode(input.profiles)).map(
-      (profile) => `- ${profile.code} / ${profile.name}: ${profile.maxSentences}文以内、${profile.minWords}〜${profile.maxWords}語。${profile.instruction}`,
-    ),
-    "- englishは自然な英文、japaneseは英文の自然な日本語訳。",
-    "- keyExpressionは復習したい短い英語表現、definitionJaはその日本語の意味。",
-    "- irregularFormsは不規則変化がある場合だけ記載し、なければ空文字。",
-    "- reviewPointsは短い学習ポイント。",
+    "分類要件:",
+    "- primarySituationId: 登録済み一覧に意味が該当する場合はそのid。該当しない場合はnull。存在しないIDを作らない。",
+    "- primaryLabelJa: 既存IDを選んだ場合はその表示名。新規の場合はdeck名として繰り返し使える、広い場面の短い日本語名。",
+    "- secondaryBaseLabelJa: 今回の目的・文脈を表す短い日本語名。必須。末尾の-001などは付けない。",
+    "- 優先IDが入力内容に合う場合は優先するが、合わない場合は別の既存IDまたは新規分類を提案する。",
+    "",
+    "表現要件:",
+    "- segmentsは通常1件。複数の独立した内容が必要な場合だけ最大8件。",
+    `- basic / ${profiles.basic.name}: 必ず各segmentに1件。${profiles.basic.instruction}`,
+    `- detail / ${profiles.detail.name}: ${profiles.detail.instruction}`,
+    `- conversation / ${profiles.conversation.name}: ${profiles.conversation.instruction}`,
+    `- natural_alternative / ${profiles.natural_alternative.name}: ${profiles.natural_alternative.instruction}`,
+    "- 任意レイヤーに基本表現と実質的な差がなければ、そのvariant自体を返さない。",
+    "- 同じprofileCodeは1つのsegment内で1回だけ使う。",
+    "- expressionEnはその場で実際に口に出す英文、translationJaはその自然な和訳。",
     "",
     "返却JSON:",
     JSON.stringify({
-      suggestedGenreSlug: "skatepark",
-      suggestedSituationTags: ["友人への返信", "SNS・DM"],
+      primarySituationId: primarySituations[0]?.id ?? null,
+      primaryLabelJa: primarySituations[0]?.labelJa ?? "友人との連絡",
+      secondaryBaseLabelJa: "久しぶりの連絡",
       segments: [
         {
           position: 0,
-          intentJa: "今日の練習内容を友達に伝える",
+          intentJa: "久しぶりの友人に近況を尋ねる",
           variants: [
             {
-              profileCode: "L1",
-              english: "I want to practice ollies.",
-              japanese: "オーリーを練習したいです。",
-              keyExpression: "practice ollies",
-              definitionJa: "オーリーを練習する",
-              irregularForms: "",
-              constraints: profileByCode(input.profiles).L1.instruction,
-              reviewPoints: "動作を表す動詞を使う",
+              profileCode: "basic",
+              expressionEn: "It’s been a while. How have you been?",
+              translationJa: "久しぶりだね。元気にしてた？",
+            },
+            {
+              profileCode: "conversation",
+              expressionEn: "Hey, long time no see! How’s everything going?",
+              translationJa: "やあ、久しぶり！最近どう？",
             },
           ],
         },
@@ -199,27 +212,57 @@ function buildPrompt(input: GenerateExpressionInput): string {
   ].join("\n");
 }
 
-function normalizeGeneration(value: unknown, profiles: GenerationProfile[]): GenerationResult {
+function normalizeGeneration(
+  value: unknown,
+  input: GenerateExpressionInput,
+): GenerationResult {
   if (!isRecord(value) || !Array.isArray(value.segments)) {
     throw new Error("AI generation must return a segments array.");
   }
 
   const segments = value.segments
-    .map((segment, index) => normalizeSegment(segment, index, profiles))
+    .map((segment, index) => normalizeSegment(segment, index, input.profiles))
     .filter((segment): segment is GenerationSegment => Boolean(segment));
 
-  if (segments.length === 0 || segments.length > 4) {
-    throw new Error("AI generation must return between one and four segments.");
+  if (segments.length === 0 || segments.length > 8) {
+    throw new Error("AI generation must return between one and eight segments.");
+  }
+
+  const primarySituationId = nullableString(value.primarySituationId);
+  const matchedPrimary = primarySituationId
+    ? input.existingPrimarySituations.find((item) => item.id === primarySituationId)
+    : undefined;
+
+  if (primarySituationId && !matchedPrimary) {
+    throw new Error("AI returned an unknown primary situation ID.");
+  }
+
+  const primaryLabelJa = matchedPrimary?.labelJa ?? getString(value.primaryLabelJa);
+  const secondaryBaseLabelJa = normalizeSituationLabel(value.secondaryBaseLabelJa);
+
+  if (!primaryLabelJa) {
+    throw new Error("AI generation must return a primary situation label.");
+  }
+
+  if (!secondaryBaseLabelJa) {
+    throw new Error("AI generation must return a secondary situation label.");
   }
 
   return {
     segments,
-    suggestedGenreSlug: normalizeSlug(value.suggestedGenreSlug),
-    suggestedSituationTags: normalizeRequiredSituationTags(value.suggestedSituationTags),
+    situationSuggestion: {
+      primarySituationId: matchedPrimary?.id ?? null,
+      primaryLabelJa: normalizeSituationLabel(primaryLabelJa),
+      secondaryBaseLabelJa,
+    },
   };
 }
 
-function normalizeSegment(value: unknown, position: number, profiles: GenerationProfile[]): GenerationSegment | null {
+function normalizeSegment(
+  value: unknown,
+  position: number,
+  profiles: GenerationProfile[],
+): GenerationSegment | null {
   if (!isRecord(value) || !Array.isArray(value.variants)) {
     return null;
   }
@@ -227,22 +270,32 @@ function normalizeSegment(value: unknown, position: number, profiles: Generation
   const variants = value.variants
     .map((variant) => normalizeVariant(variant, profiles))
     .filter((variant): variant is GenerationVariant => Boolean(variant));
-  const byProfile = new Map(variants.map((variant) => [variant.profileCode, variant]));
+  const byProfile = new Map<GenerationProfileCode, GenerationVariant>();
 
-  if (byProfile.size !== 4) {
-    return null;
+  for (const variant of variants) {
+    if (byProfile.has(variant.profileCode)) {
+      throw new Error(`AI returned duplicate ${variant.profileCode} variants.`);
+    }
+    byProfile.set(variant.profileCode, variant);
+  }
+
+  if (!byProfile.has("basic")) {
+    throw new Error("Every meaning unit must contain a basic expression.");
   }
 
   return {
     position,
     intentJa: getString(value.intentJa) || `意味単位 ${position + 1}`,
-    variants: (["L1", "L2", "L3", "L4"] as const).map(
-      (code) => byProfile.get(code) as GenerationVariant,
+    variants: Array.from(byProfile.values()).sort(
+      (left, right) => profileOrder(left.profileCode) - profileOrder(right.profileCode),
     ),
   };
 }
 
-function normalizeVariant(value: unknown, profiles: GenerationProfile[]): GenerationVariant | null {
+function normalizeVariant(
+  value: unknown,
+  profiles: GenerationProfile[],
+): GenerationVariant | null {
   if (!isRecord(value)) {
     return null;
   }
@@ -253,15 +306,20 @@ function normalizeVariant(value: unknown, profiles: GenerationProfile[]): Genera
     return null;
   }
 
-  const english = getString(value.english);
+  const expressionEn = getString(value.expressionEn);
+  const translationJa = getString(value.translationJa);
 
-  if (!english) {
-    return null;
+  if (!expressionEn || !translationJa) {
+    throw new Error(`${profileCode} must contain an English expression and Japanese translation.`);
+  }
+
+  if (expressionEn.length > 2_000 || translationJa.length > 2_000) {
+    throw new Error(`${profileCode} is too long.`);
   }
 
   const profile = profileByCode(profiles)[profileCode as GenerationProfileCode];
-  const wordCount = countEnglishWords(english);
-  const sentenceCount = countSentences(english);
+  const wordCount = countEnglishWords(expressionEn);
+  const sentenceCount = countSentences(expressionEn);
 
   if (wordCount < profile.minWords || wordCount > profile.maxWords) {
     throw new Error(`${profileCode} must contain ${profile.minWords}-${profile.maxWords} English words.`);
@@ -273,13 +331,8 @@ function normalizeVariant(value: unknown, profiles: GenerationProfile[]): Genera
 
   return {
     profileCode: profileCode as GenerationProfileCode,
-    english,
-    japanese: getString(value.japanese),
-    keyExpression: getString(value.keyExpression) || english.split(/\s+/).slice(0, 4).join(" "),
-    definitionJa: getString(value.definitionJa),
-    irregularForms: getString(value.irregularForms),
-    constraints: getString(value.constraints) || profile.instruction,
-    reviewPoints: getString(value.reviewPoints),
+    expressionEn,
+    translationJa,
   };
 }
 
@@ -323,20 +376,16 @@ function getString(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
-function normalizeSlug(value: unknown): string {
-  return getString(value)
-    .toLowerCase()
-    .replace(/[^a-z0-9-]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 120);
+function nullableString(value: unknown): string | null {
+  const text = getString(value);
+  return text || null;
 }
 
-function normalizeRequiredSituationTags(value: unknown): string[] {
-  const tags = normalizeSituationTags(value);
-  if (tags.length === 0) {
-    throw new Error("AI generation must return at least one situation tag.");
-  }
-  return tags;
+function normalizeSituationLabel(value: unknown): string {
+  return getString(value)
+    .replace(/::/g, "・")
+    .replace(/\s+/g, " ")
+    .slice(0, 120);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

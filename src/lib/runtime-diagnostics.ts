@@ -36,16 +36,57 @@ async function probeDatabase(): Promise<{ status: RuntimeProbeStatus; expression
   if (!isDatabaseConfigured()) return { status: "not_configured", expressionSchemaReady: false };
   try {
     const sql = getSql();
-    const rows = await sql<{ ok: number; expression_entries: string | null; sentence_cards: string | null; sentence_variants: string | null; audio_assets: string | null; anki_exports: string | null }[]>`
+    const rows = await sql<{
+      ok: number;
+      expression_entries: string | null;
+      sentence_cards: string | null;
+      sentence_variants: string | null;
+      audio_assets: string | null;
+      anki_exports: string | null;
+      situation_definitions: string | null;
+      expression_entry_situations: string | null;
+      situation_sequence_counters: string | null;
+      has_situation_sequence: boolean;
+      has_expression_en: boolean;
+    }[]>`
       select 1 as ok,
         to_regclass('public.expression_entries') as expression_entries,
         to_regclass('public.sentence_cards') as sentence_cards,
         to_regclass('public.sentence_variants') as sentence_variants,
         to_regclass('public.audio_assets') as audio_assets,
-        to_regclass('public.anki_exports') as anki_exports
+        to_regclass('public.anki_exports') as anki_exports,
+        to_regclass('public.situation_definitions') as situation_definitions,
+        to_regclass('public.expression_entry_situations') as expression_entry_situations,
+        to_regclass('public.situation_sequence_counters') as situation_sequence_counters,
+        exists (
+          select 1 from information_schema.columns
+          where table_schema = 'public'
+            and table_name = 'expression_entries'
+            and column_name = 'situation_sequence'
+        ) as has_situation_sequence,
+        exists (
+          select 1 from information_schema.columns
+          where table_schema = 'public'
+            and table_name = 'sentence_variants'
+            and column_name = 'expression_en'
+        ) as has_expression_en
     `;
     const row = rows[0];
-    return { status: row?.ok === 1 ? "connected" : "failed", expressionSchemaReady: Boolean(row?.expression_entries && row.sentence_cards && row.sentence_variants && row.audio_assets && row.anki_exports) };
+    return {
+      status: row?.ok === 1 ? "connected" : "failed",
+      expressionSchemaReady: Boolean(
+        row?.expression_entries
+        && row.sentence_cards
+        && row.sentence_variants
+        && row.audio_assets
+        && row.anki_exports
+        && row.situation_definitions
+        && row.expression_entry_situations
+        && row.situation_sequence_counters
+        && row.has_situation_sequence
+        && row.has_expression_en
+      ),
+    };
   } catch (error) {
     logServerError("Failed to probe runtime database connection.", error);
     return { status: "failed", expressionSchemaReady: false };

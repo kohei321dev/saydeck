@@ -3,11 +3,50 @@ import type { GenerationProfile, GenerationProfileCode } from "@/lib/expression-
 type DefaultProfile = Omit<GenerationProfile, "ownerLogin" | "createdAt" | "updatedAt">;
 
 const defaults: Record<GenerationProfileCode, DefaultProfile> = {
-  L1: { code: "L1", name: "Verb focus", minWords: 3, maxWords: 8, maxSentences: 1, requiredFeatures: ["subject", "verb"], instruction: "主語・動詞・必要な補語を中心にした最小限で自然な英文にする。" },
-  L2: { code: "L2", name: "Add detail", minWords: 5, maxWords: 14, maxSentences: 2, requiredFeatures: ["detail"], instruction: "形容詞・副詞・状態表現のいずれかで細部を加える。" },
-  L3: { code: "L3", name: "Reason", minWords: 8, maxWords: 20, maxSentences: 2, requiredFeatures: ["reason_or_contrast"], instruction: "理由または対比を示す。" },
-  L4: { code: "L4", name: "Conversation", minWords: 8, maxWords: 24, maxSentences: 2, requiredFeatures: ["conversation"], instruction: "質問・誘い・確認など会話として自然な要素を含める。" },
+  basic: {
+    code: "basic",
+    name: "01_基本表現",
+    minWords: 2,
+    maxWords: 20,
+    maxSentences: 2,
+    requiredFeatures: ["required", "standard_grammar", "direct"],
+    instruction: "必須。標準的な文法で、意図を最も直接的かつ自然に伝える再利用しやすい表現にする。",
+  },
+  detail: {
+    code: "detail",
+    name: "02_詳細表現",
+    minWords: 3,
+    maxWords: 26,
+    maxSentences: 2,
+    requiredFeatures: ["optional", "meaningful_detail"],
+    instruction: "任意。基本表現に、状況を理解するうえで役立つ具体的な情報を加える場合だけ生成する。",
+  },
+  conversation: {
+    code: "conversation",
+    name: "03_会話表現",
+    minWords: 2,
+    maxWords: 26,
+    maxSentences: 2,
+    requiredFeatures: ["optional", "spoken", "conversational"],
+    instruction: "任意。口語、省略、問いかけなど、会話として基本表現と明確に異なる自然な言い方がある場合だけ生成する。",
+  },
+  natural_alternative: {
+    code: "natural_alternative",
+    name: "04_別の自然な言い方",
+    minWords: 2,
+    maxWords: 26,
+    maxSentences: 2,
+    requiredFeatures: ["optional", "alternative_framing"],
+    instruction: "任意。同じ意図を別の構文や視点で自然に表せる場合だけ生成する。単なる同義語の置換は生成しない。",
+  },
 };
+
+export const profileDisplayOrder: GenerationProfileCode[] = [
+  "basic",
+  "detail",
+  "conversation",
+  "natural_alternative",
+];
 
 export function defaultGenerationProfiles(ownerLogin: string): GenerationProfile[] {
   const now = new Date().toISOString();
@@ -17,9 +56,17 @@ export function defaultGenerationProfiles(ownerLogin: string): GenerationProfile
 export function profileByCode(profiles: GenerationProfile[]): Record<GenerationProfileCode, GenerationProfile> {
   const fallback = defaultGenerationProfiles("default");
   return {
-    L1: profiles.find((profile) => profile.code === "L1") ?? fallback[0],
-    L2: profiles.find((profile) => profile.code === "L2") ?? fallback[1],
-    L3: profiles.find((profile) => profile.code === "L3") ?? fallback[2],
-    L4: profiles.find((profile) => profile.code === "L4") ?? fallback[3],
+    basic: profiles.find((profile) => profile.code === "basic") ?? fallback[0],
+    detail: profiles.find((profile) => profile.code === "detail") ?? fallback[1],
+    conversation: profiles.find((profile) => profile.code === "conversation") ?? fallback[2],
+    natural_alternative: profiles.find((profile) => profile.code === "natural_alternative") ?? fallback[3],
   };
+}
+
+export function profileDisplayName(code: GenerationProfileCode): string {
+  return defaults[code].name;
+}
+
+export function profileOrder(code: GenerationProfileCode): number {
+  return profileDisplayOrder.indexOf(code);
 }
