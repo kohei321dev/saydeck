@@ -34,7 +34,7 @@ export default async function ListsPage() {
         <section className="library-intro">
           <p className="eyebrow">LISTS</p>
           <h1>保存した表現を選ぶ</h1>
-          <p>ジャンル、シチュエーション、レベル、更新日で絞り込み、EXPORTする表現を選択します。</p>
+          <p>主・副シチュエーション、表現レイヤー、登録日で絞り込み、EXPORTする表現を選択します。</p>
         </section>
         {loadError ? <p className="error-note">{loadError}</p> : <ExpressionLibrary entries={entries} />}
       </main>

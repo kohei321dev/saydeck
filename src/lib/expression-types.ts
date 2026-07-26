@@ -5,7 +5,12 @@
  * at the store boundary so callers never need to know the SQL naming scheme.
  */
 
-export const generationProfileCodes = ["L1", "L2", "L3", "L4"] as const;
+export const generationProfileCodes = [
+  "basic",
+  "detail",
+  "conversation",
+  "natural_alternative",
+] as const;
 
 export type GenerationProfileCode = (typeof generationProfileCodes)[number];
 
@@ -24,11 +29,31 @@ export type SentenceVariantStatus =
   | "stale"
   | "archived";
 
-export type AudioAssetKind = "word" | "sentence";
-
 export type AudioAssetStatus = "pending" | "ready" | "failed" | "stale";
 
 export type AnkiExportStatus = "pending" | "ready" | "failed";
+
+export type SituationKind = "primary" | "secondary";
+
+export type SituationStatus = "active" | "archived";
+
+export type SituationSelectedBy = "ai" | "user";
+
+export type SituationDefinition = {
+  id: string;
+  ownerLogin: string;
+  parentId: string | null;
+  kind: SituationKind;
+  baseLabelJa: string;
+  duplicateSequence: number;
+  labelJa: string;
+  canonicalKey: string;
+  status: SituationStatus;
+  sortOrder: number;
+  lastUsedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
 
 export type GenerationProfile = {
   ownerLogin: string;
@@ -47,9 +72,10 @@ export type ExpressionEntry = {
   id: string;
   ownerLogin: string;
   inputJa: string;
-  situationJa: string;
-  genreSlug: string;
-  situationTags: string[];
+  situationSequence: number | null;
+  primarySituation: SituationDefinition | null;
+  secondarySituation: SituationDefinition | null;
+  situationSelectedBy: SituationSelectedBy | null;
   status: ExpressionEntryStatus;
   registeredAt: string | null;
   createdAt: string;
@@ -72,13 +98,8 @@ export type SentenceVariant = {
   ownerLogin: string;
   sentenceCardId: string;
   profileCode: GenerationProfileCode;
-  english: string;
-  japanese: string;
-  keyExpression: string;
-  definitionJa: string;
-  irregularForms: string;
-  constraints: string;
-  reviewPoints: string;
+  expressionEn: string;
+  translationJa: string;
   ankiGuid: string;
   ankiIndex: string;
   isSelected: boolean;
@@ -92,7 +113,6 @@ export type AudioAsset = {
   id: string;
   ownerLogin: string;
   variantId: string;
-  kind: AudioAssetKind;
   blobPath: string;
   textHash: string;
   provider: string;
@@ -122,13 +142,8 @@ export type AnkiExport = {
 export type GenerationVariant = {
   id?: string;
   profileCode: GenerationProfileCode;
-  english: string;
-  japanese: string;
-  keyExpression: string;
-  definitionJa: string;
-  irregularForms: string;
-  constraints: string;
-  reviewPoints: string;
+  expressionEn: string;
+  translationJa: string;
   ankiGuid?: string;
 };
 
@@ -142,8 +157,13 @@ export type GenerationSegment = {
 
 export type GenerationResult = {
   segments: GenerationSegment[];
-  suggestedGenreSlug?: string;
-  suggestedSituationTags?: string[];
+  situationSuggestion: SituationSuggestion;
+};
+
+export type SituationSuggestion = {
+  primarySituationId: string | null;
+  primaryLabelJa: string;
+  secondaryBaseLabelJa: string;
 };
 
 export type ExpressionEntryDetail = ExpressionEntry & {

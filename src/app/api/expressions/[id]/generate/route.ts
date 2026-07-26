@@ -11,6 +11,7 @@ import {
   ExpressionAlreadyRegisteredError,
   getExpressionEntry,
   listGenerationProfiles,
+  listPrimarySituationDefinitions,
   saveGenerationResult,
 } from "@/lib/expression-store";
 import { logServerError } from "@/lib/log-redaction";
@@ -36,6 +37,9 @@ export async function POST(
     ? body.segmentIntents.filter((value): value is string => typeof value === "string")
       .map((value) => value.trim()).filter(Boolean).slice(0, 4)
     : undefined;
+  const preferredPrimarySituationId = typeof body.preferredPrimarySituationId === "string"
+    ? body.preferredPrimarySituationId.trim()
+    : undefined;
 
   try {
     const entry = await getExpressionEntry(ownerLogin, id);
@@ -47,12 +51,18 @@ export async function POST(
       );
     }
 
-    const profiles = await listGenerationProfiles(ownerLogin);
+    const [profiles, primarySituations] = await Promise.all([
+      listGenerationProfiles(ownerLogin),
+      listPrimarySituationDefinitions(ownerLogin),
+    ]);
     const result = await generateExpressionWithAi({
       inputJa: entry.inputJa,
-      genreSlug: entry.genreSlug,
-      legacySituationJa: entry.situationJa,
-      existingSituationTags: entry.situationTags,
+      existingPrimarySituations: primarySituations,
+      preferredPrimarySituationId: primarySituations.some(
+        (situation) => situation.id === preferredPrimarySituationId,
+      )
+        ? preferredPrimarySituationId
+        : undefined,
       segmentIntents,
       profiles,
     });
@@ -62,7 +72,10 @@ export async function POST(
       result,
     });
 
-    return NextResponse.json({ entry: saved });
+    return NextResponse.json({
+      entry: saved,
+      situationSuggestion: result.situationSuggestion,
+    });
   } catch (error) {
     if (error instanceof ExpressionDatabaseUnavailableError) {
       return NextResponse.json(

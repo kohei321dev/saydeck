@@ -1,171 +1,200 @@
 # SayDeck 設計
 
 - Status: Accepted
-- Date: 2026-07-20
+- Date: 2026-07-27
 - Requirements: `docs/requirements.md`
 - Anki contract: `docs/specifications/anki-export.md`
-- Decision: `docs/adr/0013-expression-production-and-apkg-only.md`, `docs/adr/0015-situation-tag-taxonomy-and-anki-deck-hierarchy.md`
+- Decision: `docs/adr/0016-situation-first-expression-and-anki-contract.md`
 
-## 1. アーキテクチャ判断
-
-SayDeckを、英語表現の生成・蓄積とAnki向けAPKG出力に特化する。
+## 1. Architecture
 
 ```text
 INPUT
-  Japanese intent + optional genre
-    -> AI structured generation (situation tags + L1-L4)
-    -> Human review
-    -> Expression fields + metadata (Neon)
+  inputJa + optional preferred primary ID
+  → POST /api/expressions
+  → active primary list + inputJa → AI structured generation
+  → REVIEW in browser
+  → PATCH /api/expressions/:id
+  → situation + sequence + selected variants committed atomically
 
 LISTS
-  Saved expressions
-    -> Search / filter / logical grouping
-    -> Select variants
+  registered entries + situation joins
+  → client filter / edit / archive / export selection
 
 EXPORT
-  Selected variants
-    -> en-US TTS (internal)
-    -> APKG projection + bundled media
-    -> Authenticated download
+  selected variant IDs
+  → expression en-US TTS
+  → 5-field Anki projection
+  → private APKG storage
+  → authenticated download
 ```
 
-アプリ内学習、AI添削、練習履歴は現行product domainから外す。旧practice系テーブルとmigrationはデータ保全のため残すが、現行画面へ投影せず、新domainへ二重書き込みしない。
+Next.js App RouterのServer Componentsが初期データを読み、対話部分だけClient Componentsへ渡す。DB、AI、TTS、private storageはRoute Handlerまたはserver moduleからだけ利用する。
 
-## 2. UI境界
+## 2. UI boundaries
 
-| Route | Navigation label | Responsibility | 主な操作 |
-| --- | --- | --- | --- |
-| `/input` | `INPUT` | 日本語入力、AI生成、確認、DB保存 | 表現を生成して保存 |
-| `/lists` | `LISTS` | 一覧、検索、複合filter、編集、選択 | 選択してEXPORTへ |
-| `/export` | `EXPORT` | 対象確認、音声/APKG生成、download | APKGを作成 |
-
-- `/`は`/input`へredirectする。
-- 主要navigationは3項目だけにする。
-- `/create`と`/library`は新routeへ移行後redirectし、呼称もINPUT/LISTSへ統一する。
-- 旧学習UI、Owner deck、AI添削、練習状態、TSV、個別音声生成ボタンは表示しない。
-- audio assetの形式や生成単位は内部詳細とし、EXPORTでは「APKGを作成」という利用目的だけを主操作にする。
-
-## 3. 永続化モデル
-
-### Neon/Postgres
-
-| Table | Primary responsibility | Key fields |
-| --- | --- | --- |
-| `generation_profiles` | L1〜L4の生成制約 | `code`, `min_words`, `max_words`, `max_sentences`, `required_features`, `instruction` |
-| `expression_entries` | 元の入力と共通metadata | `id`, `owner_login`, `input_ja`, `situation_ja`（旧互換用）, `genre_slug`, `situation_tags`, `created_at`, `updated_at` |
-| `sentence_cards` | 分割後の意味単位 | `id`, `entry_id`, `position`, `intent_ja` |
-| `sentence_variants` | 意味単位×levelのAnki候補 | `id`, `sentence_card_id`, `profile_code`, `english`, `japanese`, `key_expression`, `definition_ja`, `irregular_forms`, `anki_guid`, `status` |
-| `audio_assets` | APKG用音声metadata | `variant_id`, `kind`, `blob_path`, `text_hash`, `provider`, `model`, `voice`, `locale`, `format`, `status` |
-| `anki_exports` | package生成状態 | `owner_login`, `status`, `card_count`, `blob_path`, `error_code` |
-
-`situation_ja`は旧入力との互換性のために保持するが、現行INPUTは書き込まない。現行の分類正本は`input_ja`からAIが生成する`situation_tags`であり、登録済みentryには少なくとも1件をDB制約で要求する。
-
-LISTSのグループはジャンル、シチュエーションタグ、レベル、作成日時などのfilterから組み立てる論理グループとする。一方、Anki exportは固定のdeck階層`SayDeck::<難易度>::<主シチュエーションタグ>`へprojectionする。複数タグでは配列の先頭を主タグとし、残りはAnki tagsだけに反映する。これにより同じnoteを複数deckに複製しない。
-
-### シチュエーションタグ分類
-
-- `situation-tags` moduleが日常生活とスケートボードを中心にした30件の候補プールを定義する。
-- `expression-generation`はプール全件をxAI promptへ渡し、該当する候補を優先し、主タグを先頭に置くよう指示する。
-- プールに該当しない入力では、AIが短い日本語タグを1件以上生成する。レスポンス正規化で0件または4件以上は失敗として扱う。
-- 初回生成時にタグをentryへ保存する。再生成時は既存タグを参考情報として渡すが、登録済みentryの候補を再生成してGUIDを作り直すことは許可しない。
-- `situation_tags`を直接入力するUIは置かない。AI生成済みタグはレビューとLISTSで表示し、検索・deck分類に使う。
-
-候補プールは次の30件とする。
-
-```text
-友人への返信 / 家族との連絡 / 近況の共有 / 約束・予定調整 / 遅刻・欠席の連絡
-謝罪・お礼 / 招待・誘い / SNS・DM / 電話・ビデオ通話 / 買い物
-飲食店 / 移動・道案内 / 旅行 / 仕事の連絡 / 体調・休養
-自宅・家事 / 天気・季節 / 趣味の会話 / スケートパーク / セッションの誘い
-トリック練習 / 成功・失敗の共有 / 順番待ち・譲り合い / スポット・路面 / ボード・道具
-撮影・動画 / 怪我・安全 / 天候・コンディション / 上達・アドバイス / スケーターとの会話
-```
-
-### Object storage
-
-- 音声とAPKGはprivate object storageへ保存する。localhostではproduction以外に限り`.saydeck-storage`を利用できる。
-- DBにはpathとmetadataだけを保存し、binaryは保存しない。
-- 本文またはTTS設定変更時は対応assetを`stale`にし、次回export時に再生成する。
-- browserはowner認証済みdownload routeを通してAPKGを取得し、storage tokenや内部pathを受け取らない。
-
-## 4. サービス境界
-
-| Module | Responsibility |
+| Route | Responsibility |
 | --- | --- |
-| `expression-store` | expression用Postgres read/write、owner scope、LISTS query |
-| `expression-generation` | structured AI generation、制約検証、再生成 |
-| `situation-tags` | タグプール、AIレスポンスの正規化、主タグとdeck名の決定 |
-| `text-segmentation` | 意味単位の分割、順序、再生成対象の決定 |
-| `ai/providers/*` | text AI providerとの通信 |
-| `tts-provider` | `en-US`を明示したAPKG用音声生成 |
-| `binary-store` | private object storageまたはDEV local storageのput/get |
-| `anki-export` | DB modelからAnki modelへのprojection、音声準備、package生成 |
-| `runtime-diagnostics` | DB、AI、TTS、storage、APKG adapterの利用可否を安全に返す |
+| `/input` | 日本語入力、既存主の任意優先、AI生成、分類・候補確認、登録 |
+| `/lists` | 登録済みentryの絞り込み、英文・和訳編集、論理削除、export選択 |
+| `/export` | 選択確認、音声・APKG生成、download |
 
-AIテキスト生成とTTSは障害境界を分ける。通常順序は「INPUT保存 → AI生成 → 人間確認 → DB保存 → LISTS選択 → EXPORT時に音声準備 → APKG生成」とする。
+`/api/situations`はownerのactiveな主・副分類を返す。分類専用管理画面は持たない。
 
-## 5. API境界
+## 3. Database
 
-| Endpoint | Method | Responsibility |
+### Current expression domain
+
+| Table | Responsibility | Important constraints |
 | --- | --- | --- |
-| `/api/expressions` | `POST`, `GET` | 入力保存、LISTS取得・filter |
-| `/api/expressions/:id/generate` | `POST` | 分割案とlevel別Anki候補生成 |
-| `/api/expressions/:id` | `GET`, `PATCH` | 詳細取得、metadata・本文・選択状態の更新 |
-| `/api/anki-exports` | `POST` | 選択条件検証、en-US音声準備、APKG生成、export ID返却 |
-| `/api/anki-exports/:id/download` | `GET` | owner認証後にprivate APKGをstream download |
-| `/api/diagnostics?probe=1` | `GET` | owner向けDB・AI・TTS・storage・APKG疎通確認 |
+| `generation_profiles` | semantic expression layer rules | codeは`basic/detail/conversation/natural_alternative` |
+| `expression_entries` | 日本語入力と登録状態 | registered時に`situation_sequence`必須 |
+| `sentence_cards` | 入力を分けた意味単位 | owner・entry・position unique |
+| `sentence_variants` | 意味単位ごとの英文・和訳 | card・profile unique、GUID unique、owner・Index unique |
+| `situation_definitions` | owner別の主・副分類master | 主key unique、副はparent・label unique |
+| `expression_entry_situations` | entryへの主・副割当 | entry・role primary key、同じsituationの重複禁止 |
+| `situation_sequence_counters` | 主分類内の入力連番 | owner・primary ID primary key |
+| `audio_assets` | variantごとのExpression音声metadata | owner・variant unique |
+| `anki_exports` | APKG artifact状態 | owner scope、private path |
 
-`/api/sentence-variants/:id/register`、`/api/audio/:id`、`/api/anki-exports/tsv`は削除済みであり、音声準備は`/api/anki-exports`へ統合する。音声previewが将来必要になった場合も、米国英語assetを読み取り専用で再生し、生成ボタンは追加しない。
+### Situation invariants
 
-## 6. 音声とAPKG
+- `primary`: `parent_id is null`
+- `secondary`: `parent_id is not null`
+- application transactionは副のparentが選択主と一致し、両分類のownerがentry ownerと一致することを検証する。
+- 新規主は正規化labelのstable hashからcanonical keyを作る。ASCII labelを含む場合は可読slugを使う。
+- 副の完全重複はtransaction-scoped advisory lockで直列化し、未使用最小の`duplicate_sequence`を割り当てる。
+- 主分類内連番はcounter tableのatomic upsertで採番する。
 
-- TTS requestではprovider、model、voice、locale `en-US`、speed、formatを明示する。
-- 日本語voiceやブラウザ既定voiceへのfallbackは禁止する。失敗時はexportを失敗として返し、再試行可能にする。
-- APKG contract上の`word_audio`と`sentence_audio`に対応するmediaは内部で個別生成するが、APKGが一括同梱するため利用者はWAVを個別管理しない。
-- hashは`kind + text + model + voice + locale + speed + format`で計算し、同じassetを再利用する。
-- APKG生成にはadapterを使い、固定note type、固定model/deck ID、固定GUID、2 mediaを検証する。
-- 正式exportはAPKGだけとし、TSV生成コードとUIを削除する。
+### Variant identity
 
-## 7. 削除・移行方針
+- `anki_guid`: variant作成時に一度生成するAnki note GUID。
+- `anki_index`: 登録時に`primary canonical key + situation sequence + meaning position + layer ordinal`から作り、以後変更しない。
+- 画面上の短い番号は`situation_sequence`と`sentence_cards.position`から`001-01`のように表示する。
+- AIはGUID、Index、suffix、sequenceを生成しない。
 
-### 削除済みのUI・API
+## 4. AI generation contract
 
-- 旧`ScenePractice`と学習navigation
-- 旧カード、Owner deck、AI添削、回答、採点、完了・要復習UI
-- 新規表現を学習画面へ投影する処理
-- browser-speech fallback
-- 個別の語句音声・例文音声・WAV生成または登録ボタン
-- TSV export UIとAPI
+AI input:
 
-### 当面保持するもの
+- `inputJa`
+- activeな主分類の`id`, `labelJa`, `canonicalKey`
+- 任意のpreferred primary ID
+- semantic generation profile definitions
+- 再生成時だけ固定した意味単位
 
-- 旧`scene_cards`、`practice_records`、`practice_attempts`、`saved_notes`のDB tableとmigration
-- 既存データを復旧・退避するために必要な読み取り可能性
+AI output:
 
-削除実装では、INPUT・LISTS・EXPORTおよび認証、現行expression schema、APKG exportに依存するコードを巻き込まない。不要tableのdropは別の明示的なデータ移行判断まで行わない。
-
-## 8. 受け入れ・運用
-
-- INPUTで日本語入力がAI失敗時も残る。
-- L1〜L4の各候補が固定Ankiフィールドへ対応し、必須のシチュエーションタグとともにDBへ保存される。
-- LISTSでジャンル、シチュエーションタグ、レベル、作成日時を組み合わせて絞り込める。
-- UIの主要navigationがINPUT、LISTS、EXPORTだけである。
-- 音声生成ボタンとTSV導線が存在しない。
-- 固定fixtureのWordとExample Sentenceを試聴し、米国英語発音であることを人間が確認する。
-- 生成APKGをAnki Desktopの空profileへimportし、8 field、`SayDeck::<難易度>::<主タグ>`、tags、2音声、再import更新を確認する。
-- private APKGにowner以外がアクセスできない。
-- `lint`、`typecheck`、`build`、unit/integration/E2Eを通す。
-
-## 9. 実装シーケンス
-
-```text
-Phase 1: Remove legacy learning / TSV / manual audio UI
-  -> Phase 2: Build INPUT
-  -> Phase 3: Build LISTS
-  -> Phase 4: Build APKG-only EXPORT with en-US audio
+```ts
+{
+  primarySituationId: string | null
+  primaryLabelJa: string
+  secondaryBaseLabelJa: string
+  segments: Array<{
+    intentJa: string
+    variants: Array<{
+      profileCode: "basic" | "detail" | "conversation" | "natural_alternative"
+      expressionEn: string
+      translationJa: string
+    }>
+  }>
+}
 ```
 
-- 各phaseは独立したIssueとし、直前phaseの完了を着手条件にする。
-- Phase 1は不要機能の削除に限定し、旧DB tableのdropは行わない。
-- Phase 2〜4では旧実装への互換投影を追加しない。
-- 各phaseでnavigation、API、dead code、テスト、文書の残存参照を確認する。
+server validation:
+
+- segmentは1〜8件。
+- 各segmentに`basic`が1件必須。
+- 同じprofile codeの重複禁止。
+- 任意profileは欠けてよい。
+- existing primary IDは実際に渡した一覧内だけ許可する。
+- primary labelとsecondary base labelは空不可、120文字以内。
+- ExpressionとTranslationは空不可、2,000文字以内。
+
+AIの分類提案はgeneration responseとしてREVIEWへ返し、分類masterは変更しない。ユーザーのPATCH確定時だけ分類を永続化する。
+
+## 5. Store transaction
+
+初回登録の`approveExpressionEntry`は1 transaction内で次を行う。
+
+1. entryを`for update`でlockする。
+2. selected variantがentryに属することを検証する。
+3. 各意味単位の`basic`選択を検証する。
+4. 英文・和訳の修正を保存し、英文変更時は音声をstaleにする。
+5. 既存主を検証または新規主を作成する。
+6. 副を作成し、完全一致なら3桁suffixを採番する。
+7. 主・副assignmentを保存する。
+8. 主分類内`situation_sequence`を採番する。
+9. 全variantの恒久`anki_index`を確定する。
+10. selected状態とentryのregistered状態を保存する。
+
+登録済みentryのPATCHでは分類とsequenceを変更せず、英文・和訳・選択状態だけを更新する。
+
+## 6. Audio
+
+`registerSentenceVariantAudio`はvariantの`expression_en`を読む音声1件だけを扱う。
+
+- provider: xAI Text to Speech
+- request language: `en`
+- stored locale: `en-US`
+- format: WAV / 24kHz
+- hash input: text、model、voice、locale、speed、format
+- valid cache: provider・locale・hashが一致する`ready` asset
+
+browser speechへのfallbackはない。Productionではprivate Blob、developmentでは`.saydeck-storage`を利用できる。
+
+## 7. Anki projection
+
+DBから次へ投影する。
+
+```text
+sentence_variants.anki_index → Index
+primary/secondary/layer labels → Context
+sentence_variants.expression_en → Expression
+sentence_variants.translation_ja → Translation
+audio_assets → expression_audio
+```
+
+Deck:
+
+```text
+SayDeck::主シチュエーション::副シチュエーション::表現レイヤー
+```
+
+Tags:
+
+```text
+source::saydeck
+primary_situation::<primary canonical key>
+secondary_situation::<primary canonical key>::<secondary canonical key>
+layer::<profile code>
+```
+
+詳細は`docs/specifications/anki-export.md`を正本とする。
+
+## 8. Error and security boundaries
+
+- 認証なし: `401`
+- DB未設定: `503`
+- AI/TTS未設定: `503`
+- AI/TTS quota: `429`
+- invalid AI structure: `502`
+- classification/basic不足: `400`
+- audio未準備: `409`またはexport準備失敗
+- storage未設定: Productionでは`503`
+
+全queryで`owner_login`を検証する。API key、DB URL、storage token、raw provider responseをclientやlogへ返さない。
+
+## 9. Migration and compatibility
+
+`0008-situation-first-expression-contract.sql`はSayDeck expression domainをtruncateし、旧分類列、L1〜L4、旧カード本文列、2音声構造を置き換える。新アプリとmigrationは同じrelease単位で切り替える。
+
+旧practice系tableとmigrationは保持するが、現行UI・API・exportから参照しない。旧Anki note typeとの互換投影は行わない。
+
+## 10. Verification
+
+- static: lint、typecheck、production build、WASM trace
+- DB: migration適用、schema probe、transaction採番、suffix、owner isolation
+- browser: INPUT → REVIEW → LISTS → EXPORTの画面とAPI境界
+- audio: 実生成したfixtureを人間が米国英語として試聴
+- Anki: 空profileへのimport、deck、5 fields、Context、front-only audio、再import

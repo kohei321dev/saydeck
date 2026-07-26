@@ -3,9 +3,11 @@ import { NextResponse } from "next/server";
 import { getExpressionOwnerLogin } from "@/lib/expression-auth";
 import {
   approveExpressionEntry,
+  archiveExpressionEntry,
+  ExpressionBasicVariantRequiredError,
   ExpressionDatabaseUnavailableError,
   ExpressionSelectionError,
-  ExpressionSituationTagsRequiredError,
+  ExpressionSituationRequiredError,
   ExpressionVariantUpdateError,
   getExpressionEntry,
 } from "@/lib/expression-store";
@@ -67,18 +69,14 @@ export async function PATCH(
       if (typeof item.id !== "string") return [];
       return [{
         id: item.id,
-        english: typeof item.english === "string" ? item.english : undefined,
-        japanese: typeof item.japanese === "string" ? item.japanese : undefined,
-        keyExpression: typeof item.keyExpression === "string" ? item.keyExpression : undefined,
-        definitionJa: typeof item.definitionJa === "string" ? item.definitionJa : undefined,
-        irregularForms: typeof item.irregularForms === "string" ? item.irregularForms : undefined,
+        expressionEn: typeof item.expressionEn === "string" ? item.expressionEn : undefined,
+        translationJa: typeof item.translationJa === "string" ? item.translationJa : undefined,
       }];
     }).slice(0, 100)
     : undefined;
-  const genreSlug = typeof body?.genreSlug === "string" ? body.genreSlug.trim().slice(0, 120) : undefined;
   if (selectedVariantIds.length === 0) {
     return NextResponse.json(
-      { error: { code: "no_selection", message: "登録するレベルを1つ以上選択してください。" } },
+      { error: { code: "no_selection", message: "登録する表現を1つ以上選択してください。" } },
       { status: 400 },
     );
   }
@@ -89,7 +87,12 @@ export async function PATCH(
       entryId: decodeURIComponent((await context.params).id),
       selectedVariantIds,
       variantUpdates,
-      genreSlug,
+      classification: {
+        primarySituationId: readString(body?.primarySituationId),
+        primarySituationLabelJa: readString(body?.primarySituationLabelJa),
+        secondarySituationLabelJa: readString(body?.secondarySituationLabelJa),
+        selectedBy: body?.situationSelectedBy === "user" ? "user" : "ai",
+      },
     });
 
     return NextResponse.json({ entry });
@@ -108,14 +111,57 @@ export async function PATCH(
       );
     }
 
-    if (error instanceof ExpressionSituationTagsRequiredError) {
+    if (error instanceof ExpressionBasicVariantRequiredError) {
       return NextResponse.json(
-        { error: { code: "situation_tags_required", message: "シチュエーションタグの生成に失敗しました。候補を再生成してください。" } },
+        { error: { code: "basic_required", message: "各意味単位の01_基本表現は必ず選択してください。" } },
+        { status: 400 },
+      );
+    }
+
+    if (error instanceof ExpressionSituationRequiredError) {
+      return NextResponse.json(
+        { error: { code: "situation_required", message: "主・副シチュエーションを確認してください。" } },
         { status: 400 },
       );
     }
 
     return handleError("Failed to approve expression entry.", error);
+  }
+}
+
+function readString(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+export async function DELETE(
+  _request: Request,
+  context: { params: Promise<{ id: string }> },
+) {
+  const ownerLogin = await getExpressionOwnerLogin();
+
+  if (!ownerLogin) {
+    return NextResponse.json(
+      { error: { code: "unauthorized", message: "削除にはownerログインが必要です。" } },
+      { status: 401 },
+    );
+  }
+
+  try {
+    const archived = await archiveExpressionEntry({
+      ownerLogin,
+      entryId: decodeURIComponent((await context.params).id),
+    });
+
+    if (!archived) {
+      return NextResponse.json(
+        { error: { code: "not_found", message: "表現が見つかりません。" } },
+        { status: 404 },
+      );
+    }
+
+    return NextResponse.json({ archived: true });
+  } catch (error) {
+    return handleError("Failed to archive expression entry.", error);
   }
 }
 
