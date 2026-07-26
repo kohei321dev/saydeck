@@ -226,7 +226,7 @@
       <div class="entity-grid" style="margin-top: 16px">
         <article class="tile">
           <strong>ノートタイプ</strong>
-          <p><code>SayDeck ES1Kv2</code>。既存の<code>ES1Kv2</code>とは別ノートタイプとして維持する。8フィールドの名称と順序は既存Ankiファイルと揃える。</p>
+          <p><code>SayDeck</code>。deckのルート名と同名でも、Ankiでは別の名前空間のため衝突しない。過去データを削除する前提で、旧<code>ES1Kv2</code>の8フィールド契約は引き継がない。</p>
         </article>
         <article class="tile">
           <strong>Anki tags</strong>
@@ -249,7 +249,7 @@
         <div class="arrow" aria-hidden="true">1 ──&lt;</div>
         <article class="entity"><h3>sentence_variants</h3><p>意味単位ごとのL1（必須）と任意レイヤー</p></article>
         <div class="arrow" aria-hidden="true">1 ──&lt;</div>
-        <article class="entity"><h3>audio_assets</h3><p>Word / Sentence のen-US音声</p></article>
+        <article class="entity"><h3>audio_assets</h3><p>Expressionのen-US音声</p></article>
       </div>
       <div class="relationship" style="grid-template-columns: 1fr 60px 1fr; max-width: 600px">
         <article class="entity"><h3>sentence_variants</h3><p>選択されたvariantをAPKG化</p></article>
@@ -288,11 +288,11 @@
         </article>
         <article class="tile">
           <h3>D. <code>sentence_variants</code> — 維持</h3>
-          <p><code>sentence_card_id</code>、<code>profile_code</code>、英文・和訳・基本フレーズ・Anki ID・選択状態。意味単位ごとにL1を必ず1行作り、L2〜L4は学習価値のある差がある場合だけ作る。</p>
+          <p><code>sentence_card_id</code>、<code>profile_code</code>、実際に言う英文、和訳、Anki ID、選択状態。意味単位ごとにL1を必ず1行作り、L2〜L4は学習価値のある差がある場合だけ作る。基本ワードと例文は分けない。</p>
         </article>
         <article class="tile">
           <h3>E. <code>audio_assets</code> — 維持</h3>
-          <p><code>variant_id</code>ごとに<code>word</code>と<code>sentence</code>を1行ずつ。en-USで生成した音声binaryの保存先と検証metadataだけを持つ。</p>
+          <p><code>variant_id</code>ごとに、Expressionを読む音声を1行だけ持つ。en-USで生成した音声binaryの保存先と検証metadataだけを持つ。</p>
         </article>
         <article class="tile">
           <h3>F. <code>anki_exports</code> — 維持</h3>
@@ -302,6 +302,21 @@
           <h3><code>situation_sequence_counters</code> — 条件付き追加</h3>
           <p><code>owner_login</code>、<code>situation_tag</code>、<code>last_sequence</code>、<code>updated_at</code>を持つ。<code>001</code>を主シチュエーション内の入力連番とする合意が得られた場合だけ追加し、transactionで重複採番を防ぐ。</p>
         </article>
+      </div>
+
+      <h3 style="margin-top: 28px">G. カード本文・音声のターゲット定義</h3>
+      <p>既存データを削除する前提で、旧来の「基本ワード + 例文」の二重構造を廃止する。各variantが、その場面で実際に使う1つの英語表現を持つ。</p>
+      <div class="schema-wrap">
+        <table class="schema-table">
+          <thead><tr><th>Table / Column</th><th>Type / 制約</th><th>作成・更新の主体</th><th>役割</th></tr></thead>
+          <tbody>
+            <tr><td class="key" data-label="Table / Column">sentence_variants.expression_en</td><td data-label="Type / 制約">text / not null</td><td data-label="作成・更新の主体">AI生成・LISTS編集</td><td data-label="役割">そのまま口に出す英語表現。Ankiの<code>Expression</code> fieldと音声の正本</td></tr>
+            <tr><td class="key" data-label="Table / Column">sentence_variants.translation_ja</td><td data-label="Type / 制約">text / not null</td><td data-label="作成・更新の主体">AI生成・LISTS編集</td><td data-label="役割">英語表現の自然な日本語訳。Ankiの<code>Translation</code> fieldの正本</td></tr>
+            <tr><td class="key" data-label="Table / Column">sentence_variants.anki_guid / anki_index</td><td data-label="Type / 制約">text / not null / unique</td><td data-label="作成・更新の主体">variant作成時</td><td data-label="役割">再export・再importで同一カードを特定する恒久ID。<code>anki_index</code>は<code>001-02</code>を含む表示可能な値にする</td></tr>
+            <tr><td class="key" data-label="Table / Column">audio_assets.variant_id</td><td data-label="Type / 制約">text / unique per owner + variant</td><td data-label="作成・更新の主体">EXPORT</td><td data-label="役割">Expression音声はvariantにつき1件だけ。旧<code>kind='word'/'sentence'</code>は廃止する</td></tr>
+            <tr><td class="key removed" data-label="Table / Column">english / japanese / key_expression / definition_ja / irregular_forms / constraints / review_points</td><td class="removed" data-label="Type / 制約">旧列</td><td class="removed" data-label="作成・更新の主体">廃止</td><td class="removed" data-label="役割">例文・基本ワードという旧カード構造にのみ必要だったため、データ削除後にschemaから除去する</td></tr>
+          </tbody>
+        </table>
       </div>
     </section>
 
@@ -326,17 +341,17 @@
         </article>
         <article class="flow-card">
           <p class="card-title"><span class="step">4</span>LISTS: 検索・編集・選択</p>
-          <p>主シチュエーション、補助タグ、レベル、日付、キーワードで絞り込む。英文・訳・Word等は編集できる。登録済みの主分類は変更しない。</p>
+          <p>主シチュエーション、補助タグ、表現レイヤー、日付、キーワードで絞り込む。Expressionと和訳は編集できる。登録済みの主分類は変更しない。</p>
           <p class="columns">SELECT expression_entries + children<br>UPDATE sentence_variants<br>UPDATE is_selected</p>
         </article>
         <article class="flow-card">
           <p class="card-title"><span class="step">5</span>EXPORT: 音声・APKGを生成</p>
-          <p>選択variantごとにWord/Example Sentenceのen-US音声を確認・生成し、主シチュエーションとレベルでdeckを決めてAPKGを作る。</p>
-          <p class="columns">UPSERT audio_assets × 2<br>INSERT anki_exports<br>private storageへAPKG保存</p>
+          <p>選択variantごとにExpressionのen-US音声を確認・生成し、主シチュエーションと表現レイヤーでdeckを決めてAPKGを作る。</p>
+          <p class="columns">UPSERT audio_assets × 1<br>INSERT anki_exports<br>private storageへAPKG保存</p>
         </article>
         <article class="flow-card">
           <p class="card-title"><span class="step">6</span>ANKI: import</p>
-          <p><code>SayDeck ES1Kv2</code>のnoteとして読み込まれる。<code>Index</code>とGUIDはDBの恒久値を使うため、同一variantの再importでは重複ではなく更新を目指す。</p>
+          <p><code>SayDeck</code>のnoteとして読み込まれる。<code>Index</code>とGUIDはDBの恒久値を使うため、同一variantの再importでは重複ではなく更新を目指す。</p>
           <p class="columns">Deck: SayDeck::主シチュエーション::Lx<br>Tags: source / situation / difficulty</p>
         </article>
       </div>
@@ -353,31 +368,31 @@
         <div class="op">REVIEW<br>主分類を選ぶ</div><div>AI提案、最近使ったタグ、定義済みプールから選択</div><div>主タグを先頭にして1〜3件へ正規化</div><div><code>expression_entries.situation_tags</code><br>例: <code>['友人への返信', 'SNS・DM']</code></div>
         <div class="op">REVIEW<br>カードを保存</div><div><code>PATCH /api/expressions/:id</code></div><div>L1選択を検証し、主シチュエーションごとの連番を採番してentryを登録状態にする</div><div><code>expression_entries.situation_sequence</code><br><code>status='registered'</code> / <code>registered_at</code><br><code>sentence_variants.is_selected/status</code></div>
         <div class="op">LISTS<br>絞り込む</div><div>GET済みデータのfilter（将来はserver filterへ移行可能）</div><div>SELECTのみ</div><div><code>situation_tags</code>、<code>profile_code</code>、<code>registered_at</code>、<code>updated_at</code>、<code>input_ja</code></div>
-        <div class="op">LISTS<br>英文を編集</div><div><code>PATCH /api/expressions/:id</code></div><div>variant本文を更新し、対応音声をstaleにする</div><div><code>english/japanese/key_expression/definition_ja/irregular_forms</code><br><code>audio_assets.status='stale'</code></div>
+        <div class="op">LISTS<br>表現を編集</div><div><code>PATCH /api/expressions/:id</code></div><div>Expressionまたは和訳を更新し、対応音声をstaleにする</div><div><code>expression_en / translation_ja</code><br><code>audio_assets.status='stale'</code></div>
         <div class="op">LISTS<br>削除</div><div><code>DELETE /api/expressions/:id</code></div><div>論理削除。子データは保全</div><div><code>expression_entries.status='archived'</code></div>
         <div class="op">EXPORT<br>対象を選ぶ</div><div>ブラウザsessionStorageで選択を引き継ぐ</div><div>なし</div><div>DB未更新（export実行時に選択variant IDを送る）</div>
-        <div class="op">EXPORT<br>APKGを作る</div><div><code>POST /api/anki-exports</code></div><div>音声を生成・再利用し、APKG artifactを記録</div><div><code>audio_assets</code>（word/sentence）<br><code>anki_exports.id/status/card_count/blob_path/error_code</code></div>
+        <div class="op">EXPORT<br>APKGを作る</div><div><code>POST /api/anki-exports</code></div><div>Expression音声を生成・再利用し、APKG artifactを記録</div><div><code>audio_assets</code>（Expression × 1）<br><code>anki_exports.id/status/card_count/blob_path/error_code</code></div>
       </div>
     </section>
 
     <section class="panel">
       <p class="eyebrow" style="color: var(--teal)">06 / ANKI FIELD SOURCE MAP</p>
-      <h2>DBのvariantからAnki 8フィールドへの投影</h2>
+      <h2>DBのvariantからAnki 4フィールドへの投影</h2>
       <div class="source-map">
         <article class="source-box">
           <h3><code>sentence_variants</code></h3>
-          <p><code>anki_index</code><br><code>key_expression</code><br><code>definition_ja</code><br><code>irregular_forms</code><br><code>english</code><br><code>japanese</code></p>
+          <p><code>anki_index</code><br><code>expression_en</code><br><code>translation_ja</code></p>
         </article>
         <div class="source-arrow" aria-hidden="true">→</div>
         <article class="source-box">
-          <h3>SayDeck ES1Kv2</h3>
-          <p><code>Index</code><br><code>Word</code><br><code>Definition</code><br><code>Irregular Forms</code><br><code>Example Sentence</code><br><code>Translation</code></p>
+          <h3>SayDeck</h3>
+          <p><code>Index</code><br><code>Expression</code><br><code>Translation</code><br><code>expression_audio</code></p>
         </article>
         <div class="source-arrow" aria-hidden="true">←</div>
         <article class="source-box">
           <h3><code>audio_assets</code></h3>
-          <p><code>kind='word'</code> → <code>word_audio</code><br><code>kind='sentence'</code> → <code>sentence_audio</code></p>
-          <p class="muted">どちらも <code>locale='en-US'</code> かつ <code>status='ready'</code> が必須</p>
+          <p><code>variant_id</code> → <code>expression_audio</code></p>
+          <p class="muted"><code>locale='en-US'</code> かつ <code>status='ready'</code> が必須</p>
         </article>
       </div>
       <p class="warning"><strong>実装時に是正する差分:</strong> 現在のexportは<code>anki_index</code>をDBへ保存済みにもかかわらず、Ankiの<code>Index</code>へはvariant IDから再計算した値を書いています。新設計では必ず<code>sentence_variants.anki_index</code>を読んで投影し、DBを唯一のID正本にします。</p>
@@ -429,46 +444,48 @@
 
     <section id="migration" class="panel">
       <p class="eyebrow" style="color: var(--teal)">08 / MIGRATION PLAN</p>
-      <h2>ジャンル廃止のDB移行案</h2>
-      <p>このページは実行用SQLではありません。承認後に、番号付きmigrationとして作成・検証します。</p>
+      <h2>ジャンル廃止・カード契約簡素化のDB移行案</h2>
+      <p>このページは実行用SQLではありません。既存のSayDeck表現・音声・exportデータを削除する前提で、承認後に破壊的migrationとして作成・検証します。</p>
       <details open>
         <summary>予定するmigrationの内容</summary>
         <div>
           <pre>BEGIN;
 
--- 1. 登録済みでタグが空のentryを安全な主分類へ補完
-UPDATE expression_entries
-SET situation_tags = ARRAY['未分類']::text[]
-WHERE status = 'registered'
-  AND cardinality(situation_tags) = 0;
+-- 0. 既存SayDeckデータを削除する（旧カード・音声・APKGを残さない）
+TRUNCATE expression_entries CASCADE;
+TRUNCATE anki_exports;
 
--- 2. 登録済みentryのシチュエーションを1〜3件に保証
-UPDATE expression_entries
-SET situation_tags = situation_tags[1:3]
-WHERE cardinality(situation_tags) &gt; 3;
-
-ALTER TABLE expression_entries
-  DROP CONSTRAINT IF EXISTS expression_entries_registered_situation_tags_check;
-
-ALTER TABLE expression_entries
-  ADD CONSTRAINT expression_entries_registered_situation_tags_check
-  CHECK (status &lt;&gt; 'registered' OR cardinality(situation_tags) BETWEEN 1 AND 3);
-
--- 3. ジャンルを物理削除（新アプリコードの配備後に実行）
+-- 1. 分類の旧軸を削除し、主シチュエーション内の連番を追加
 ALTER TABLE expression_entries DROP COLUMN genre_slug;
-
--- 4. シチュエーションfilterを支えるindex
-CREATE INDEX IF NOT EXISTS expression_entries_situation_tags_gin
+ALTER TABLE expression_entries
+  ADD COLUMN situation_sequence integer;
+CREATE INDEX expression_entries_situation_tags_gin
   ON expression_entries USING GIN (situation_tags);
+
+-- 2. Expressionカード用にvariantを作り直す
+ALTER TABLE sentence_variants RENAME COLUMN english TO expression_en;
+ALTER TABLE sentence_variants RENAME COLUMN japanese TO translation_ja;
+ALTER TABLE sentence_variants
+  DROP COLUMN key_expression,
+  DROP COLUMN definition_ja,
+  DROP COLUMN irregular_forms,
+  DROP COLUMN constraints,
+  DROP COLUMN review_points;
+
+-- 3. 音声はExpressionにつき1件だけに再定義
+--    旧audio_assetsは削除して、kindなし・variant一意のschemaへ再作成する
+
+-- 4. 001を主シチュエーションごとに採番する場合だけcounter tableを追加
+CREATE TABLE situation_sequence_counters (...);
 
 COMMIT;</pre>
         </div>
       </details>
       <ul>
-        <li>現在の接続先DBでは、6件中5件にジャンル値があり、削除によりその値は意図どおり破棄される。</li>
-        <li>登録済み3件のうち1件はシチュエーションが空だった。上記の補完がないと、シチュエーション主軸のdeckへ安全に投影できない。</li>
-        <li>既存の<code>0007-situation-tag-taxonomy.sql</code>はこの補完・制約を含むが、現行DBには未適用とみられる。READMEとデプロイ手順のmigration一覧も<code>0006</code>までのため、文書改訂時に是正する。</li>
-        <li>削除順序は「ジャンルを読まないアプリコードを先に配備 → DB migrationで列をdrop」。旧コードが削除済み列を読む時間帯を作らない。</li>
+        <li>現在の接続先DBにあるSayDeck表現、音声metadata、APKG artifactの履歴を削除する。旧データを復元する必要がある場合は、実行前にDB backupを取る。</li>
+        <li><code>genre_slug</code>、旧「基本ワード / 例文」用のvariant列、<code>word/sentence</code>の二重音声を物理削除する。</li>
+        <li>新しいアプリコードとDB migrationは同じリリース単位で切り替える。旧コードが削除済み列を読む時間帯を作らない。</li>
+        <li><code>0007-situation-tag-taxonomy.sql</code>とREADME/デプロイ手順のmigration一覧は、今回の破壊的移行後の実態に合わせて改訂する。</li>
       </ul>
     </section>
 
@@ -481,7 +498,8 @@ COMMIT;</pre>
         <li>主シチュエーションは<code>situation_tags[0]</code>とし、登録時に確定する。補助タグはdeckを増やさず検索タグとして使う。</li>
         <li>INPUT / REVIEWに「最近使ったシチュエーションから選ぶ」導線を追加する。ジャンル選択の代わりに、ユーザーが必要な時だけ使える任意操作とする。</li>
         <li>シチュエーション名の表記揺れを避けるため、AI提案を定義済み候補・最近使った候補へ正規化する。未知の分類は<code>未分類</code>として明示する。</li>
-        <li>既存のジャンル値は保持せず破棄する。空の登録済みシチュエーションは<code>未分類</code>へ補完する。</li>
+        <li>既存のジャンル値・表現・音声・APKG履歴は保持せず削除する。新規登録では空の主シチュエーションを許可しない。</li>
+        <li>Ankiノートタイプ名を<code>SayDeck</code>とし、fieldを<code>Index</code>、<code>Expression</code>、<code>Translation</code>、<code>expression_audio</code>の4つにする。</li>
         <li>Indexは<code>anki_index</code>を唯一の正本にし、同一variantの再export・再importで同じ値を使う。</li>
         <li><code>001</code>を主シチュエーション内で増える入力番号とするか、1入力内の意味単位番号とするかを合意する。前者なら<code>situation_sequence</code>とcounter tableを追加する。</li>
         <li>空のAnki profileで「初回import」「同一variant再import」「主シチュエーションと任意レイヤーのdeck階層」「001-01形式の並び」「en-US音声」を確認してからリリースする。</li>
