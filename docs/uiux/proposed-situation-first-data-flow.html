@@ -217,7 +217,7 @@
         <article class="tile">
           <span class="label">EXPRESSION LAYERS</span>
           <strong>01_標準表現のみ必須、02・03は任意</strong>
-          <p><code>01_標準表現</code>は必ず1つ作り、1文・原則18語以内で必要な詳細を含む、その場で使える表現とする。<code>02_ネイティブ・口語表現</code>は01と明確な差がある場合だけ生成する。<code>03_表現パターン</code>は03a文法展開、03b熟語・句動詞、03cコロケーションのうち適用可能な完成英文だけを生成し、語句断片や類似文を水増ししない。</p>
+          <p><code>01_標準表現</code>は必ず1つ作り、1文・原則18語以内で必要な詳細を含む、その場で使える表現とする。AIは各意味単位で<code>02_ネイティブ・口語表現</code>と03a文法展開、03b熟語・句動詞、03cコロケーションを必ず評価し、適用可能な完成英文だけを生成する。すべて不採用なら理由を返し、standardだけの意味単位を1度再評価する。03cはモデルの米国英語知識に基づき、MVPでは外部コーパス検索を行わない。</p>
         </article>
       </div>
       <p class="notice"><strong>設計上の前提:</strong> 主シチュエーションの命名はdeck名になるため、AI任せの自由な表記揺れは許容しません。生成前に、そのownerの登録済み主シチュエーション一覧（ID・表示名・安定キー）をAIへ渡します。AIは入力の意図が既存の主に該当するかを判定し、該当すればそのIDを返す。該当しなければ新しい主シチュエーション名を返し、ユーザーの保存確定時にDBへ新規作成します。</p>
@@ -400,7 +400,7 @@
         </article>
         <article class="flow-card">
           <p class="card-title"><span class="step">2</span>AI: 01_標準表現と必要な任意表現を生成</p>
-          <p>APIは登録済み主シチュエーション一覧をAIへ渡す。AIは意味単位、必須の<code>standard</code>、学習価値がある場合だけ<code>native</code> / <code>pattern</code>、既存主のIDまたは新規主の基底名、副の基底名を構造化して返す。複数の独立した発話は意味単位へ分け、patternは必ず完成英文にする。分類候補はREVIEWの一時状態で保持し、この時点では分類マスタを変更しない。</p>
+          <p>APIは登録済み主シチュエーション一覧をAIへ渡す。AIは意味単位、必須の<code>standard</code>、4対象の適用判定と理由、適用できる<code>native</code> / <code>pattern</code>、既存主のIDまたは新規主の基底名、副の基底名をJSON Schemaに沿って返す。複数の独立した発話は意味単位へ分け、patternは必ず完成英文にする。standardしかない意味単位は1度だけ再評価する。分類候補はREVIEWの一時状態で保持し、この時点では分類マスタを変更しない。</p>
           <p class="columns">SELECT active primary situations → AI<br>INSERT sentence_cards<br>INSERT sentence_variants × standard（必須）+ 任意の表現レイヤー</p>
         </article>
         <article class="flow-card">
@@ -610,7 +610,7 @@ COMMIT;</pre>
       <p class="eyebrow" style="color: var(--teal)">10 / IMPLEMENTATION STATUS</p>
       <h2>合意内容と実装・リリース確認項目</h2>
       <ul class="checklist">
-        <li>deck名を <code>SayDeck::主シチュエーション::副シチュエーション::01_標準表現〜03_表現パターン</code> にする。patternは <code>03_表現パターン::03a〜03c</code> のサブデッキを使う。主・副を各1件必須とし、<code>01_標準表現</code>だけ必須、適用可能な任意候補だけ作る。</li>
+        <li>deck名を <code>SayDeck::主シチュエーション::副シチュエーション::01_標準表現〜03_表現パターン</code> にする。patternは <code>03_表現パターン::03a〜03c</code> のサブデッキを使う。主・副を各1件必須とし、<code>01_標準表現</code>だけ必須、02と03a〜03cは必ず適用判定して該当候補だけ作る。</li>
         <li>ジャンルをUI、API、AI出力、DB、Ankiタグ、LISTS filterから完全に削除する。</li>
         <li>主シチュエーションと副シチュエーションを各1件とし、<code>expression_entry_situations</code>で役割を明示して保存する。副は選んだ主の配下に限定し、主・副の組をAnki deckとtagへ投影する。</li>
         <li>INPUT生成時に登録済み主シチュエーション一覧をAIへ渡す。AIは既存主に該当すればIDを返し、該当しなければ新しい主の基底名を返す。新規主のDB登録は、ユーザーが保存を確定した時だけ行う。</li>

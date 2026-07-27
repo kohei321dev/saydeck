@@ -92,11 +92,18 @@ AI output:
   secondaryBaseLabelJa: string
   segments: Array<{
     intentJa: string
-    variants: Array<{
-      profileCode: "standard" | "native" | "pattern"
-      patternCode: "default" | "a" | "b" | "c"
+    standard: {
+      profileCode: "standard"
+      patternCode: "default"
       expressionEn: string
       translationJa: string
+    }
+    alternatives: Array<{
+      target: "native" | "pattern_a" | "pattern_b" | "pattern_c"
+      applicable: boolean
+      reasonJa: string
+      expressionEn: string | null
+      translationJa: string | null
     }>
   }>
 }
@@ -104,17 +111,22 @@ AI output:
 
 server validation:
 
+- xAI Responses APIの`text.format.type=json_schema`を使い、strictなStructured Outputsとして受け取る。
 - segmentは1〜8件。
 - 各segmentに`standard`が1件必須。
 - `standard`は必要な詳細を含み、その場で単独利用できる1発話とする。原則1文・18語以内に収め、独立した複数の内容はsegmentへ分ける。
-- `standard` / `native`は各segmentで1件まで。`pattern`はpatternCode a〜cごとに1件まで。
-- `pattern`のpatternCodeは適用可能なものだけ返し、03a〜03cの数合わせを禁止する。すべて完成英文とし、解説や語句断片を返さない。
-- 任意profileは欠けてよい。
+- alternativesは4対象を重複なく必ず評価する。`applicable=true`なら英文・和訳必須、falseなら両方nullとする。
+- `native`は各segmentで1件まで。`pattern`はpatternCode a〜cごとに1件まで。
+- `pattern`は適用可能なものだけvariantへ変換し、03a〜03cの数合わせを禁止する。すべて完成英文とし、解説や語句断片を返さない。
+- 4対象がすべてfalseのsegmentがあれば、意味単位と初回standardを固定して1回だけ再評価し、追加候補だけを初回結果へmergeする。
+- 評価理由はgeneration responseの検証用でありDBには保存しない。
 - existing primary IDは実際に渡した一覧内だけ許可する。
 - primary labelとsecondary base labelは空不可、120文字以内。
 - ExpressionとTranslationは空不可、2,000文字以内。
 
 AIの分類提案はgeneration responseとしてREVIEWへ返し、分類masterは変更しない。ユーザーのPATCH確定時だけ分類を永続化する。
+
+Grok 4.3のreasoning effortは`OWNER_AI_EFFORT`で`low`、`medium`、`high`を選べる。未設定・不正値・旧`none`値は品質下限として`medium`へ正規化する。03cはモデルの米国英語知識に基づくコロケーション判定であり、MVPでは外部コーパスを検索しない。
 
 ## 5. Store transaction
 

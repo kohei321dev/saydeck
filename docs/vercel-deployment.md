@@ -134,6 +134,7 @@ GITHUB_CLIENT_SECRET=<github-oauth-client-secret>
 GITHUB_OWNER=kohei321dev
 OWNER_AI_KEY=<owner-grok-api-key>
 OWNER_AI_MODEL=grok-4.3
+OWNER_AI_EFFORT=medium
 DATABASE_URL=<neon-postgres-connection-string>
 SAYDECK_TTS_VOICE=eve
 SAYDECK_TTS_SPEED=1.0
@@ -207,6 +208,7 @@ the INPUT page after provider authentication.
    - `DATABASE_URL`
    - `OWNER_AI_KEY`
    - `OWNER_AI_MODEL=grok-4.3`
+   - `OWNER_AI_EFFORT=medium`（`low` / `medium` / `high`）
    - `BLOB_READ_WRITE_TOKEN`
 5. Confirm the `/signin` page shows GitHub OAuth as enabled before testing provider login.
 

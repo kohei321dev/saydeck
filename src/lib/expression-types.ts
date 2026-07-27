@@ -18,6 +18,15 @@ export const expressionPatternCodes = ["a", "b", "c"] as const;
 export type ExpressionPatternCode = (typeof expressionPatternCodes)[number];
 export type VariantPatternCode = "default" | ExpressionPatternCode;
 
+/** Every optional expression target is evaluated even when no card is created. */
+export const generationAlternativeTargets = [
+  "native",
+  "pattern_a",
+  "pattern_b",
+  "pattern_c",
+] as const;
+export type GenerationAlternativeTarget = (typeof generationAlternativeTargets)[number];
+
 export type ExpressionEntryStatus =
   | "draft"
   | "generating"
@@ -153,12 +162,19 @@ export type GenerationVariant = {
   ankiGuid?: string;
 };
 
+export type GenerationAlternativeAssessment = {
+  target: GenerationAlternativeTarget;
+  applicable: boolean;
+  reasonJa: string;
+};
+
 /** A meaning unit. The position is assigned again when persisting. */
 export type GenerationSegment = {
   id?: string;
   position: number;
   intentJa: string;
   variants: GenerationVariant[];
+  assessments: GenerationAlternativeAssessment[];
 };
 
 export type GenerationResult = {
