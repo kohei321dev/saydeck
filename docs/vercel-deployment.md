@@ -134,6 +134,7 @@ GITHUB_CLIENT_SECRET=<github-oauth-client-secret>
 GITHUB_OWNER=kohei321dev
 OWNER_AI_KEY=<owner-grok-api-key>
 OWNER_AI_MODEL=grok-4.3
+OWNER_AI_EFFORT=medium
 DATABASE_URL=<neon-postgres-connection-string>
 SAYDECK_TTS_VOICE=eve
 SAYDECK_TTS_SPEED=1.0
@@ -162,6 +163,7 @@ Preview用のEnvironment Variablesは現在は管理しない。Preview deployme
    - `db/migrations/0009-refine-expression-layer-definitions.sql`
    - `db/migrations/0010-detail-expression-patterns.sql`
    - `db/migrations/0011-three-layer-expression-model.sql`
+   - `db/migrations/0012-remove-legacy-learning-tables.sql`
 4. Redeploy the Vercel project after setting `DATABASE_URL`.
 
 `0003` creates `practice_attempts` and `saved_notes`, which are required for DB-backed practice history and saved notes.
@@ -175,6 +177,8 @@ Preview用のEnvironment Variablesは現在は管理しない。Preview deployme
 `0009` is non-destructive. It updates the persisted generation-profile instructions so `basic` is constrained to one minimal, standard utterance (normally 12 words or fewer); conditions, reasons, quantities, and additional requests belong in `detail` or a separate meaning unit.
 
 `0010` adds `sentence_variants.pattern_code` for 02a〜02e detail patterns, updates the persisted names/instructions for detail and native expressions, and preserves any existing detail row as 02a.
+
+`0012` removes the retired in-app learning tables (`scene_cards`, `practice_records`, `practice_attempts`, and `saved_notes`) and deletes obsolete `basic`, `detail`, `conversation`, and `natural_alternative` generation-profile rows. It does not delete current INPUT, LISTS, audio, situation, or APKG export data.
 
 `0011` activates the approved `standard/native/pattern` three-layer model. It preserves existing rows, maps compatible legacy variants, and archives incompatible legacy variants instead of deleting them.
 
@@ -207,6 +211,7 @@ the INPUT page after provider authentication.
    - `DATABASE_URL`
    - `OWNER_AI_KEY`
    - `OWNER_AI_MODEL=grok-4.3`
+   - `OWNER_AI_EFFORT=medium`（`low` / `medium` / `high`）
    - `BLOB_READ_WRITE_TOKEN`
 5. Confirm the `/signin` page shows GitHub OAuth as enabled before testing provider login.
 

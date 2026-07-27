@@ -18,8 +18,8 @@ const defaults: Record<GenerationProfileCode, DefaultProfile> = {
     minWords: 2,
     maxWords: 22,
     maxSentences: 1,
-    requiredFeatures: ["optional", "native", "spoken", "conversational"],
-    instruction: "任意。01と同じ意図を、ネイティブ話者が会話で実際に使う省略・定型句・自然な語順で表す。01と明確な差がある場合だけ1件生成し、過度なスラングや単なる同義語置換は避ける。",
+    requiredFeatures: ["required_evaluation", "optional_card", "native", "spoken", "conversational"],
+    instruction: "適用判定は必須、カード生成は任意。01と同じ意図を、ネイティブ話者が会話で実際に使う省略・定型句・自然な語順で表す。01と明確な差がある場合だけ1件生成し、過度なスラングや単なる同義語置換は避ける。",
   },
   pattern: {
     code: "pattern",
@@ -27,8 +27,8 @@ const defaults: Record<GenerationProfileCode, DefaultProfile> = {
     minWords: 2,
     maxWords: 22,
     maxSentences: 1,
-    requiredFeatures: ["optional", "learning_pattern", "complete_utterance"],
-    instruction: "任意。01を土台に、学習価値のある文法展開・熟語や句動詞・コロケーションを使った完成英文を生成する。適用可能なpatternだけ最大3件とし、文法解説や単語断片だけのカードは作らない。",
+    requiredFeatures: ["required_evaluation", "optional_card", "learning_pattern", "complete_utterance"],
+    instruction: "03a〜03cの適用判定は必須、カード生成は任意。01を土台に、学習価値のある文法展開・熟語や句動詞・コロケーションを使った完成英文を生成する。適用可能なpatternだけ最大3件とし、文法解説や単語断片だけのカードは作らない。",
   },
 };
 
@@ -67,7 +67,7 @@ export const expressionPatternDefinitions: Array<{
 }> = [
   { code: "a", label: "03a_文法展開", instruction: "助動詞・時制・否定・疑問など別の文法構造で意図を表す" },
   { code: "b", label: "03b_熟語・句動詞", instruction: "自然な熟語・句動詞を使った完成英文にする" },
-  { code: "c", label: "03c_コロケーション", instruction: "コーパス上一般的な語の組み合わせを使った完成英文にする" },
+  { code: "c", label: "03c_コロケーション", instruction: "自然な米国英語で一般的な語の組み合わせを使った完成英文にする" },
 ];
 
 export function expressionPatternDisplayName(code: Exclude<VariantPatternCode, "default">): string {

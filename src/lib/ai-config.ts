@@ -1,11 +1,17 @@
 export type OwnerAiConfig = {
   apiKey: string;
   model: "grok-4.3";
-  reasoningEffort: "none";
+  reasoningEffort: "low" | "medium" | "high";
 };
 
 const defaultOwnerModel = "grok-4.3";
 const allowedOwnerModels = new Set(["grok-4.3"]);
+const defaultReasoningEffort: OwnerAiConfig["reasoningEffort"] = "medium";
+const allowedReasoningEfforts = new Set<OwnerAiConfig["reasoningEffort"]>([
+  "low",
+  "medium",
+  "high",
+]);
 
 export class MissingAiApiKeyError extends Error {
   constructor(provider: "owner") {
@@ -24,6 +30,7 @@ export class AiModelNotAllowedError extends Error {
 export function getOwnerAiConfig(): OwnerAiConfig {
   const apiKey = process.env.OWNER_AI_KEY?.trim();
   const model = process.env.OWNER_AI_MODEL?.trim() || defaultOwnerModel;
+  const configuredEffort = process.env.OWNER_AI_EFFORT?.trim();
 
   if (!apiKey) {
     throw new MissingAiApiKeyError("owner");
@@ -36,7 +43,11 @@ export function getOwnerAiConfig(): OwnerAiConfig {
   return {
     apiKey,
     model: defaultOwnerModel,
-    reasoningEffort: "none",
+    reasoningEffort: allowedReasoningEfforts.has(
+      configuredEffort as OwnerAiConfig["reasoningEffort"],
+    )
+      ? configuredEffort as OwnerAiConfig["reasoningEffort"]
+      : defaultReasoningEffort,
   };
 }
 
