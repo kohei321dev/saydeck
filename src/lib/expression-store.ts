@@ -37,10 +37,10 @@ export class ExpressionSelectionError extends Error {
   }
 }
 
-export class ExpressionBasicVariantRequiredError extends Error {
+export class ExpressionStandardVariantRequiredError extends Error {
   constructor() {
-    super("Every meaning unit must keep its basic expression selected.");
-    this.name = "ExpressionBasicVariantRequiredError";
+    super("Every meaning unit must keep its standard expression selected.");
+    this.name = "ExpressionStandardVariantRequiredError";
   }
 }
 
@@ -208,15 +208,15 @@ export async function listGenerationProfiles(ownerLogin: string): Promise<Genera
       required_features, instruction, created_at, updated_at
     from generation_profiles
     where owner_login = ${ownerLogin}
+      and code in ('standard', 'native', 'pattern')
     order by case code
-      when 'basic' then 1
-      when 'detail' then 2
-      when 'conversation' then 3
-      else 4
+      when 'standard' then 1
+      when 'native' then 2
+      else 3
     end
   `;
 
-  if (rows.length === 4) return rows.map(toGenerationProfile);
+  if (rows.length === 3) return rows.map(toGenerationProfile);
 
   const defaults = defaultGenerationProfiles(ownerLogin);
   await sql.begin(async (transaction) => {
@@ -246,14 +246,14 @@ export async function listGenerationProfiles(ownerLogin: string): Promise<Genera
       required_features, instruction, created_at, updated_at
     from generation_profiles
     where owner_login = ${ownerLogin}
+      and code in ('standard', 'native', 'pattern')
     order by case code
-      when 'basic' then 1
-      when 'detail' then 2
-      when 'conversation' then 3
-      else 4
+      when 'standard' then 1
+      when 'native' then 2
+      else 3
     end
   `;
-  return seeded.length === 4 ? seeded.map(toGenerationProfile) : defaults;
+  return seeded.length === 3 ? seeded.map(toGenerationProfile) : defaults;
 }
 
 export async function listSituationDefinitions(
@@ -486,13 +486,13 @@ export async function approveExpressionEntry(input: {
 
     const selectedSet = new Set(selectedValidIds);
     const cardIds = Array.from(new Set(validRows.map((row) => row.sentence_card_id)));
-    const everyCardHasBasic = cardIds.every((cardId) => validRows.some(
+    const everyCardHasStandard = cardIds.every((cardId) => validRows.some(
       (row) => row.sentence_card_id === cardId
-        && row.profile_code === "basic"
+        && row.profile_code === "standard"
         && selectedSet.has(row.id),
     ));
-    if (!everyCardHasBasic) {
-      throw new ExpressionBasicVariantRequiredError();
+    if (!everyCardHasStandard) {
+      throw new ExpressionStandardVariantRequiredError();
     }
 
     const validRowsById = new Map(validRows.map((row) => [row.id, row]));
@@ -866,11 +866,11 @@ async function readDetails(
         from sentence_variants
         where owner_login = ${ownerLogin}
           and sentence_card_id = any(${sql.array(cardIds)})
+          and status <> 'archived'
         order by case profile_code
-          when 'basic' then 1
-          when 'detail' then 2
-          when 'conversation' then 3
-          else 4
+          when 'standard' then 1
+          when 'native' then 2
+          else 3
         end, pattern_code asc, id asc
       `
     : [];

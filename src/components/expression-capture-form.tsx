@@ -214,7 +214,7 @@ export function ExpressionCaptureForm({
   }
 
   function toggleVariant(variant: SentenceVariant) {
-    if (variant.profileCode === "basic") return;
+    if (variant.profileCode === "standard") return;
     setSelectedVariantIds((current) => {
       const next = new Set(current);
       if (next.has(variant.id)) next.delete(variant.id);
@@ -361,7 +361,7 @@ export function ExpressionCaptureForm({
               </div>
               <div className="capture-variants">
                 {(card.variants ?? []).map((variant) => {
-                  const isBasic = variant.profileCode === "basic";
+                  const isStandard = variant.profileCode === "standard";
                   return (
                     <label
                       className={
@@ -374,7 +374,7 @@ export function ExpressionCaptureForm({
                       <input
                         aria-label={`${variantDisplayName(variant.profileCode, variant.patternCode)}をカードへ追加する`}
                         checked={selectedVariantIds.has(variant.id)}
-                        disabled={isBasic}
+                        disabled={isStandard}
                         onChange={() => toggleVariant(variant)}
                         type="checkbox"
                       />
@@ -384,7 +384,7 @@ export function ExpressionCaptureForm({
                       <span className="capture-variant-copy">
                         <strong lang="en">{variant.expressionEn}</strong>
                         <span>{variant.translationJa}</span>
-                        {isBasic ? <small>必須</small> : <small>任意</small>}
+                        {isStandard ? <small>必須</small> : <small>任意</small>}
                       </span>
                     </label>
                   );
@@ -393,7 +393,7 @@ export function ExpressionCaptureForm({
             </article>
           ))}
           <p className="field-hint">
-            01_基本表現は必須です。02〜04は実用上の差があるとAIが判断した場合だけ表示されます。
+            01_標準表現は必須です。02と03は実用上の差があるとAIが判断した場合だけ表示されます。
           </p>
           <div className="capture-review-actions">
             <button

@@ -17,12 +17,13 @@
 3. AIへ登録済み主一覧を渡し、既存IDまたは新規主名を提案させる。分類作成は人間の保存確定時だけ行う。
 4. 副の完全重複には選択主の配下で`-001`以降を付け、新規分類として保存する。
 5. 主分類ごとに入力連番を採番し、意味単位位置と合わせて`001-01`形式で表示する。
-6. L1〜L4を`basic/detail/conversation/natural_alternative`へ置き換える。basicだけ必須で、他は差がある場合だけ生成する。basicは難易度の最下層ではなく、1文・原則12語以内・発話行為1つの最小・標準表現とする。detailは02a〜02eの文法・語句パターンを適用可能な場合だけ複数生成し、conversationは口語性、natural_alternativeはネイティブ表現を表す。
+6. 表現レイヤーを`standard/native/pattern`の3つにする。standardだけ必須で、1文・原則18語以内の、その場で使える標準表現とする。nativeはネイティブ・口語表現、patternは03a文法展開、03b熟語・句動詞、03cコロケーションの完成英文を表す。任意レイヤーは差がある場合だけ生成する。
 7. variant本文をExpressionとTranslationへ単純化し、基本ワードと例文を分離しない。
 8. variantごとにExpressionを読むen-US音声を1件だけ持つ。
 9. Anki note typeを`SayDeck`、fieldを`Index/Context/Expression/Translation/expression_audio`の5件にする。
 10. Deckを`SayDeck::主::副::表現レイヤー`とし、ContextをFront/Backへ表示する。音声はFrontだけに置く。
 11. 既存SayDeck expressionデータを保持せず、破壊的migrationで旧契約を物理削除する。
+12. 4層から3層への後続migrationでは、互換性のある旧variantだけを移し、意味が変わる候補は削除せずarchivedとして保持する。
 
 ## Options considered
 
@@ -34,9 +35,9 @@
 
 却下。Ankiのdeckトグルから「何を復習するか」を認識しやすくするため、主と副の両方をdeckへ含める。
 
-### L1〜L4を常に4件生成
+### 固定数の表現を常に生成
 
-却下。難易度差がない入力でも類似文が増える。semantic layerとし、basic以外は任意にする。
+却下。差がない入力でも類似文が増える。semantic layerとし、standard以外は任意にする。
 
 ### 旧8フィールドnoteを維持
 

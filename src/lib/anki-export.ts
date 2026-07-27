@@ -128,10 +128,9 @@ export async function getAnkiExportRecords(
       and (${to ? sql`e.registered_at < ${to}` : sql`true`})
     order by e.registered_at asc, c.position asc,
       case v.profile_code
-        when 'basic' then 1
-        when 'detail' then 2
-        when 'conversation' then 3
-        else 4
+        when 'standard' then 1
+        when 'native' then 2
+        else 3
       end,
       v.pattern_code asc,
       v.anki_guid asc
@@ -190,7 +189,7 @@ function rowToRecord(row: ExportRow): AnkiExportRecord {
   const safeId = row.variant_id.replace(/[^A-Za-z0-9_-]/g, "_");
   const layerLabel = profileDisplayName(row.profile_code);
   const variantLabel = variantDisplayName(row.profile_code, row.pattern_code);
-  const detailPatternLabel = row.profile_code === "detail" && row.pattern_code !== "default"
+  const expressionPatternLabel = row.profile_code === "pattern" && row.pattern_code !== "default"
     ? variantLabel
     : null;
   const context = [
@@ -209,7 +208,7 @@ function rowToRecord(row: ExportRow): AnkiExportRecord {
       safeDeckSegment(row.primary_label_ja),
       safeDeckSegment(row.secondary_label_ja),
       layerLabel,
-      ...(detailPatternLabel ? [detailPatternLabel] : []),
+      ...(expressionPatternLabel ? [expressionPatternLabel] : []),
     ].join("::"),
     fields: [
       row.anki_index,
@@ -223,7 +222,7 @@ function rowToRecord(row: ExportRow): AnkiExportRecord {
       `primary_situation::${safeTag(row.primary_canonical_key)}`,
       `secondary_situation::${safeTag(row.primary_canonical_key)}::${safeTag(row.secondary_canonical_key)}`,
       `layer::${row.profile_code}`,
-      ...(detailPatternLabel ? [`detail_pattern::${row.pattern_code}`] : []),
+      ...(expressionPatternLabel ? [`expression_pattern::${row.pattern_code}`] : []),
     ],
     media,
   };

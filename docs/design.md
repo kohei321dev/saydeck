@@ -47,7 +47,7 @@ Next.js App RouterのServer Componentsが初期データを読み、対話部分
 
 | Table | Responsibility | Important constraints |
 | --- | --- | --- |
-| `generation_profiles` | semantic expression layer rules | codeは`basic/detail/conversation/natural_alternative`。`basic`は1文・原則12語以内・発話行為1つ。`detail`は02a〜02eのpatternを使う |
+| `generation_profiles` | semantic expression layer rules | codeは`standard/native/pattern`。`standard`は1文・原則18語以内・発話行為1つ。`pattern`は03a〜03cを使う |
 | `expression_entries` | 日本語入力と登録状態 | registered時に`situation_sequence`必須 |
 | `sentence_cards` | 入力を分けた意味単位 | owner・entry・position unique |
 | `sentence_variants` | 意味単位ごとの英文・和訳 | card・profile・pattern unique、GUID unique、owner・Index unique |
@@ -69,7 +69,7 @@ Next.js App RouterのServer Componentsが初期データを読み、対話部分
 ### Variant identity
 
 - `anki_guid`: variant作成時に一度生成するAnki note GUID。
-- `anki_index`: 登録時に`primary canonical key + situation sequence + meaning position + layer ordinal + detail pattern ordinal`から作り、以後変更しない。
+- `anki_index`: 登録時に`primary canonical key + situation sequence + meaning position + layer ordinal + expression pattern ordinal`から作り、以後変更しない。
 - 画面上の短い番号は`situation_sequence`と`sentence_cards.position`から`001-01`のように表示する。
 - AIはGUID、Index、suffix、sequenceを生成しない。
 
@@ -93,8 +93,8 @@ AI output:
   segments: Array<{
     intentJa: string
     variants: Array<{
-      profileCode: "basic" | "detail" | "conversation" | "natural_alternative"
-      patternCode: "default" | "a" | "b" | "c" | "d" | "e"
+      profileCode: "standard" | "native" | "pattern"
+      patternCode: "default" | "a" | "b" | "c"
       expressionEn: string
       translationJa: string
     }>
@@ -105,11 +105,10 @@ AI output:
 server validation:
 
 - segmentは1〜8件。
-- 各segmentに`basic`が1件必須。
-- `basic`は難易度順の最下層ではなく、最小・標準・単独で使える1発話とする。条件・仮定・理由・時刻や数量・追加依頼・間接依頼を含めず、原則1文・12語以内に収める。
-- それらの情報が必要な場合は、独立して復習できる意味単位へ分けるか、任意の`detail`へ置く。`conversation`は口語性のレイヤーであり、`basic`より短い、または易しい場合がある。
-- `basic` / `conversation` / `natural_alternative`は各segmentで1件まで。`detail`はpatternCode a〜eごとに1件まで。
-- `detail`のpatternCodeは適用可能なものだけ返し、02a〜02eの数合わせは禁止。
+- 各segmentに`standard`が1件必須。
+- `standard`は必要な詳細を含み、その場で単独利用できる1発話とする。原則1文・18語以内に収め、独立した複数の内容はsegmentへ分ける。
+- `standard` / `native`は各segmentで1件まで。`pattern`はpatternCode a〜cごとに1件まで。
+- `pattern`のpatternCodeは適用可能なものだけ返し、03a〜03cの数合わせを禁止する。すべて完成英文とし、解説や語句断片を返さない。
 - 任意profileは欠けてよい。
 - existing primary IDは実際に渡した一覧内だけ許可する。
 - primary labelとsecondary base labelは空不可、120文字以内。
@@ -123,7 +122,7 @@ AIの分類提案はgeneration responseとしてREVIEWへ返し、分類master�
 
 1. entryを`for update`でlockする。
 2. selected variantがentryに属することを検証する。
-3. 各意味単位の`basic`選択を検証する。
+3. 各意味単位の`standard`選択を検証する。
 4. 英文・和訳の修正を保存し、英文変更時は音声をstaleにする。
 5. 既存主を検証または新規主を作成する。
 6. 副を作成し、完全一致なら3桁suffixを採番する。
@@ -172,6 +171,7 @@ source::saydeck
 primary_situation::<primary canonical key>
 secondary_situation::<primary canonical key>::<secondary canonical key>
 layer::<profile code>
+expression_pattern::<a-c>  (patternのみ)
 ```
 
 詳細は`docs/specifications/anki-export.md`を正本とする。
@@ -183,7 +183,7 @@ layer::<profile code>
 - AI/TTS未設定: `503`
 - AI/TTS quota: `429`
 - invalid AI structure: `502`
-- classification/basic不足: `400`
+- classification/standard不足: `400`
 - audio未準備: `409`またはexport準備失敗
 - storage未設定: Productionでは`503`
 
@@ -191,7 +191,7 @@ layer::<profile code>
 
 ## 9. Migration and compatibility
 
-`0008-situation-first-expression-contract.sql`はSayDeck expression domainをtruncateし、旧分類列、L1〜L4、旧カード本文列、2音声構造を置き換える。`0009-refine-expression-layer-definitions.sql`は既存の`generation_profiles`を、basicが1文・原則12語以内となる定義へ更新するだけで、保存済みvariantは書き換えない。新アプリとmigrationは同じrelease単位で切り替える。
+`0008-situation-first-expression-contract.sql`はSayDeck expression domainをtruncateし、旧分類列、L1〜L4、旧カード本文列、2音声構造を置き換える。`0010-detail-expression-patterns.sql`でpattern_codeを追加し、`0011-three-layer-expression-model.sql`で現行のstandard/native/patternへ移行する。0011は互換性のある旧variantを移し、意味が変わる旧variantを削除せずarchivedにする。新アプリとmigrationは同じrelease単位で切り替える。
 
 旧practice系tableとmigrationは保持するが、現行UI・API・exportから参照しない。旧Anki note typeとの互換投影は行わない。
 

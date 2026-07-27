@@ -216,8 +216,8 @@
         </article>
         <article class="tile">
           <span class="label">EXPRESSION LAYERS</span>
-          <strong>01_基本表現のみ必須、02〜04は任意</strong>
-          <p><code>01_基本表現</code>は必ず1つ作る。難易度の最下層ではなく、1文・原則12語以内・発話行為1つで最小限を標準的に伝える表現とする。<code>02_詳細表現</code>は02a〜02eの適用可能な文法・語句パターンだけを生成し、単なる長文化や水増しはしない。<code>03_会話表現</code>は口語性、<code>04_ネイティブ表現</code>はネイティブ話者の自然な定型句・省略・別構文を扱う。</p>
+          <strong>01_標準表現のみ必須、02・03は任意</strong>
+          <p><code>01_標準表現</code>は必ず1つ作り、1文・原則18語以内で必要な詳細を含む、その場で使える表現とする。<code>02_ネイティブ・口語表現</code>は01と明確な差がある場合だけ生成する。<code>03_表現パターン</code>は03a文法展開、03b熟語・句動詞、03cコロケーションのうち適用可能な完成英文だけを生成し、語句断片や類似文を水増ししない。</p>
         </article>
       </div>
       <p class="notice"><strong>設計上の前提:</strong> 主シチュエーションの命名はdeck名になるため、AI任せの自由な表記揺れは許容しません。生成前に、そのownerの登録済み主シチュエーション一覧（ID・表示名・安定キー）をAIへ渡します。AIは入力の意図が既存の主に該当するかを判定し、該当すればそのIDを返す。該当しなければ新しい主シチュエーション名を返し、ユーザーの保存確定時にDBへ新規作成します。</p>
@@ -231,13 +231,15 @@
       <div class="deck" aria-label="Anki deck hierarchy example">SayDeck
 └── 友人への返信                    ← 主シチュエーション
     └── 久しぶりの連絡              ← 副シチュエーション
-        ├── 01_基本表現 (必須)       ← profile_code='basic'
-        ├── 02_詳細表現 (任意、02a〜02e) ← profile_code='detail' + pattern_code
-        ├── 03_会話表現 (任意)       ← profile_code='conversation'
-        └── 04_ネイティブ表現 (任意) ← profile_code='natural_alternative'
+        ├── 01_標準表現 (必須)       ← profile_code='standard'
+        ├── 02_ネイティブ・口語表現 (任意) ← profile_code='native'
+        └── 03_表現パターン (任意)   ← profile_code='pattern'
+            ├── 03a_文法展開
+            ├── 03b_熟語・句動詞
+            └── 03c_コロケーション
 
-例: SayDeck::友人への返信::久しぶりの連絡::01_基本表現</div>
-      <p class="notice"><strong>deck投影の規則:</strong> 主と副の組を、1カードにつき1つだけ確定する。副シチュエーションもdeck階層に必ず含め、detailのときだけ02a〜02eのパターンサブデッキを追加する。Anki tagにも同じ分類を投影する。</p>
+例: SayDeck::友人への返信::久しぶりの連絡::01_標準表現</div>
+      <p class="notice"><strong>deck投影の規則:</strong> 主と副の組を、1カードにつき1つだけ確定する。副シチュエーションもdeck階層に必ず含め、patternのときだけ03a〜03cのサブデッキを追加する。Anki tagにも同じ分類を投影する。</p>
       <div class="entity-grid" style="margin-top: 16px">
         <article class="tile">
           <strong>ノートタイプ</strong>
@@ -247,7 +249,7 @@
           <strong>Anki tags（同じカードの例）</strong>
           <p><strong>主:</strong> 友人への返信<br><span class="tag">primary_situation::friend-reply</span></p>
           <p><strong>副:</strong> 久しぶりの連絡<br><span class="tag">secondary_situation::friend-reply::reconnect-after-silence</span></p>
-          <p><span class="tag">source::saydeck</span><span class="tag">layer::detail</span></p>
+          <p><span class="tag">source::saydeck</span><span class="tag">layer::pattern</span><span class="tag">expression_pattern::c</span></p>
           <p class="muted">ジャンルタグは出力しない。主・副シチュエーションの両方をdeckとtagへ投影する。</p>
         </article>
       </div>
@@ -264,7 +266,7 @@
         <div class="arrow" aria-hidden="true">1 ──&lt;</div>
         <article class="entity"><h3>sentence_cards</h3><p>入力を分割した意味単位</p></article>
         <div class="arrow" aria-hidden="true">1 ──&lt;</div>
-        <article class="entity"><h3>sentence_variants</h3><p>意味単位ごとの01_基本表現（必須）と任意レイヤー</p></article>
+        <article class="entity"><h3>sentence_variants</h3><p>意味単位ごとの01_標準表現（必須）と任意レイヤー</p></article>
         <div class="arrow" aria-hidden="true">1 ──&lt;</div>
         <article class="entity"><h3>audio_assets</h3><p>Expressionのen-US音声</p></article>
       </div>
@@ -346,7 +348,7 @@
         </article>
         <article class="tile">
           <h3>D. <code>generation_profiles</code> — 維持</h3>
-          <p><code>owner_login</code>、<code>code</code>（<code>basic</code> / <code>detail</code> / <code>conversation</code> / <code>natural_alternative</code>）、語数・文数制約、instruction。難易度ではなく表現レイヤーの定義として使う。<code>basic</code>は1文・原則12語以内・発話行為1つ、条件・理由・数量・追加依頼を含めない。<code>detail</code>はそれらの具体情報を担い、<code>conversation</code>は短い口語表現も許容する。<code>basic</code>のみ必須、残りは任意。</p>
+          <p><code>owner_login</code>、<code>code</code>（<code>standard</code> / <code>native</code> / <code>pattern</code>）、語数・文数制約、instruction。<code>standard</code>は1文・原則18語以内で必要な詳細を含む。<code>native</code>はネイティブ・口語表現、<code>pattern</code>は03a〜03cの学習用完成英文を扱う。<code>standard</code>のみ必須、残りは任意。</p>
         </article>
         <article class="tile">
           <h3>E. <code>sentence_cards</code> — 維持</h3>
@@ -354,7 +356,7 @@
         </article>
         <article class="tile">
           <h3>F. <code>sentence_variants</code> — 維持</h3>
-          <p><code>sentence_card_id</code>、<code>profile_code</code>、<code>pattern_code</code>、実際に言う英文、和訳、Anki ID、選択状態。意味単位ごとに<code>basic</code>を必ず1行作り、detailは適用可能なpatternだけ複数作る。基本ワードと例文は分けない。</p>
+          <p><code>sentence_card_id</code>、<code>profile_code</code>、<code>pattern_code</code>、実際に言う英文、和訳、Anki ID、選択状態。意味単位ごとに<code>standard</code>を必ず1行作り、patternは適用可能な03a〜03cだけ複数作る。基本ワードと例文は分けない。</p>
         </article>
         <article class="tile">
           <h3>G. <code>audio_assets</code> — 維持</h3>
@@ -397,13 +399,13 @@
           <p class="columns">INSERT expression_entries<br>input_ja, status='draft'<br>（主を先行指定した場合だけ対応表へ仮保存）</p>
         </article>
         <article class="flow-card">
-          <p class="card-title"><span class="step">2</span>AI: 01_基本表現と必要な任意表現を生成</p>
-          <p>APIは登録済み主シチュエーション一覧をAIへ渡す。AIは意味単位、必須の<code>basic</code>、学習価値がある場合だけ<code>detail</code> / <code>conversation</code> / <code>natural_alternative</code>、既存主のIDまたは新規主の基底名、副の基底名を構造化して返す。<code>basic</code>に条件文や複数の依頼を詰め込まず、独立して復習できる意味単位または<code>detail</code>へ振り分ける。分類候補はREVIEWの一時状態で保持し、この時点では分類マスタを変更しない。</p>
-          <p class="columns">SELECT active primary situations → AI<br>INSERT sentence_cards<br>INSERT sentence_variants × basic（必須）+ 任意の表現レイヤー</p>
+          <p class="card-title"><span class="step">2</span>AI: 01_標準表現と必要な任意表現を生成</p>
+          <p>APIは登録済み主シチュエーション一覧をAIへ渡す。AIは意味単位、必須の<code>standard</code>、学習価値がある場合だけ<code>native</code> / <code>pattern</code>、既存主のIDまたは新規主の基底名、副の基底名を構造化して返す。複数の独立した発話は意味単位へ分け、patternは必ず完成英文にする。分類候補はREVIEWの一時状態で保持し、この時点では分類マスタを変更しない。</p>
+          <p class="columns">SELECT active primary situations → AI<br>INSERT sentence_cards<br>INSERT sentence_variants × standard（必須）+ 任意の表現レイヤー</p>
         </article>
         <article class="flow-card">
           <p class="card-title"><span class="step">3</span>REVIEW: 分類と候補を確定</p>
-          <p>ユーザーは英文候補、主シチュエーション1つ、副シチュエーション1つを確認する。既存主なら再利用し、新規主ならここで作成する。副の完全一致は保存transactionで<code>-001</code>以降を付ける。<code>01_基本表現</code>を必ず選び、主シチュエーション内の入力番号を採番する案もここで実行する。</p>
+          <p>ユーザーは英文候補、主シチュエーション1つ、副シチュエーション1つを確認する。既存主なら再利用し、新規主ならここで作成する。副の完全一致は保存transactionで<code>-001</code>以降を付ける。<code>01_標準表現</code>を必ず選び、主シチュエーション内の入力番号を採番する。</p>
           <p class="columns">UPSERT situation_definitions<br>UPSERT expression_entry_situations（ユーザー確定）<br>UPDATE situation_sequence, status='registered', registered_at<br>UPDATE sentence_variants.is_selected/status</p>
         </article>
         <article class="flow-card">
@@ -431,9 +433,9 @@
         <div class="head" role="columnheader">UI操作</div><div class="head" role="columnheader">API / 処理</div><div class="head" role="columnheader">DB処理</div><div class="head" role="columnheader">作成・更新される主なカラム</div>
 
         <div class="op">INPUT<br>入力開始</div><div>ブラウザlocalStorageへ一時退避</div><div>なし</div><div>DB未更新。<code>inputJa</code>と選択中の主シチュエーションだけを端末に保持</div>
-        <div class="op">INPUT<br>英文候補を作る</div><div><code>POST /api/expressions</code> → <code>POST /:id/generate</code></div><div>登録済み主シチュエーション一覧をAIへ渡し、親entryと英文候補をtransactionで保存。分類候補はREVIEWの一時状態にだけ保持</div><div><code>SELECT situation_definitions</code>（active primary）<br><code>expression_entries.id/input_ja/status</code><br><code>sentence_cards.*</code><br><code>sentence_variants.*</code>（各意味単位×basic必須、他は任意）</div>
+        <div class="op">INPUT<br>英文候補を作る</div><div><code>POST /api/expressions</code> → <code>POST /:id/generate</code></div><div>登録済み主シチュエーション一覧をAIへ渡し、親entryと英文候補をtransactionで保存。分類候補はREVIEWの一時状態にだけ保持</div><div><code>SELECT situation_definitions</code>（active primary）<br><code>expression_entries.id/input_ja/status</code><br><code>sentence_cards.*</code><br><code>sentence_variants.*</code>（各意味単位×standard必須、他は任意）</div>
         <div class="op">REVIEW<br>主・副分類を確認</div><div>AIの既存主ID／新規主名と副の基底名を表示。ユーザーが必要なら変更</div><div>DB未更新。主1件・副1件になることを画面で検証</div><div>例: 主=<code>友人への返信</code><br>副基底名=<code>久しぶりの連絡</code></div>
-        <div class="op">REVIEW<br>カードを保存</div><div><code>PATCH /api/expressions/:id</code></div><div><code>01_基本表現</code>の選択を検証。主を再利用または新規作成し、副の完全一致には<code>-001</code>以降を採番して対応表へ保存。主シチュエーションごとの連番を採番してentryを登録状態にする</div><div><code>situation_definitions.*</code><br><code>expression_entry_situations.*</code><br><code>expression_entries.situation_sequence</code><br><code>status='registered'</code> / <code>registered_at</code><br><code>sentence_variants.is_selected/status</code></div>
+        <div class="op">REVIEW<br>カードを保存</div><div><code>PATCH /api/expressions/:id</code></div><div><code>01_標準表現</code>の選択を検証。主を再利用または新規作成し、副の完全一致には<code>-001</code>以降を採番して対応表へ保存。主シチュエーションごとの連番を採番してentryを登録状態にする</div><div><code>situation_definitions.*</code><br><code>expression_entry_situations.*</code><br><code>expression_entries.situation_sequence</code><br><code>status='registered'</code> / <code>registered_at</code><br><code>sentence_variants.is_selected/status</code></div>
         <div class="op">LISTS<br>絞り込む</div><div>GET済みデータのfilter（将来はserver filterへ移行可能）</div><div>対応表と分類マスタをJOINしてSELECT</div><div><code>primary_situation</code>、<code>secondary_situations</code>、<code>profile_code</code>、<code>registered_at</code>、<code>updated_at</code>、<code>input_ja</code></div>
         <div class="op">LISTS<br>表現を編集</div><div><code>PATCH /api/expressions/:id</code></div><div>Expressionまたは和訳を更新し、対応音声をstaleにする</div><div><code>expression_en / translation_ja</code><br><code>audio_assets.status='stale'</code></div>
         <div class="op">LISTS<br>削除</div><div><code>DELETE /api/expressions/:id</code></div><div>論理削除。子データは保全</div><div><code>expression_entries.status='archived'</code></div>
@@ -451,7 +453,7 @@
           <header>
             <span>主シチュエーション</span><strong>友人への返信</strong>
             <span>副シチュエーション</span><strong>久しぶりの連絡</strong>
-            <span>表現レイヤー</span><strong>01_基本表現</strong>
+            <span>表現レイヤー</span><strong>01_標準表現</strong>
           </header>
           <div class="face-body">
             <p class="eyebrow" style="color: var(--teal)">FRONT / ENGLISH</p>
@@ -464,7 +466,7 @@
           <header>
             <span>主シチュエーション</span><strong>友人への返信</strong>
             <span>副シチュエーション</span><strong>久しぶりの連絡</strong>
-            <span>表現レイヤー</span><strong>01_基本表現</strong>
+            <span>表現レイヤー</span><strong>01_標準表現</strong>
           </header>
           <div class="face-body">
             <p class="eyebrow" style="color: var(--teal)">BACK / JAPANESE</p>
@@ -473,7 +475,7 @@
           <footer>裏面: 日本語訳のみ（音声なし）</footer>
         </article>
       </div>
-      <p class="notice"><strong>Ankiノートの表示用フィールド:</strong> 現行の4フィールドへ、文脈を表示する<code>Context</code>を1つ追加する。値はexport時に <code>主: 友人への返信 / 副: 久しぶりの連絡 / 表現: 01_基本表現</code> のように組み立て、表・裏の共通ヘッダーとして使う。DBに同じ文字列を重複保存しない。</p>
+      <p class="notice"><strong>Ankiノートの表示用フィールド:</strong> 現行の4フィールドへ、文脈を表示する<code>Context</code>を1つ追加する。値はexport時に <code>主: 友人への返信 / 副: 久しぶりの連絡 / 表現: 01_標準表現</code> のように組み立て、表・裏の共通ヘッダーとして使う。DBに同じ文字列を重複保存しない。</p>
     </section>
 
     <section class="panel">
@@ -508,24 +510,24 @@
       <div class="fixture-grid">
         <article class="fixture">
           <span class="fixture-id">FIXTURE 001</span>
-          <h3>短い入力 / 01_基本表現のみ</h3>
+          <h3>短い入力 / 01_標準表現のみ</h3>
           <p><strong>言いたいこと:</strong><br>「今日は予定があるので行けない。また別の日にしよう。」</p>
           <p><strong>主シチュエーション:</strong> 約束・予定調整<br><strong>副シチュエーション:</strong> 予定を断る・変更する</p>
-          <p class="expected">期待する意味単位<br>001-01<br><br>必須: 01_基本表現<br>不要: 02 / 03 / 04</p>
+          <p class="expected">期待する意味単位<br>001-01<br><br>必須: 01_標準表現<br>02 / 03は差がなければ不要</p>
         </article>
         <article class="fixture">
           <span class="fixture-id">FIXTURE 002</span>
           <h3>長い入力 / 3つの意味単位</h3>
           <p><strong>言いたいこと:</strong><br>「仕事が長引いていて、待ち合わせに30分ほど遅れそうです。先に始めていてください。着いたらすぐ連絡します。」</p>
           <p><strong>主シチュエーション:</strong> 約束・予定調整<br><strong>副シチュエーション:</strong> 遅刻・欠席の連絡</p>
-          <p class="expected">期待する意味単位<br>002-01 / 002-02 / 002-03<br><br>各意味単位に01_基本表現必須<br>02〜04は差がなければ生成しない</p>
+          <p class="expected">期待する意味単位<br>002-01 / 002-02 / 002-03<br><br>各意味単位に01_標準表現必須<br>02 / 03は差がなければ生成しない</p>
         </article>
         <article class="fixture">
           <span class="fixture-id">FIXTURE 003</span>
-          <h3>会話的な言い換えを許可</h3>
+          <h3>ネイティブ表現と学習パターンを確認</h3>
           <p><strong>言いたいこと:</strong><br>「来週末なら時間が取れそうなんだけど、土曜と日曜のどちらが都合いい？」</p>
           <p><strong>主シチュエーション:</strong> 約束・予定調整<br><strong>副シチュエーション:</strong> 日程を決める</p>
-          <p class="expected">期待する意味単位<br>003-01<br><br>必須: 01_基本表現<br>任意: 03_会話表現（会話として明確に別の言い方がある場合のみ）</p>
+          <p class="expected">期待する意味単位<br>003-01<br><br>必須: 01_標準表現<br>任意: 02_ネイティブ・口語表現 / 03a〜03c（明確な差がある場合のみ）</p>
         </article>
       </div>
 
@@ -534,9 +536,9 @@
         <table class="schema-table">
           <thead><tr><th>手順</th><th>画面で確認すること</th><th>DBで確認すること</th><th>Anki exportで確認すること</th></tr></thead>
           <tbody>
-            <tr><td data-label="手順">1. Fixture 001を保存</td><td data-label="画面で確認すること">01_基本表現は必ず表示される。主「約束・予定調整」と副「予定を断る・変更する」が確認できる。</td><td data-label="DBで確認すること"><code>situation_sequence=1</code>、<code>position=0</code>、主1件・副1件の対応行、<code>basic</code> variantが1件。</td><td data-label="Anki exportで確認すること"><code>SayDeck::約束・予定調整::予定を断る・変更する::01_基本表現</code> に <code>001-01</code> が入る。</td></tr>
-            <tr><td data-label="手順">2. Fixture 002を保存</td><td data-label="画面で確認すること">同じ主シチュエーションのまま、副「遅刻・欠席の連絡」と3つの意味単位が順番に表示される。</td><td data-label="DBで確認すること"><code>situation_sequence=2</code>、<code>position=0/1/2</code>、主1件・副1件、<code>basic</code> variantが3件。</td><td data-label="Anki exportで確認すること"><code>SayDeck::約束・予定調整::遅刻・欠席の連絡::01_基本表現</code> に <code>002-01</code>、<code>002-02</code>、<code>002-03</code> が追加される。</td></tr>
-            <tr><td data-label="手順">3. Fixture 003を保存</td><td data-label="画面で確認すること">01_基本表現を必ず確認。適用できるdetail pattern（02a〜02e）と、会話・ネイティブ表現が意味のある場合だけ候補表示する。</td><td data-label="DBで確認すること"><code>situation_sequence=3</code>、<code>basic</code>必須。detailはpattern_codeごとに最大1件。</td><td data-label="Anki exportで確認すること">detailがあれば <code>...::02_詳細表現::02a_形容詞・補語</code> のようにパターンサブデッキが作られる。適用できない空deckは作られない。</td></tr>
+            <tr><td data-label="手順">1. Fixture 001を保存</td><td data-label="画面で確認すること">01_標準表現は必ず表示される。主「約束・予定調整」と副「予定を断る・変更する」が確認できる。</td><td data-label="DBで確認すること"><code>situation_sequence=1</code>、<code>position=0</code>、主1件・副1件の対応行、<code>standard</code> variantが1件。</td><td data-label="Anki exportで確認すること"><code>SayDeck::約束・予定調整::予定を断る・変更する::01_標準表現</code> に <code>001-01</code> が入る。</td></tr>
+            <tr><td data-label="手順">2. Fixture 002を保存</td><td data-label="画面で確認すること">同じ主シチュエーションのまま、副「遅刻・欠席の連絡」と3つの意味単位が順番に表示される。</td><td data-label="DBで確認すること"><code>situation_sequence=2</code>、<code>position=0/1/2</code>、主1件・副1件、<code>standard</code> variantが3件。</td><td data-label="Anki exportで確認すること"><code>SayDeck::約束・予定調整::遅刻・欠席の連絡::01_標準表現</code> に <code>002-01</code>、<code>002-02</code>、<code>002-03</code> が追加される。</td></tr>
+            <tr><td data-label="手順">3. Fixture 003を保存</td><td data-label="画面で確認すること">01_標準表現を必ず確認。02と適用できる03a〜03cが、意味のある場合だけ候補表示される。</td><td data-label="DBで確認すること"><code>situation_sequence=3</code>、<code>standard</code>必須。patternはpattern_codeごとに最大1件。</td><td data-label="Anki exportで確認すること">patternがあれば <code>...::03_表現パターン::03c_コロケーション</code> のようにサブデッキが作られる。適用できない空deckは作られない。</td></tr>
             <tr><td data-label="手順">4. 同じ副基底名をもう一度保存</td><td data-label="画面で確認すること">AI候補が既存の副「遅刻・欠席の連絡」と完全一致する場合、保存後の表示は「遅刻・欠席の連絡-001」になる。</td><td data-label="DBで確認すること"><code>base_label_ja='遅刻・欠席の連絡'</code>、<code>duplicate_sequence=1</code>、<code>label_ja='遅刻・欠席の連絡-001'</code>の副分類が作られる。</td><td data-label="Anki exportで確認すること"><code>SayDeck::約束・予定調整::遅刻・欠席の連絡-001::表現レイヤー</code> の別deckに入る。</td></tr>
             <tr><td data-label="手順">5. Fixture 002を再export</td><td data-label="画面で確認すること">同じ候補を選び直せる。</td><td data-label="DBで確認すること"><code>anki_guid</code> と <code>anki_index</code> が初回から不変。</td><td data-label="Anki exportで確認すること">Anki Desktopへ再importしても、同じvariantが重複カードにならない。</td></tr>
           </tbody>
@@ -548,7 +550,7 @@
     <section id="migration" class="panel">
       <p class="eyebrow" style="color: var(--teal)">09 / MIGRATION PLAN</p>
       <h2>ジャンル廃止・カード契約簡素化のDB移行案</h2>
-      <p>実行用SQLは<code>db/migrations/0008-situation-first-expression-contract.sql</code>と<code>db/migrations/0009-refine-expression-layer-definitions.sql</code>として実装済みです。0008は既存のSayDeck表現・音声・exportデータを削除する破壊的migrationのため、共有DBにはアプリの切替と同じリリース単位で適用します。0009は保存済みvariantを変更せず、basicを1文・原則12語以内の最小表現とする生成profileだけを更新します。</p>
+      <p>実行用SQLは<code>db/migrations/0008</code>〜<code>0011-three-layer-expression-model.sql</code>として実装済みです。0011はstandard/native/patternの3層へ移行し、互換性のある旧variantを移しながら、意味が変わる旧variantは削除せずarchivedにします。共有DBにはアプリの切替と同じリリース単位で適用します。</p>
       <details open>
         <summary>実装したmigrationの内容</summary>
         <div>
@@ -608,19 +610,19 @@ COMMIT;</pre>
       <p class="eyebrow" style="color: var(--teal)">10 / IMPLEMENTATION STATUS</p>
       <h2>合意内容と実装・リリース確認項目</h2>
       <ul class="checklist">
-        <li>deck名を <code>SayDeck::主シチュエーション::副シチュエーション::01_基本表現〜04_ネイティブ表現</code> にする。detailは <code>02_詳細表現::02a〜02e</code> のパターンサブデッキを使う。主・副を各1件必須とし、<code>01_基本表現</code>だけ必須、適用可能な任意候補だけ作る。</li>
+        <li>deck名を <code>SayDeck::主シチュエーション::副シチュエーション::01_標準表現〜03_表現パターン</code> にする。patternは <code>03_表現パターン::03a〜03c</code> のサブデッキを使う。主・副を各1件必須とし、<code>01_標準表現</code>だけ必須、適用可能な任意候補だけ作る。</li>
         <li>ジャンルをUI、API、AI出力、DB、Ankiタグ、LISTS filterから完全に削除する。</li>
         <li>主シチュエーションと副シチュエーションを各1件とし、<code>expression_entry_situations</code>で役割を明示して保存する。副は選んだ主の配下に限定し、主・副の組をAnki deckとtagへ投影する。</li>
         <li>INPUT生成時に登録済み主シチュエーション一覧をAIへ渡す。AIは既存主に該当すればIDを返し、該当しなければ新しい主の基底名を返す。新規主のDB登録は、ユーザーが保存を確定した時だけ行う。</li>
         <li>AIは副シチュエーションの基底名を返す。選択中の主の配下に完全一致する副があれば、保存transactionが最小の未使用3桁連番を<code>-001</code>から末尾に付ける。意味的に似ているだけの副は統合しない。</li>
         <li>ユーザーが分類マスタを直接増やす専用画面はMVPの対象外とし、AI提案を保存することで主・副分類が増える。副シチュエーションは空で保存できない。</li>
         <li>既存のジャンル値・表現・音声・APKG履歴は保持せず削除する。新規登録では空の主シチュエーションを許可しない。</li>
-        <li>Ankiノートタイプ名を<code>SayDeck</code>とし、fieldを<code>Index</code>、<code>Context</code>、<code>Expression</code>、<code>Translation</code>、<code>expression_audio</code>の5つにする。<code>Context</code>は主・副シチュエーションと表現レイヤー（detailならpattern名）を表・裏の上部に表示するためのexport時生成値とする。</li>
+        <li>Ankiノートタイプ名を<code>SayDeck</code>とし、fieldを<code>Index</code>、<code>Context</code>、<code>Expression</code>、<code>Translation</code>、<code>expression_audio</code>の5つにする。<code>Context</code>は主・副シチュエーションと表現レイヤー（patternなら03a〜03c名）を表・裏の上部に表示するためのexport時生成値とする。</li>
         <li>Indexは<code>anki_index</code>を唯一の正本にし、同一variantの再export・再importで同じ値を使う。</li>
         <li><code>001</code>を主シチュエーション内で増える入力番号とするか、1入力内の意味単位番号とするかを合意する。前者なら<code>situation_sequence</code>と<code>primary_situation_id</code>をキーにしたcounter tableを追加する。</li>
         <li>空のAnki profileで「初回import」「同一variant再import」「主・副シチュエーションと任意レイヤーのdeck階層」「表・裏の<code>Context</code>表示」「表面だけのen-US音声」「001-01形式の並び」を確認してからリリースする。</li>
       </ul>
-      <p class="notice" style="margin-top: 18px"><strong>実装状況:</strong> 要求定義・設計・APKG仕様・ADR・README/デプロイ手順、migration、INPUT/LISTS/API/AI/exportは実装済みです。typecheck・lint・build、隔離DBでのINPUTからAPKG downloadまで、APKG内部の5 field・deck階層・表裏template・en-US WAVを確認済みです。0010でdetailのpattern_code（02a〜02e）と04_ネイティブ表現を更新します。残るリリース作業は、アプリ切替と同時に共有DBへ必要なmigrationを適用し、空のAnki profileへ最終importすることです。</p>
+      <p class="notice" style="margin-top: 18px"><strong>実装状況:</strong> 要求定義・設計・APKG仕様・ADR・README/デプロイ手順、migration、INPUT/LISTS/API/AI/exportは実装済みです。0011でstandard/native/patternの3層と03a〜03cを有効化します。残るリリース作業は、アプリ切替と同時に共有DBへmigrationを適用し、空のAnki profileへ最終importすることです。</p>
     </section>
 
     <footer>

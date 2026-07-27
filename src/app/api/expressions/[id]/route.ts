@@ -4,7 +4,7 @@ import { getExpressionOwnerLogin } from "@/lib/expression-auth";
 import {
   approveExpressionEntry,
   archiveExpressionEntry,
-  ExpressionBasicVariantRequiredError,
+  ExpressionStandardVariantRequiredError,
   ExpressionDatabaseUnavailableError,
   ExpressionSelectionError,
   ExpressionSituationRequiredError,
@@ -111,9 +111,9 @@ export async function PATCH(
       );
     }
 
-    if (error instanceof ExpressionBasicVariantRequiredError) {
+    if (error instanceof ExpressionStandardVariantRequiredError) {
       return NextResponse.json(
-        { error: { code: "basic_required", message: "各意味単位の01_基本表現は必ず選択してください。" } },
+        { error: { code: "standard_required", message: "各意味単位の01_標準表現は必ず選択してください。" } },
         { status: 400 },
       );
     }

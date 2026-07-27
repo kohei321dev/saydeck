@@ -6,18 +6,17 @@
  */
 
 export const generationProfileCodes = [
-  "basic",
-  "detail",
-  "conversation",
-  "natural_alternative",
+  "standard",
+  "native",
+  "pattern",
 ] as const;
 
 export type GenerationProfileCode = (typeof generationProfileCodes)[number];
 
-/** Detail expressions are grouped by an intentional grammar/phrase expansion. */
-export const detailPatternCodes = ["a", "b", "c", "d", "e"] as const;
-export type DetailPatternCode = (typeof detailPatternCodes)[number];
-export type VariantPatternCode = "default" | DetailPatternCode;
+/** Pattern cards are grouped by their explicit learning focus. */
+export const expressionPatternCodes = ["a", "b", "c"] as const;
+export type ExpressionPatternCode = (typeof expressionPatternCodes)[number];
+export type VariantPatternCode = "default" | ExpressionPatternCode;
 
 export type ExpressionEntryStatus =
   | "draft"
