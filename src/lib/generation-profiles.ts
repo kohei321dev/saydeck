@@ -7,10 +7,10 @@ const defaults: Record<GenerationProfileCode, DefaultProfile> = {
     code: "basic",
     name: "01_基本表現",
     minWords: 2,
-    maxWords: 20,
-    maxSentences: 2,
-    requiredFeatures: ["required", "standard_grammar", "direct"],
-    instruction: "必須。標準的な文法で、意図を最も直接的かつ自然に伝える再利用しやすい表現にする。",
+    maxWords: 12,
+    maxSentences: 1,
+    requiredFeatures: ["required", "standard_grammar", "single_speech_act", "minimal_information"],
+    instruction: "必須。1文・原則12語以内で、1つの発話行為だけを標準的な語順で伝える最小の表現にする。条件節、仮定、理由、数量、間接的な依頼・丁寧な緩和表現は入れない。複数の内容がある入力は意味単位に分け、基本表現へ詰め込まない。",
   },
   detail: {
     code: "detail",
@@ -19,7 +19,7 @@ const defaults: Record<GenerationProfileCode, DefaultProfile> = {
     maxWords: 26,
     maxSentences: 2,
     requiredFeatures: ["optional", "meaningful_detail"],
-    instruction: "任意。基本表現に、状況を理解するうえで役立つ具体的な情報を加える場合だけ生成する。",
+    instruction: "任意。基本表現に、理由・条件・時刻や数量・追加の依頼など、状況を正確に伝える具体情報を加える場合だけ生成する。基本表現より長く複雑になってよい。",
   },
   conversation: {
     code: "conversation",
@@ -28,7 +28,7 @@ const defaults: Record<GenerationProfileCode, DefaultProfile> = {
     maxWords: 26,
     maxSentences: 2,
     requiredFeatures: ["optional", "spoken", "conversational"],
-    instruction: "任意。口語、省略、問いかけなど、会話として基本表現と明確に異なる自然な言い方がある場合だけ生成する。",
+    instruction: "任意。口語、省略、くだけた言い回しなど、会話として基本表現と明確に異なる自然な言い方がある場合だけ生成する。短くてもよく、基本表現より難しいことを要件にしない。",
   },
   natural_alternative: {
     code: "natural_alternative",

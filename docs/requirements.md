@@ -59,9 +59,9 @@ UIはこの責務を`INPUT`、`LISTS`、`EXPORT`の3画面で表現する。
 
 | Code | Display | Required | Generation rule |
 | --- | --- | --- | --- |
-| `basic` | `01_基本表現` | Yes | 標準的な文法で最も直接的かつ自然な表現 |
-| `detail` | `02_詳細表現` | No | 有用な具体情報を加える場合だけ |
-| `conversation` | `03_会話表現` | No | 口語・問いかけなど明確に異なる会話表現だけ |
+| `basic` | `01_基本表現` | Yes | 1文・原則12語以内・発話行為1つ。標準的な語順で最小限を伝え、条件・理由・数量・追加依頼・間接依頼は含めない |
+| `detail` | `02_詳細表現` | No | 理由、条件、時刻・数量、追加依頼など、状況を正確にする具体情報を加える場合だけ |
+| `conversation` | `03_会話表現` | No | 口語、省略、くだけた言い回しなど明確に異なる会話表現だけ。短くてもよく、`basic`より難しいことは要件にしない |
 | `natural_alternative` | `04_別の自然な言い方` | No | 別構文・別視点の自然な表現だけ |
 
 - 任意レイヤーに実用上の差がなければ生成しない。数合わせの類似文を禁止する。
@@ -72,6 +72,8 @@ UIはこの責務を`INPUT`、`LISTS`、`EXPORT`の3画面で表現する。
 
 - ユーザーはAI提案後に主1件、副1件、英文候補を確認する。
 - `basic`は各意味単位で必須選択とし、画面から解除できない。
+- `basic`は難易度の最下層ではなく、最小・標準・単独で使える表現レイヤーである。複数の発話行為が必要な日本語入力は意味単位へ分ける。
+- 例として、`I'm running late.`、`Please go in first.`、`Tell the restaurant we'll be late.`は`basic`とする。一方、`If it looks like we'll miss the reservation, could you let the restaurant know we'll be a bit late?`は`detail`とする。
 - 保存transaction内で主・副作成、entryとの対応、主分類内連番、選択状態、登録日時を確定する。
 - `situation_sequence`はowner・主シチュエーションごとの入力連番とする。
 - 表示上の意味単位番号は`001-01`形式とし、999を超えたら`1000-01`へ自然に拡張する。
