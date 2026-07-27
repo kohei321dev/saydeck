@@ -30,7 +30,7 @@
 `Context`の形式:
 
 ```text
-主: 友人への返信 / 副: 久しぶりの連絡 / 表現: 01_基本表現
+主: 友人への返信 / 副: 久しぶりの連絡 / 表現: 01_標準表現
 ```
 
 AI由来の文字列はHTML escapeする。`expression_audio`だけがsystem生成の`[sound:]`記法を持つ。
@@ -47,15 +47,20 @@ SayDeck
 例:
 
 ```text
-SayDeck::友人への返信::久しぶりの連絡::01_基本表現
+SayDeck::友人への返信::久しぶりの連絡::01_標準表現
 ```
 
 表現レイヤーは次の表示名を使う。
 
-- `basic` → `01_基本表現`
-- `detail` → `02_詳細表現`
-- `conversation` → `03_会話表現`
-- `natural_alternative` → `04_別の自然な言い方`
+- `standard` → `01_標準表現`
+- `native` → `02_ネイティブ・口語表現`
+- `pattern` → `03_表現パターン`
+
+`pattern`はpattern_codeに応じて次のサブデッキを追加する。
+
+- `a` → `03a_文法展開`
+- `b` → `03b_熟語・句動詞`
+- `c` → `03c_コロケーション`
 
 任意variantが存在しない場合、そのdeckも作られない。1 noteを複数deckへ複製しない。deck segment内の`::`と制御文字は安全な文字へ置換する。
 
@@ -66,6 +71,7 @@ source::saydeck
 primary_situation::<primary-canonical-key>
 secondary_situation::<primary-canonical-key>::<secondary-canonical-key>
 layer::<profile-code>
+expression_pattern::<a-c>  (patternのみ)
 ```
 
 ジャンルtag、難易度tag、旧`situation::<tag>`は出力しない。
@@ -74,7 +80,7 @@ layer::<profile-code>
 
 - `anki_guid`はvariant生成時に一度だけ作り、同一variantの全exportで再利用する。
 - `Index`はDB保存済みの`anki_index`をそのまま投影し、export時にvariant IDから再計算しない。
-- `anki_index`は主canonical key、主分類内入力連番、意味単位位置、表現レイヤーordinalを含む。
+- `anki_index`は主canonical key、主分類内入力連番、意味単位位置、表現レイヤーordinal、expression pattern ordinalを含む。
 - model IDは新しい`SayDeck` note type専用の固定値。
 - deck IDはdeck名から決定的に計算する。
 - 同一variantの再importは重複カード作成ではなく更新になることを空profileで確認する。

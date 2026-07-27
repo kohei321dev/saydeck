@@ -1,6 +1,6 @@
 import { getSql, isDatabaseConfigured } from "@/lib/db";
-import { profileDisplayName } from "@/lib/generation-profiles";
-import type { GenerationProfileCode } from "@/lib/expression-types";
+import { profileDisplayName, variantDisplayName } from "@/lib/generation-profiles";
+import type { GenerationProfileCode, SentenceVariant } from "@/lib/expression-types";
 
 export type AnkiExportFilter = {
   variantIds?: string[];
@@ -37,6 +37,7 @@ type ExportRow = {
   anki_guid: string;
   anki_index: string;
   profile_code: GenerationProfileCode;
+  pattern_code: SentenceVariant["patternCode"];
   expression_en: string;
   translation_ja: string;
   registered_at: Date | string;
@@ -85,6 +86,7 @@ export async function getAnkiExportRecords(
       v.anki_guid,
       v.anki_index,
       v.profile_code,
+      v.pattern_code,
       v.expression_en,
       v.translation_ja,
       e.registered_at,
@@ -126,11 +128,11 @@ export async function getAnkiExportRecords(
       and (${to ? sql`e.registered_at < ${to}` : sql`true`})
     order by e.registered_at asc, c.position asc,
       case v.profile_code
-        when 'basic' then 1
-        when 'detail' then 2
-        when 'conversation' then 3
-        else 4
+        when 'standard' then 1
+        when 'native' then 2
+        else 3
       end,
+      v.pattern_code asc,
       v.anki_guid asc
   `;
 
@@ -186,10 +188,14 @@ export async function getAnkiExportArtifact(
 function rowToRecord(row: ExportRow): AnkiExportRecord {
   const safeId = row.variant_id.replace(/[^A-Za-z0-9_-]/g, "_");
   const layerLabel = profileDisplayName(row.profile_code);
+  const variantLabel = variantDisplayName(row.profile_code, row.pattern_code);
+  const expressionPatternLabel = row.profile_code === "pattern" && row.pattern_code !== "default"
+    ? variantLabel
+    : null;
   const context = [
     `主: ${row.primary_label_ja}`,
     `副: ${row.secondary_label_ja}`,
-    `表現: ${layerLabel}`,
+    `表現: ${variantLabel}`,
   ].join(" / ");
   const media = appendMedia(row, safeId);
 
@@ -202,6 +208,7 @@ function rowToRecord(row: ExportRow): AnkiExportRecord {
       safeDeckSegment(row.primary_label_ja),
       safeDeckSegment(row.secondary_label_ja),
       layerLabel,
+      ...(expressionPatternLabel ? [expressionPatternLabel] : []),
     ].join("::"),
     fields: [
       row.anki_index,
@@ -215,6 +222,7 @@ function rowToRecord(row: ExportRow): AnkiExportRecord {
       `primary_situation::${safeTag(row.primary_canonical_key)}`,
       `secondary_situation::${safeTag(row.primary_canonical_key)}::${safeTag(row.secondary_canonical_key)}`,
       `layer::${row.profile_code}`,
+      ...(expressionPatternLabel ? [`expression_pattern::${row.pattern_code}`] : []),
     ],
     media,
   };

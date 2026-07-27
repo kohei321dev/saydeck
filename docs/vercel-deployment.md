@@ -160,6 +160,8 @@ Preview用のEnvironment Variablesは現在は管理しない。Preview deployme
    - `db/migrations/0007-situation-tag-taxonomy.sql`
    - `db/migrations/0008-situation-first-expression-contract.sql`
    - `db/migrations/0009-refine-expression-layer-definitions.sql`
+   - `db/migrations/0010-detail-expression-patterns.sql`
+   - `db/migrations/0011-three-layer-expression-model.sql`
 4. Redeploy the Vercel project after setting `DATABASE_URL`.
 
 `0003` creates `practice_attempts` and `saved_notes`, which are required for DB-backed practice history and saved notes.
@@ -171,6 +173,10 @@ Preview用のEnvironment Variablesは現在は管理しない。Preview deployme
 `0008` is an approved destructive migration. It deletes existing SayDeck expression, audio metadata, and APKG history, then replaces genre/tags/L1-L4/8-field storage with primary-secondary situations, semantic expression layers, five Anki fields, and one Expression audio asset. It does not delete the old practice tables. Pause owner writes, confirm the target database, apply `0008`, and immediately deploy the matching application commit.
 
 `0009` is non-destructive. It updates the persisted generation-profile instructions so `basic` is constrained to one minimal, standard utterance (normally 12 words or fewer); conditions, reasons, quantities, and additional requests belong in `detail` or a separate meaning unit.
+
+`0010` adds `sentence_variants.pattern_code` for 02a〜02e detail patterns, updates the persisted names/instructions for detail and native expressions, and preserves any existing detail row as 02a.
+
+`0011` activates the approved `standard/native/pattern` three-layer model. It preserves existing rows, maps compatible legacy variants, and archives incompatible legacy variants instead of deleting them.
 
 The APKG path reuses `OWNER_AI_KEY` for xAI Text to Speech and also requires `BLOB_READ_WRITE_TOKEN`. EXPORT internally creates one `en-US` Expression audio asset per variant, and private Blob stores both the media and generated APKG. The browser only uses the owner-authenticated package download route.
 
@@ -206,9 +212,9 @@ the INPUT page after provider authentication.
 
 ## Runtime connection probe
 
-After deploying the current source and applying migrations through `0009`, sign in as the owner and request `GET /api/diagnostics?probe=1`. The probe reports only boolean/status information for the database connection, SayDeck expression schema, and owner AI provider. It verifies the situation master, entry assignments, sequence counter, and new expression columns without returning `DATABASE_URL`, API keys, raw provider responses, or connection strings.
+After deploying the current source and applying migrations through `0011`, sign in as the owner and request `GET /api/diagnostics?probe=1`. The probe reports only boolean/status information for the database connection, SayDeck expression schema, and owner AI provider. It verifies the situation master, entry assignments, sequence counter, pattern column, and three-layer profile constraint without returning `DATABASE_URL`, API keys, raw provider responses, or connection strings.
 
-If the probe reports `Database connection: 未接続`, check the Production `DATABASE_URL` value and Neon network access. If it reports `expression schema: 未適用`, confirm that migrations through `0009` were applied in order. If it reports `AI connection: 未接続`, check `OWNER_AI_KEY` and `OWNER_AI_MODEL=grok-4.3` in the Production environment.
+If the probe reports `Database connection: 未接続`, check the Production `DATABASE_URL` value and Neon network access. If it reports `expression schema: 未適用`, confirm that migrations through `0011` were applied in order. If it reports `AI connection: 未接続`, check `OWNER_AI_KEY` and `OWNER_AI_MODEL=grok-4.3` in the Production environment.
 
 Do not paste client secrets, tokens, or raw provider error payloads into issues
 or docs. If an env value changes in Vercel, redeploy before retesting because

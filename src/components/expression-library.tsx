@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
-import { profileDisplayName, profileDisplayOrder } from "@/lib/generation-profiles";
+import { profileDisplayName, profileDisplayOrder, variantDisplayName } from "@/lib/generation-profiles";
 import type {
   ExpressionEntryDetail,
 } from "@/lib/expression-types";
@@ -381,20 +381,20 @@ export function ExpressionLibrary({ entries: initialEntries }: Props) {
                       key={variant.id}
                     >
                       <input
-                        aria-label={`${profileDisplayName(variant.profileCode)}をEXPORT対象にする`}
+                        aria-label={`${variantDisplayName(variant.profileCode, variant.patternCode)}をEXPORT対象にする`}
                         checked={selectedIds.has(variant.id)}
                         onChange={() => toggleVariant(variant.id)}
                         type="checkbox"
                       />
                       <span className="capture-variant-level">
-                        {profileDisplayName(variant.profileCode)}
+                        {variantDisplayName(variant.profileCode, variant.patternCode)}
                       </span>
                       {editingId === entry.id ? (
                         <div className="capture-variant-copy">
                           <label className="library-edit-field">
                             <span>英文</span>
                             <textarea
-                              aria-label={`${profileDisplayName(variant.profileCode)} 英文`}
+                              aria-label={`${variantDisplayName(variant.profileCode, variant.patternCode)} 英文`}
                               className="capture-inline-input"
                               onChange={(event) =>
                                 updateEntry(entry.id, (current) =>
@@ -412,7 +412,7 @@ export function ExpressionLibrary({ entries: initialEntries }: Props) {
                           <label className="library-edit-field">
                             <span>和訳</span>
                             <textarea
-                              aria-label={`${profileDisplayName(variant.profileCode)} 和訳`}
+                              aria-label={`${variantDisplayName(variant.profileCode, variant.patternCode)} 和訳`}
                               className="capture-inline-input"
                               onChange={(event) =>
                                 updateEntry(entry.id, (current) =>

@@ -6,13 +6,17 @@
  */
 
 export const generationProfileCodes = [
-  "basic",
-  "detail",
-  "conversation",
-  "natural_alternative",
+  "standard",
+  "native",
+  "pattern",
 ] as const;
 
 export type GenerationProfileCode = (typeof generationProfileCodes)[number];
+
+/** Pattern cards are grouped by their explicit learning focus. */
+export const expressionPatternCodes = ["a", "b", "c"] as const;
+export type ExpressionPatternCode = (typeof expressionPatternCodes)[number];
+export type VariantPatternCode = "default" | ExpressionPatternCode;
 
 export type ExpressionEntryStatus =
   | "draft"
@@ -98,6 +102,7 @@ export type SentenceVariant = {
   ownerLogin: string;
   sentenceCardId: string;
   profileCode: GenerationProfileCode;
+  patternCode: VariantPatternCode;
   expressionEn: string;
   translationJa: string;
   ankiGuid: string;
@@ -142,6 +147,7 @@ export type AnkiExport = {
 export type GenerationVariant = {
   id?: string;
   profileCode: GenerationProfileCode;
+  patternCode: VariantPatternCode;
   expressionEn: string;
   translationJa: string;
   ankiGuid?: string;

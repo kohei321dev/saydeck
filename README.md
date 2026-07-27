@@ -25,12 +25,13 @@ EXPORT
 
 主要画面は`INPUT`、`LISTS`、`EXPORT`の3つです。アプリ内学習、AI添削、練習履歴は扱わず、復習はAnkiで行います。正式な出力形式はAPKGだけで、TSVや個別WAV操作は提供しません。
 
-表現レイヤーは次の4つです。
+表現レイヤーは次の3つです。
 
-- `01_基本表現`（`basic`）: 各意味単位に必須。1文・原則12語以内で、1つの発話行為だけを標準的な語順で伝える最小表現
-- `02_詳細表現`（`detail`）: 理由、条件、時刻・数量、追加依頼などの具体情報を加える場合だけ
-- `03_会話表現`（`conversation`）: 明確に異なる口語表現がある場合だけ。短くてもよく、`basic`より難しいことは要件にしない
-- `04_別の自然な言い方`（`natural_alternative`）: 別構文・別視点の自然な表現がある場合だけ
+- `01_標準表現`（`standard`）: 各意味単位に必須。1文・原則18語以内で、必要な詳細を含む、その場で使える標準的な表現
+- `02_ネイティブ・口語表現`（`native`）: 01と明確な差がある場合だけ、ネイティブ話者が会話で使う省略・定型句・自然な語順へ言い換える
+- `03_表現パターン`（`pattern`）: 01を土台に、学習価値のある完成英文を複数パターンで生成する
+
+`03`のパターンは、`03a_文法展開`、`03b_熟語・句動詞`、`03c_コロケーション`です。コーパスは自然で一般的なコロケーションを選ぶ生成基準として使い、入力に適用できるパターンだけを生成します。
 
 ## Documentation
 
@@ -78,10 +79,16 @@ migration runnerは未導入のため、次を番号順に手動適用します�
 7. `db/migrations/0007-situation-tag-taxonomy.sql`
 8. `db/migrations/0008-situation-first-expression-contract.sql`
 9. `db/migrations/0009-refine-expression-layer-definitions.sql`
+10. `db/migrations/0010-detail-expression-patterns.sql`
+11. `db/migrations/0011-three-layer-expression-model.sql`
 
 `0008`は承認済みの破壊的migrationです。既存のSayDeck表現、音声metadata、APKG履歴を削除し、ジャンル、旧シチュエーションタグ、L1〜L4、旧8フィールド・2音声契約を新仕様へ置き換えます。旧practice系テーブルは削除しません。
 
 `0009`は保存済みの表現を変更せず、`generation_profiles`の表現レイヤー定義を更新します。`basic`を1文・原則12語以内の最小表現とし、条件・理由・数量・追加依頼を`detail`または別の意味単位へ分けます。
+
+`0010`は`sentence_variants.pattern_code`を追加し、`detail`の02a〜02eを同一意味単位内で保持できるようにします。既存のdetail行は02aへ移行し、04の表示名をネイティブ表現へ更新します。
+
+`0011`は現行の3層契約へ移行します。既存の`basic`は`standard`へ、会話・ネイティブ候補の代表1件は`native`へ移し、意味が変わる旧候補は削除せず`archived`として保持します。
 
 ローカルでVercel Development環境を取得する場合:
 

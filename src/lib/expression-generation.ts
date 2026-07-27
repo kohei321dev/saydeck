@@ -5,6 +5,7 @@ import {
 } from "@/lib/ai-config";
 import {
   generationProfileCodes,
+  expressionPatternCodes,
 } from "@/lib/expression-types";
 import type {
   GenerationProfile,
@@ -84,8 +85,9 @@ export async function generateExpressionWithAi(
             role: "system",
             content: [
               "あなたは日本人学習者が、実際の場面で言いたい英語をAnki用に整理する編集者です。",
-              "入力を必要な意味単位へ分け、各意味単位に必須の基本表現と、学習価値がある場合だけ任意の表現レイヤーを作ってください。",
-              "基本表現は難易度の最下層ではなく、最小限で標準的な一発話です。条件・仮定・理由・時刻や数量・追加依頼・間接的な丁寧表現を基本表現へ詰め込まず、必要なら意味単位または詳細表現へ分けてください。会話表現は口語性のレイヤーであり、基本表現より短い、または文法的に易しい場合があります。",
+              "入力を必要な意味単位へ分け、各意味単位に必須の標準表現と、学習価値がある場合だけネイティブ・口語表現と表現パターンを作ってください。",
+              "標準表現は、その場でそのまま使える自然な一発話です。必要な詳細は含めてよいですが、複数の独立した内容を詰め込まず、意味単位へ分けてください。",
+              "表現パターンは文法解説や単語断片ではなく、元の意図を保った完成英文にしてください。コロケーションはコーパス上一般的な組み合わせを優先してください。",
               "似た英文を数合わせで増やしてはいけません。",
               "主シチュエーションは登録済み一覧と照合し、該当する場合だけそのIDを返してください。",
               "副シチュエーションは短い日本語の基底名を1つ返してください。",
@@ -98,7 +100,7 @@ export async function generateExpressionWithAi(
             content: buildPrompt(input),
           },
         ],
-        max_output_tokens: 3_600,
+        max_output_tokens: 5_000,
         reasoning: { effort: config.reasoningEffort },
         store: false,
       }),
@@ -178,15 +180,15 @@ function buildPrompt(input: GenerateExpressionInput): string {
     "",
     "表現要件:",
     "- segmentsは通常1件。複数の独立した内容が必要な場合だけ最大8件。",
-    "- basicは『最小・標準・単独で使える1発話』であり、難易度順ではない。各basicは原則1文・12語以内・発話行為1つにする。",
-    "- basicにはif/when/unless等の条件・仮定、because等の理由、時刻や数量、追加依頼、could you/would you等で緩和した間接依頼を含めない。これらが必要なら別の意味単位に分けるかdetailに置く。",
-    "- 例: basicは 'I'm running late.'、'Please go in first.'、'Tell the restaurant we'll be late.' のようにする。'If it looks like we'll miss the reservation, could you let the restaurant know we'll be a bit late?' はdetailでありbasicにしない。",
-    `- basic / ${profiles.basic.name}: 必ず各segmentに1件。${profiles.basic.instruction}`,
-    `- detail / ${profiles.detail.name}: ${profiles.detail.instruction}`,
-    `- conversation / ${profiles.conversation.name}: ${profiles.conversation.instruction}`,
-    `- natural_alternative / ${profiles.natural_alternative.name}: ${profiles.natural_alternative.instruction}`,
-    "- 任意レイヤーに基本表現と実質的な差がなければ、そのvariant自体を返さない。",
-    "- 同じprofileCodeは1つのsegment内で1回だけ使う。",
+    "- standardは『その場でそのまま使える標準的な1発話』であり、各segmentに1件必須。原則1文・18語以内・発話行為1つにする。",
+    "- standardには意図に必要な時刻・数量・理由・丁寧さを含めてよい。ただし独立して復習できる複数の依頼や説明は別segmentへ分ける。",
+    `- standard / ${profiles.standard.name}: 必ず各segmentに1件。${profiles.standard.instruction}`,
+    `- native / ${profiles.native.name}: ${profiles.native.instruction}`,
+    `- pattern / ${profiles.pattern.name}: ${profiles.pattern.instruction}`,
+    "- nativeまたはpatternにstandardとの実質的な差がなければ、そのvariant自体を返さない。",
+    "- standard / native は各segmentで最大1件、patternは適用できる種類だけ最大3件。patternCodeはpatternならa〜cを必須、standard/nativeはdefaultとする。",
+    "- patternの種類: a=文法展開、b=熟語・句動詞、c=コロケーション。文法説明や語句だけではなく、必ず実際に発話できる完成英文を返す。",
+    "- 例: standard='I have to leave early.'、native='I need to head out early.'、03a='I’ll have to leave early.'、03b='I have to head out early.'、03c='I have to leave work early.' のように、各patternの違いが英文そのものに現れるようにする。",
     "- expressionEnはその場で実際に口に出す英文、translationJaはその自然な和訳。",
     "",
     "返却JSON:",
@@ -200,14 +202,16 @@ function buildPrompt(input: GenerateExpressionInput): string {
           intentJa: "久しぶりの友人に近況を尋ねる",
           variants: [
             {
-              profileCode: "basic",
-              expressionEn: "It’s been a while. How have you been?",
-              translationJa: "久しぶりだね。元気にしてた？",
+              profileCode: "standard",
+              patternCode: "default",
+              expressionEn: "How have you been lately?",
+              translationJa: "最近どうしてた？",
             },
             {
-              profileCode: "conversation",
-              expressionEn: "Hey, long time no see! How’s everything going?",
-              translationJa: "やあ、久しぶり！最近どう？",
+              profileCode: "native",
+              patternCode: "default",
+              expressionEn: "How’s everything been?",
+              translationJa: "最近どう？",
             },
           ],
         },
@@ -274,24 +278,26 @@ function normalizeSegment(
   const variants = value.variants
     .map((variant) => normalizeVariant(variant, profiles))
     .filter((variant): variant is GenerationVariant => Boolean(variant));
-  const byProfile = new Map<GenerationProfileCode, GenerationVariant>();
+  const byKey = new Map<string, GenerationVariant>();
 
   for (const variant of variants) {
-    if (byProfile.has(variant.profileCode)) {
-      throw new Error(`AI returned duplicate ${variant.profileCode} variants.`);
+    const key = `${variant.profileCode}:${variant.patternCode}`;
+    if (byKey.has(key)) {
+      throw new Error(`AI returned duplicate ${key} variants.`);
     }
-    byProfile.set(variant.profileCode, variant);
+    byKey.set(key, variant);
   }
 
-  if (!byProfile.has("basic")) {
-    throw new Error("Every meaning unit must contain a basic expression.");
+  if (!Array.from(byKey.values()).some((variant) => variant.profileCode === "standard")) {
+    throw new Error("Every meaning unit must contain a standard expression.");
   }
 
   return {
     position,
     intentJa: getString(value.intentJa) || `意味単位 ${position + 1}`,
-    variants: Array.from(byProfile.values()).sort(
-      (left, right) => profileOrder(left.profileCode) - profileOrder(right.profileCode),
+    variants: Array.from(byKey.values()).sort(
+      (left, right) => profileOrder(left.profileCode) - profileOrder(right.profileCode)
+        || left.patternCode.localeCompare(right.patternCode),
     ),
   };
 }
@@ -308,6 +314,16 @@ function normalizeVariant(
 
   if (!generationProfileCodes.includes(profileCode as GenerationProfileCode)) {
     return null;
+  }
+
+  const rawPatternCode = getString(value.patternCode) || "default";
+  const patternCode = rawPatternCode as GenerationVariant["patternCode"];
+  if (profileCode === "pattern") {
+    if (!expressionPatternCodes.includes(patternCode as (typeof expressionPatternCodes)[number])) {
+      throw new Error("pattern must contain patternCode a-c.");
+    }
+  } else if (patternCode !== "default") {
+    throw new Error(`${profileCode} must use patternCode default.`);
   }
 
   const expressionEn = getString(value.expressionEn);
@@ -335,6 +351,7 @@ function normalizeVariant(
 
   return {
     profileCode: profileCode as GenerationProfileCode,
+    patternCode,
     expressionEn,
     translationJa,
   };

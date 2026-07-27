@@ -48,6 +48,8 @@ async function probeDatabase(): Promise<{ status: RuntimeProbeStatus; expression
       situation_sequence_counters: string | null;
       has_situation_sequence: boolean;
       has_expression_en: boolean;
+      has_pattern_code: boolean;
+      has_three_layer_codes: boolean;
     }[]>`
       select 1 as ok,
         to_regclass('public.expression_entries') as expression_entries,
@@ -69,7 +71,22 @@ async function probeDatabase(): Promise<{ status: RuntimeProbeStatus; expression
           where table_schema = 'public'
             and table_name = 'sentence_variants'
             and column_name = 'expression_en'
-        ) as has_expression_en
+        ) as has_expression_en,
+        exists (
+          select 1 from information_schema.columns
+          where table_schema = 'public'
+            and table_name = 'sentence_variants'
+            and column_name = 'pattern_code'
+        ) as has_pattern_code,
+        exists (
+          select 1
+          from pg_constraint
+          where conname = 'generation_profiles_code_check'
+            and conrelid = 'public.generation_profiles'::regclass
+            and pg_get_constraintdef(oid) like '%standard%'
+            and pg_get_constraintdef(oid) like '%native%'
+            and pg_get_constraintdef(oid) like '%pattern%'
+        ) as has_three_layer_codes
     `;
     const row = rows[0];
     return {
@@ -85,6 +102,8 @@ async function probeDatabase(): Promise<{ status: RuntimeProbeStatus; expression
         && row.situation_sequence_counters
         && row.has_situation_sequence
         && row.has_expression_en
+        && row.has_pattern_code
+        && row.has_three_layer_codes
       ),
     };
   } catch (error) {
