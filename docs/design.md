@@ -47,7 +47,7 @@ Next.js App RouterのServer Componentsが初期データを読み、対話部分
 
 | Table | Responsibility | Important constraints |
 | --- | --- | --- |
-| `generation_profiles` | semantic expression layer rules | codeは`basic/detail/conversation/natural_alternative` |
+| `generation_profiles` | semantic expression layer rules | codeは`basic/detail/conversation/natural_alternative`。`basic`は1文・原則12語以内・発話行為1つ |
 | `expression_entries` | 日本語入力と登録状態 | registered時に`situation_sequence`必須 |
 | `sentence_cards` | 入力を分けた意味単位 | owner・entry・position unique |
 | `sentence_variants` | 意味単位ごとの英文・和訳 | card・profile unique、GUID unique、owner・Index unique |
@@ -105,6 +105,8 @@ server validation:
 
 - segmentは1〜8件。
 - 各segmentに`basic`が1件必須。
+- `basic`は難易度順の最下層ではなく、最小・標準・単独で使える1発話とする。条件・仮定・理由・時刻や数量・追加依頼・間接依頼を含めず、原則1文・12語以内に収める。
+- それらの情報が必要な場合は、独立して復習できる意味単位へ分けるか、任意の`detail`へ置く。`conversation`は口語性のレイヤーであり、`basic`より短い、または易しい場合がある。
 - 同じprofile codeの重複禁止。
 - 任意profileは欠けてよい。
 - existing primary IDは実際に渡した一覧内だけ許可する。
@@ -187,7 +189,7 @@ layer::<profile code>
 
 ## 9. Migration and compatibility
 
-`0008-situation-first-expression-contract.sql`はSayDeck expression domainをtruncateし、旧分類列、L1〜L4、旧カード本文列、2音声構造を置き換える。新アプリとmigrationは同じrelease単位で切り替える。
+`0008-situation-first-expression-contract.sql`はSayDeck expression domainをtruncateし、旧分類列、L1〜L4、旧カード本文列、2音声構造を置き換える。`0009-refine-expression-layer-definitions.sql`は既存の`generation_profiles`を、basicが1文・原則12語以内となる定義へ更新するだけで、保存済みvariantは書き換えない。新アプリとmigrationは同じrelease単位で切り替える。
 
 旧practice系tableとmigrationは保持するが、現行UI・API・exportから参照しない。旧Anki note typeとの互換投影は行わない。
 

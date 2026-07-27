@@ -180,7 +180,7 @@
       <p class="eyebrow">SAYDECK / IMPLEMENTED SOURCE DESIGN / 2026-07-27</p>
       <h1>シチュエーション主軸の<br>データ設計・処理設計</h1>
       <p>合意した設計と実装済みソースの対応資料です。ジャンルを完全に廃止し、保存した英語表現を主・副シチュエーションと表現レイヤーで整理するための、DB・UI・API・exportの一貫した契約を示します。</p>
-      <span class="status">状態: Source implemented — migration 0008の共有DB適用はリリース時に実施</span>
+      <span class="status">状態: Source implemented — migration 0008と0009の共有DB適用が必要</span>
     </header>
 
     <nav aria-label="目次">
@@ -217,7 +217,7 @@
         <article class="tile">
           <span class="label">EXPRESSION LAYERS</span>
           <strong>01_基本表現のみ必須、02〜04は任意</strong>
-          <p><code>01_基本表現</code>は必ず1つ作る。<code>02_詳細表現</code>、<code>03_会話表現</code>、<code>04_別の自然な言い方</code>は、実用上の差がある場合だけ生成し、似た文を水増ししない。</p>
+          <p><code>01_基本表現</code>は必ず1つ作る。難易度の最下層ではなく、1文・原則12語以内・発話行為1つで最小限を標準的に伝える表現とする。条件・理由・数量・追加依頼は<code>02_詳細表現</code>か別の意味単位へ分ける。<code>03_会話表現</code>は口語性のレイヤーなので、01より短くてもよい。02〜04は実用上の差がある場合だけ生成し、似た文を水増ししない。</p>
         </article>
       </div>
       <p class="notice"><strong>設計上の前提:</strong> 主シチュエーションの命名はdeck名になるため、AI任せの自由な表記揺れは許容しません。生成前に、そのownerの登録済み主シチュエーション一覧（ID・表示名・安定キー）をAIへ渡します。AIは入力の意図が既存の主に該当するかを判定し、該当すればそのIDを返す。該当しなければ新しい主シチュエーション名を返し、ユーザーの保存確定時にDBへ新規作成します。</p>
@@ -346,7 +346,7 @@
         </article>
         <article class="tile">
           <h3>D. <code>generation_profiles</code> — 維持</h3>
-          <p><code>owner_login</code>、<code>code</code>（<code>basic</code> / <code>detail</code> / <code>conversation</code> / <code>natural_alternative</code>）、語数・文数制約、instruction。難易度ではなく表現レイヤーの定義として使う。<code>basic</code>のみ必須、残りは任意。</p>
+          <p><code>owner_login</code>、<code>code</code>（<code>basic</code> / <code>detail</code> / <code>conversation</code> / <code>natural_alternative</code>）、語数・文数制約、instruction。難易度ではなく表現レイヤーの定義として使う。<code>basic</code>は1文・原則12語以内・発話行為1つ、条件・理由・数量・追加依頼を含めない。<code>detail</code>はそれらの具体情報を担い、<code>conversation</code>は短い口語表現も許容する。<code>basic</code>のみ必須、残りは任意。</p>
         </article>
         <article class="tile">
           <h3>E. <code>sentence_cards</code> — 維持</h3>
@@ -398,7 +398,7 @@
         </article>
         <article class="flow-card">
           <p class="card-title"><span class="step">2</span>AI: 01_基本表現と必要な任意表現を生成</p>
-          <p>APIは登録済み主シチュエーション一覧をAIへ渡す。AIは意味単位、必須の<code>basic</code>、学習価値がある場合だけ<code>detail</code> / <code>conversation</code> / <code>natural_alternative</code>、既存主のIDまたは新規主の基底名、副の基底名を構造化して返す。分類候補はREVIEWの一時状態で保持し、この時点では分類マスタを変更しない。</p>
+          <p>APIは登録済み主シチュエーション一覧をAIへ渡す。AIは意味単位、必須の<code>basic</code>、学習価値がある場合だけ<code>detail</code> / <code>conversation</code> / <code>natural_alternative</code>、既存主のIDまたは新規主の基底名、副の基底名を構造化して返す。<code>basic</code>に条件文や複数の依頼を詰め込まず、独立して復習できる意味単位または<code>detail</code>へ振り分ける。分類候補はREVIEWの一時状態で保持し、この時点では分類マスタを変更しない。</p>
           <p class="columns">SELECT active primary situations → AI<br>INSERT sentence_cards<br>INSERT sentence_variants × basic（必須）+ 任意の表現レイヤー</p>
         </article>
         <article class="flow-card">
@@ -548,7 +548,7 @@
     <section id="migration" class="panel">
       <p class="eyebrow" style="color: var(--teal)">09 / MIGRATION PLAN</p>
       <h2>ジャンル廃止・カード契約簡素化のDB移行案</h2>
-      <p>実行用SQLは<code>db/migrations/0008-situation-first-expression-contract.sql</code>として実装済みです。既存のSayDeck表現・音声・exportデータを削除する破壊的migrationのため、共有DBにはアプリの切替と同じリリース単位で適用します。既存データを持つNeon DBではtransaction内で最後まで適用し、ROLLBACKして無変更に戻す検証を完了しています。</p>
+      <p>実行用SQLは<code>db/migrations/0008-situation-first-expression-contract.sql</code>と<code>db/migrations/0009-refine-expression-layer-definitions.sql</code>として実装済みです。0008は既存のSayDeck表現・音声・exportデータを削除する破壊的migrationのため、共有DBにはアプリの切替と同じリリース単位で適用します。0009は保存済みvariantを変更せず、basicを1文・原則12語以内の最小表現とする生成profileだけを更新します。</p>
       <details open>
         <summary>実装したmigrationの内容</summary>
         <div>
@@ -620,7 +620,7 @@ COMMIT;</pre>
         <li><code>001</code>を主シチュエーション内で増える入力番号とするか、1入力内の意味単位番号とするかを合意する。前者なら<code>situation_sequence</code>と<code>primary_situation_id</code>をキーにしたcounter tableを追加する。</li>
         <li>空のAnki profileで「初回import」「同一variant再import」「主・副シチュエーションと任意レイヤーのdeck階層」「表・裏の<code>Context</code>表示」「表面だけのen-US音声」「001-01形式の並び」を確認してからリリースする。</li>
       </ul>
-      <p class="notice" style="margin-top: 18px"><strong>実装状況:</strong> 要求定義・設計・APKG仕様・ADR・README/デプロイ手順、migration、INPUT/LISTS/API/AI/exportは実装済みです。typecheck・lint・build、隔離DBでのINPUTからAPKG downloadまで、APKG内部の5 field・deck階層・表裏template・en-US WAVを確認済みです。残るリリース作業は、アプリ切替と同時に共有DBへmigration 0008を適用し、空のAnki profileへ最終importすることです。</p>
+      <p class="notice" style="margin-top: 18px"><strong>実装状況:</strong> 要求定義・設計・APKG仕様・ADR・README/デプロイ手順、migration、INPUT/LISTS/API/AI/exportは実装済みです。typecheck・lint・build、隔離DBでのINPUTからAPKG downloadまで、APKG内部の5 field・deck階層・表裏template・en-US WAVを確認済みです。表現レイヤーは0009で、basicを1文・原則12語以内の最小表現に更新する。残るリリース作業は、アプリ切替と同時に共有DBへ必要なmigrationを適用し、空のAnki profileへ最終importすることです。</p>
     </section>
 
     <footer>

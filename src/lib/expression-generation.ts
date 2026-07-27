@@ -85,6 +85,7 @@ export async function generateExpressionWithAi(
             content: [
               "あなたは日本人学習者が、実際の場面で言いたい英語をAnki用に整理する編集者です。",
               "入力を必要な意味単位へ分け、各意味単位に必須の基本表現と、学習価値がある場合だけ任意の表現レイヤーを作ってください。",
+              "基本表現は難易度の最下層ではなく、最小限で標準的な一発話です。条件・仮定・理由・時刻や数量・追加依頼・間接的な丁寧表現を基本表現へ詰め込まず、必要なら意味単位または詳細表現へ分けてください。会話表現は口語性のレイヤーであり、基本表現より短い、または文法的に易しい場合があります。",
               "似た英文を数合わせで増やしてはいけません。",
               "主シチュエーションは登録済み一覧と照合し、該当する場合だけそのIDを返してください。",
               "副シチュエーションは短い日本語の基底名を1つ返してください。",
@@ -177,6 +178,9 @@ function buildPrompt(input: GenerateExpressionInput): string {
     "",
     "表現要件:",
     "- segmentsは通常1件。複数の独立した内容が必要な場合だけ最大8件。",
+    "- basicは『最小・標準・単独で使える1発話』であり、難易度順ではない。各basicは原則1文・12語以内・発話行為1つにする。",
+    "- basicにはif/when/unless等の条件・仮定、because等の理由、時刻や数量、追加依頼、could you/would you等で緩和した間接依頼を含めない。これらが必要なら別の意味単位に分けるかdetailに置く。",
+    "- 例: basicは 'I'm running late.'、'Please go in first.'、'Tell the restaurant we'll be late.' のようにする。'If it looks like we'll miss the reservation, could you let the restaurant know we'll be a bit late?' はdetailでありbasicにしない。",
     `- basic / ${profiles.basic.name}: 必ず各segmentに1件。${profiles.basic.instruction}`,
     `- detail / ${profiles.detail.name}: ${profiles.detail.instruction}`,
     `- conversation / ${profiles.conversation.name}: ${profiles.conversation.instruction}`,
