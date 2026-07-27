@@ -14,6 +14,11 @@ export const generationProfileCodes = [
 
 export type GenerationProfileCode = (typeof generationProfileCodes)[number];
 
+/** Detail expressions are grouped by an intentional grammar/phrase expansion. */
+export const detailPatternCodes = ["a", "b", "c", "d", "e"] as const;
+export type DetailPatternCode = (typeof detailPatternCodes)[number];
+export type VariantPatternCode = "default" | DetailPatternCode;
+
 export type ExpressionEntryStatus =
   | "draft"
   | "generating"
@@ -98,6 +103,7 @@ export type SentenceVariant = {
   ownerLogin: string;
   sentenceCardId: string;
   profileCode: GenerationProfileCode;
+  patternCode: VariantPatternCode;
   expressionEn: string;
   translationJa: string;
   ankiGuid: string;
@@ -142,6 +148,7 @@ export type AnkiExport = {
 export type GenerationVariant = {
   id?: string;
   profileCode: GenerationProfileCode;
+  patternCode: VariantPatternCode;
   expressionEn: string;
   translationJa: string;
   ankiGuid?: string;

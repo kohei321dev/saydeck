@@ -1,4 +1,4 @@
-import type { GenerationProfile, GenerationProfileCode } from "@/lib/expression-types";
+import type { GenerationProfile, GenerationProfileCode, VariantPatternCode } from "@/lib/expression-types";
 
 type DefaultProfile = Omit<GenerationProfile, "ownerLogin" | "createdAt" | "updatedAt">;
 
@@ -16,10 +16,10 @@ const defaults: Record<GenerationProfileCode, DefaultProfile> = {
     code: "detail",
     name: "02_詳細表現",
     minWords: 3,
-    maxWords: 26,
-    maxSentences: 2,
-    requiredFeatures: ["optional", "meaningful_detail"],
-    instruction: "任意。基本表現に、理由・条件・時刻や数量・追加の依頼など、状況を正確に伝える具体情報を加える場合だけ生成する。基本表現より長く複雑になってよい。",
+    maxWords: 18,
+    maxSentences: 1,
+    requiredFeatures: ["optional", "meaningful_detail", "patterned_detail"],
+    instruction: "任意。基本表現を土台に、1文・18語以内で適用できる02a〜02eの文法・語句パターンだけを生成する。基本表現の単なる長文化や水増しは避ける。",
   },
   conversation: {
     code: "conversation",
@@ -32,12 +32,12 @@ const defaults: Record<GenerationProfileCode, DefaultProfile> = {
   },
   natural_alternative: {
     code: "natural_alternative",
-    name: "04_別の自然な言い方",
+    name: "04_ネイティブ表現",
     minWords: 2,
     maxWords: 26,
     maxSentences: 2,
     requiredFeatures: ["optional", "alternative_framing"],
-    instruction: "任意。同じ意図を別の構文や視点で自然に表せる場合だけ生成する。単なる同義語の置換は生成しない。",
+    instruction: "任意。同じ意図をネイティブ話者が使う自然な定型句・省略・別構文で表せる場合だけ生成する。単なる同義語の置換や不自然なスラングは生成しない。",
   },
 };
 
@@ -69,4 +69,30 @@ export function profileDisplayName(code: GenerationProfileCode): string {
 
 export function profileOrder(code: GenerationProfileCode): number {
   return profileDisplayOrder.indexOf(code);
+}
+
+export const detailPatternDefinitions: Array<{
+  code: Exclude<VariantPatternCode, "default">;
+  label: string;
+  instruction: string;
+}> = [
+  { code: "a", label: "02a_形容詞・補語", instruction: "形容詞や補語で状態・評価を具体化する" },
+  { code: "b", label: "02b_副詞・程度", instruction: "副詞や程度表現で頻度・強さ・態度を加える" },
+  { code: "c", label: "02c_前置詞句", instruction: "場所・対象・関係を前置詞句で自然に加える" },
+  { code: "d", label: "02d_熟語・定型結合", instruction: "句動詞・熟語・コロケーションへ展開する" },
+  { code: "e", label: "02e_文法展開", instruction: "助動詞・否定・疑問・時制など別の文法構造で展開する" },
+];
+
+export function detailPatternDisplayName(code: Exclude<VariantPatternCode, "default">): string {
+  return detailPatternDefinitions.find((pattern) => pattern.code === code)?.label ?? `02${code}`;
+}
+
+export function variantDisplayName(
+  profileCode: GenerationProfileCode,
+  patternCode: VariantPatternCode,
+): string {
+  if (profileCode === "detail" && patternCode !== "default") {
+    return detailPatternDisplayName(patternCode);
+  }
+  return profileDisplayName(profileCode);
 }

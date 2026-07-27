@@ -55,7 +55,15 @@ SayDeck::友人への返信::久しぶりの連絡::01_基本表現
 - `basic` → `01_基本表現`
 - `detail` → `02_詳細表現`
 - `conversation` → `03_会話表現`
-- `natural_alternative` → `04_別の自然な言い方`
+- `natural_alternative` → `04_ネイティブ表現`
+
+`detail`はpattern_codeに応じて次のサブデッキを追加する。
+
+- `a` → `02a_形容詞・補語`
+- `b` → `02b_副詞・程度`
+- `c` → `02c_前置詞句`
+- `d` → `02d_熟語・定型結合`
+- `e` → `02e_文法展開`
 
 任意variantが存在しない場合、そのdeckも作られない。1 noteを複数deckへ複製しない。deck segment内の`::`と制御文字は安全な文字へ置換する。
 
@@ -66,6 +74,7 @@ source::saydeck
 primary_situation::<primary-canonical-key>
 secondary_situation::<primary-canonical-key>::<secondary-canonical-key>
 layer::<profile-code>
+detail_pattern::<a-e>  (detailのみ)
 ```
 
 ジャンルtag、難易度tag、旧`situation::<tag>`は出力しない。
@@ -74,7 +83,7 @@ layer::<profile-code>
 
 - `anki_guid`はvariant生成時に一度だけ作り、同一variantの全exportで再利用する。
 - `Index`はDB保存済みの`anki_index`をそのまま投影し、export時にvariant IDから再計算しない。
-- `anki_index`は主canonical key、主分類内入力連番、意味単位位置、表現レイヤーordinalを含む。
+- `anki_index`は主canonical key、主分類内入力連番、意味単位位置、表現レイヤーordinal、detail pattern ordinalを含む。
 - model IDは新しい`SayDeck` note type専用の固定値。
 - deck IDはdeck名から決定的に計算する。
 - 同一variantの再importは重複カード作成ではなく更新になることを空profileで確認する。

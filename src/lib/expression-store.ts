@@ -120,6 +120,7 @@ type SentenceVariantRow = {
   owner_login: string;
   sentence_card_id: string;
   profile_code: SentenceVariant["profileCode"];
+  pattern_code: SentenceVariant["patternCode"];
   expression_en: string;
   translation_ja: string;
   anki_guid: string;
@@ -188,6 +189,7 @@ type VariantSelectionRow = {
   sentence_card_id: string;
   position: number;
   profile_code: GenerationProfileCode;
+  pattern_code: SentenceVariant["patternCode"];
   expression_en: string;
 };
 
@@ -403,13 +405,13 @@ export async function saveGenerationResult(input: {
         const ankiGuid = variant.ankiGuid ?? `sd_${crypto.randomUUID()}`;
         await transaction`
           insert into sentence_variants (
-            id, owner_login, sentence_card_id, profile_code,
+            id, owner_login, sentence_card_id, profile_code, pattern_code,
             expression_en, translation_ja, anki_guid, anki_index,
             is_selected, status
           )
           values (
             ${variantId}, ${input.ownerLogin}, ${sentenceCardId},
-            ${variant.profileCode}, ${variant.expressionEn},
+            ${variant.profileCode}, ${variant.patternCode}, ${variant.expressionEn},
             ${variant.translationJa}, ${ankiGuid},
             ${`pending_${crypto.randomUUID()}`}, false, 'draft'
           )
@@ -467,7 +469,7 @@ export async function approveExpressionEntry(input: {
     }
 
     const validRows = await transaction<VariantSelectionRow[]>`
-      select v.id, v.sentence_card_id, c.position, v.profile_code, v.expression_en
+      select v.id, v.sentence_card_id, c.position, v.profile_code, v.pattern_code, v.expression_en
       from sentence_variants v
       join sentence_cards c
         on c.id = v.sentence_card_id and c.owner_login = v.owner_login
@@ -626,6 +628,7 @@ export async function approveExpressionEntry(input: {
             situationSequence,
             row.position,
             row.profile_code,
+            row.pattern_code,
           )},
             updated_at = now()
           where owner_login = ${input.ownerLogin} and id = ${row.id}
@@ -857,7 +860,7 @@ async function readDetails(
   const cardIds = cards.map((card) => card.id);
   const variants = cardIds.length
     ? await sql<SentenceVariantRow[]>`
-        select id, owner_login, sentence_card_id, profile_code,
+        select id, owner_login, sentence_card_id, profile_code, pattern_code,
           expression_en, translation_ja, anki_guid, anki_index,
           is_selected, status, created_at, updated_at
         from sentence_variants
@@ -868,7 +871,7 @@ async function readDetails(
           when 'detail' then 2
           when 'conversation' then 3
           else 4
-        end, id asc
+        end, pattern_code asc, id asc
       `
     : [];
 
@@ -1065,12 +1068,17 @@ function buildAnkiIndex(
   situationSequence: number,
   position: number,
   profileCode: GenerationProfileCode,
+  patternCode: SentenceVariant["patternCode"],
 ): string {
+  const patternOrdinal = patternCode === "default"
+    ? 0
+    : patternCode.charCodeAt(0) - "a".charCodeAt(0) + 1;
   return [
     primaryCanonicalKey,
     String(situationSequence).padStart(3, "0"),
     String(position + 1).padStart(2, "0"),
     String(profileOrder(profileCode) + 1).padStart(2, "0"),
+    String(patternOrdinal).padStart(2, "0"),
   ].join("-");
 }
 
@@ -1140,6 +1148,7 @@ function toVariant(row: SentenceVariantRow): SentenceVariant {
     ownerLogin: row.owner_login,
     sentenceCardId: row.sentence_card_id,
     profileCode: row.profile_code,
+    patternCode: row.pattern_code,
     expressionEn: row.expression_en,
     translationJa: row.translation_ja,
     ankiGuid: row.anki_guid,

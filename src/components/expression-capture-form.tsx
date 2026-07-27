@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-import { profileDisplayName } from "@/lib/generation-profiles";
+import { variantDisplayName } from "@/lib/generation-profiles";
 import type {
   ExpressionEntryDetail,
   SentenceVariant,
@@ -372,14 +372,14 @@ export function ExpressionCaptureForm({
                       key={variant.id}
                     >
                       <input
-                        aria-label={`${profileDisplayName(variant.profileCode)}をカードへ追加する`}
+                        aria-label={`${variantDisplayName(variant.profileCode, variant.patternCode)}をカードへ追加する`}
                         checked={selectedVariantIds.has(variant.id)}
                         disabled={isBasic}
                         onChange={() => toggleVariant(variant)}
                         type="checkbox"
                       />
                       <span className="capture-variant-level">
-                        {profileDisplayName(variant.profileCode)}
+                        {variantDisplayName(variant.profileCode, variant.patternCode)}
                       </span>
                       <span className="capture-variant-copy">
                         <strong lang="en">{variant.expressionEn}</strong>

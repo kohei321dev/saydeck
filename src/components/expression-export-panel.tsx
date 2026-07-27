@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
-import { profileDisplayName } from "@/lib/generation-profiles";
+import { variantDisplayName } from "@/lib/generation-profiles";
 import type { ExpressionEntryDetail } from "@/lib/expression-types";
 
 const exportSelectionKey = "saydeck.export-selection.v2";
@@ -135,7 +135,7 @@ export function ExpressionExportPanel({ entries }: Props) {
               type="checkbox"
             />
             <span className="capture-variant-level">
-              {profileDisplayName(variant.profileCode)}
+              {variantDisplayName(variant.profileCode, variant.patternCode)}
             </span>
             <span>
               <strong lang="en">{variant.expressionEn}</strong>

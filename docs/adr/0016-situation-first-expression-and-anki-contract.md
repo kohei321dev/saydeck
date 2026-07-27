@@ -17,7 +17,7 @@
 3. AIへ登録済み主一覧を渡し、既存IDまたは新規主名を提案させる。分類作成は人間の保存確定時だけ行う。
 4. 副の完全重複には選択主の配下で`-001`以降を付け、新規分類として保存する。
 5. 主分類ごとに入力連番を採番し、意味単位位置と合わせて`001-01`形式で表示する。
-6. L1〜L4を`basic/detail/conversation/natural_alternative`へ置き換える。basicだけ必須で、他は差がある場合だけ生成する。basicは難易度の最下層ではなく、1文・原則12語以内・発話行為1つの最小・標準表現とする。条件・理由・数量・追加依頼・間接依頼はdetailまたは別の意味単位へ置く。conversationは口語性を表し、basicより短い場合を許容する。
+6. L1〜L4を`basic/detail/conversation/natural_alternative`へ置き換える。basicだけ必須で、他は差がある場合だけ生成する。basicは難易度の最下層ではなく、1文・原則12語以内・発話行為1つの最小・標準表現とする。detailは02a〜02eの文法・語句パターンを適用可能な場合だけ複数生成し、conversationは口語性、natural_alternativeはネイティブ表現を表す。
 7. variant本文をExpressionとTranslationへ単純化し、基本ワードと例文を分離しない。
 8. variantごとにExpressionを読むen-US音声を1件だけ持つ。
 9. Anki note typeを`SayDeck`、fieldを`Index/Context/Expression/Translation/expression_audio`の5件にする。

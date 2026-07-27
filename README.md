@@ -28,9 +28,11 @@ EXPORT
 表現レイヤーは次の4つです。
 
 - `01_基本表現`（`basic`）: 各意味単位に必須。1文・原則12語以内で、1つの発話行為だけを標準的な語順で伝える最小表現
-- `02_詳細表現`（`detail`）: 理由、条件、時刻・数量、追加依頼などの具体情報を加える場合だけ
+- `02_詳細表現`（`detail`）: 基本表現を土台に、1文・18語以内で適用できる文法・語句展開を複数パターン（02a〜02e）で生成。意味のない水増しはしない
 - `03_会話表現`（`conversation`）: 明確に異なる口語表現がある場合だけ。短くてもよく、`basic`より難しいことは要件にしない
-- `04_別の自然な言い方`（`natural_alternative`）: 別構文・別視点の自然な表現がある場合だけ
+- `04_ネイティブ表現`（`natural_alternative`）: ネイティブ話者が使う自然な定型句・省略・別構文がある場合だけ
+
+`02`のパターンは、`02a_形容詞・補語`、`02b_副詞・程度`、`02c_前置詞句`、`02d_熟語・定型結合`、`02e_文法展開`です。入力に適用できるものだけが生成されます。
 
 ## Documentation
 
@@ -78,10 +80,13 @@ migration runnerは未導入のため、次を番号順に手動適用します�
 7. `db/migrations/0007-situation-tag-taxonomy.sql`
 8. `db/migrations/0008-situation-first-expression-contract.sql`
 9. `db/migrations/0009-refine-expression-layer-definitions.sql`
+10. `db/migrations/0010-detail-expression-patterns.sql`
 
 `0008`は承認済みの破壊的migrationです。既存のSayDeck表現、音声metadata、APKG履歴を削除し、ジャンル、旧シチュエーションタグ、L1〜L4、旧8フィールド・2音声契約を新仕様へ置き換えます。旧practice系テーブルは削除しません。
 
 `0009`は保存済みの表現を変更せず、`generation_profiles`の表現レイヤー定義を更新します。`basic`を1文・原則12語以内の最小表現とし、条件・理由・数量・追加依頼を`detail`または別の意味単位へ分けます。
+
+`0010`は`sentence_variants.pattern_code`を追加し、`detail`の02a〜02eを同一意味単位内で保持できるようにします。既存のdetail行は02aへ移行し、04の表示名をネイティブ表現へ更新します。
 
 ローカルでVercel Development環境を取得する場合:
 

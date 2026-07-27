@@ -47,10 +47,10 @@ Next.js App RouterのServer Componentsが初期データを読み、対話部分
 
 | Table | Responsibility | Important constraints |
 | --- | --- | --- |
-| `generation_profiles` | semantic expression layer rules | codeは`basic/detail/conversation/natural_alternative`。`basic`は1文・原則12語以内・発話行為1つ |
+| `generation_profiles` | semantic expression layer rules | codeは`basic/detail/conversation/natural_alternative`。`basic`は1文・原則12語以内・発話行為1つ。`detail`は02a〜02eのpatternを使う |
 | `expression_entries` | 日本語入力と登録状態 | registered時に`situation_sequence`必須 |
 | `sentence_cards` | 入力を分けた意味単位 | owner・entry・position unique |
-| `sentence_variants` | 意味単位ごとの英文・和訳 | card・profile unique、GUID unique、owner・Index unique |
+| `sentence_variants` | 意味単位ごとの英文・和訳 | card・profile・pattern unique、GUID unique、owner・Index unique |
 | `situation_definitions` | owner別の主・副分類master | 主key unique、副はparent・label unique |
 | `expression_entry_situations` | entryへの主・副割当 | entry・role primary key、同じsituationの重複禁止 |
 | `situation_sequence_counters` | 主分類内の入力連番 | owner・primary ID primary key |
@@ -69,7 +69,7 @@ Next.js App RouterのServer Componentsが初期データを読み、対話部分
 ### Variant identity
 
 - `anki_guid`: variant作成時に一度生成するAnki note GUID。
-- `anki_index`: 登録時に`primary canonical key + situation sequence + meaning position + layer ordinal`から作り、以後変更しない。
+- `anki_index`: 登録時に`primary canonical key + situation sequence + meaning position + layer ordinal + detail pattern ordinal`から作り、以後変更しない。
 - 画面上の短い番号は`situation_sequence`と`sentence_cards.position`から`001-01`のように表示する。
 - AIはGUID、Index、suffix、sequenceを生成しない。
 
@@ -94,6 +94,7 @@ AI output:
     intentJa: string
     variants: Array<{
       profileCode: "basic" | "detail" | "conversation" | "natural_alternative"
+      patternCode: "default" | "a" | "b" | "c" | "d" | "e"
       expressionEn: string
       translationJa: string
     }>
@@ -107,7 +108,8 @@ server validation:
 - 各segmentに`basic`が1件必須。
 - `basic`は難易度順の最下層ではなく、最小・標準・単独で使える1発話とする。条件・仮定・理由・時刻や数量・追加依頼・間接依頼を含めず、原則1文・12語以内に収める。
 - それらの情報が必要な場合は、独立して復習できる意味単位へ分けるか、任意の`detail`へ置く。`conversation`は口語性のレイヤーであり、`basic`より短い、または易しい場合がある。
-- 同じprofile codeの重複禁止。
+- `basic` / `conversation` / `natural_alternative`は各segmentで1件まで。`detail`はpatternCode a〜eごとに1件まで。
+- `detail`のpatternCodeは適用可能なものだけ返し、02a〜02eの数合わせは禁止。
 - 任意profileは欠けてよい。
 - existing primary IDは実際に渡した一覧内だけ許可する。
 - primary labelとsecondary base labelは空不可、120文字以内。

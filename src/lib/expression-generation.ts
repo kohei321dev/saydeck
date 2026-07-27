@@ -5,6 +5,7 @@ import {
 } from "@/lib/ai-config";
 import {
   generationProfileCodes,
+  detailPatternCodes,
 } from "@/lib/expression-types";
 import type {
   GenerationProfile,
@@ -186,7 +187,9 @@ function buildPrompt(input: GenerateExpressionInput): string {
     `- conversation / ${profiles.conversation.name}: ${profiles.conversation.instruction}`,
     `- natural_alternative / ${profiles.natural_alternative.name}: ${profiles.natural_alternative.instruction}`,
     "- 任意レイヤーに基本表現と実質的な差がなければ、そのvariant自体を返さない。",
-    "- 同じprofileCodeは1つのsegment内で1回だけ使う。",
+    "- basic / conversation / natural_alternative は各segmentで最大1件。detailは適用できるパターンだけ複数返してよい。patternCodeはdetailならa〜eを必須、他のprofileはdefaultとする。",
+    "- detailのパターン: a=形容詞・補語、b=副詞・程度、c=前置詞句、d=熟語・定型結合（句動詞・コロケーション）、e=文法展開。01と実質同じ文や、入力に適用できないパターンは返さない。最大5件。",
+    "- 例: basicが 'I have to leave early.' の場合、適用できれば 02b='I really have to leave early.'、02c='I have to leave early for work.'、02d='I have to head out early.'、02e='I might have to leave early.' のように、各patternの違いが英文そのものに現れるようにする。",
     "- expressionEnはその場で実際に口に出す英文、translationJaはその自然な和訳。",
     "",
     "返却JSON:",
@@ -201,11 +204,13 @@ function buildPrompt(input: GenerateExpressionInput): string {
           variants: [
             {
               profileCode: "basic",
+              patternCode: "default",
               expressionEn: "It’s been a while. How have you been?",
               translationJa: "久しぶりだね。元気にしてた？",
             },
             {
               profileCode: "conversation",
+              patternCode: "default",
               expressionEn: "Hey, long time no see! How’s everything going?",
               translationJa: "やあ、久しぶり！最近どう？",
             },
@@ -274,24 +279,26 @@ function normalizeSegment(
   const variants = value.variants
     .map((variant) => normalizeVariant(variant, profiles))
     .filter((variant): variant is GenerationVariant => Boolean(variant));
-  const byProfile = new Map<GenerationProfileCode, GenerationVariant>();
+  const byKey = new Map<string, GenerationVariant>();
 
   for (const variant of variants) {
-    if (byProfile.has(variant.profileCode)) {
-      throw new Error(`AI returned duplicate ${variant.profileCode} variants.`);
+    const key = `${variant.profileCode}:${variant.patternCode}`;
+    if (byKey.has(key)) {
+      throw new Error(`AI returned duplicate ${key} variants.`);
     }
-    byProfile.set(variant.profileCode, variant);
+    byKey.set(key, variant);
   }
 
-  if (!byProfile.has("basic")) {
+  if (!Array.from(byKey.values()).some((variant) => variant.profileCode === "basic")) {
     throw new Error("Every meaning unit must contain a basic expression.");
   }
 
   return {
     position,
     intentJa: getString(value.intentJa) || `意味単位 ${position + 1}`,
-    variants: Array.from(byProfile.values()).sort(
-      (left, right) => profileOrder(left.profileCode) - profileOrder(right.profileCode),
+    variants: Array.from(byKey.values()).sort(
+      (left, right) => profileOrder(left.profileCode) - profileOrder(right.profileCode)
+        || left.patternCode.localeCompare(right.patternCode),
     ),
   };
 }
@@ -308,6 +315,16 @@ function normalizeVariant(
 
   if (!generationProfileCodes.includes(profileCode as GenerationProfileCode)) {
     return null;
+  }
+
+  const rawPatternCode = getString(value.patternCode) || "default";
+  const patternCode = rawPatternCode as GenerationVariant["patternCode"];
+  if (profileCode === "detail") {
+    if (!detailPatternCodes.includes(patternCode as (typeof detailPatternCodes)[number])) {
+      throw new Error("detail must contain patternCode a-e.");
+    }
+  } else if (patternCode !== "default") {
+    throw new Error(`${profileCode} must use patternCode default.`);
   }
 
   const expressionEn = getString(value.expressionEn);
@@ -335,6 +352,7 @@ function normalizeVariant(
 
   return {
     profileCode: profileCode as GenerationProfileCode,
+    patternCode,
     expressionEn,
     translationJa,
   };
