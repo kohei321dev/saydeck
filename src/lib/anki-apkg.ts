@@ -9,6 +9,7 @@ import type { AnkiExportRecord } from "@/lib/anki-export";
 
 const modelId = 1_785_000_000_001;
 const baseDeckId = 1_785_000_000_100;
+const ankiDeckHierarchySeparator = "\u001f";
 
 const fieldNames = [
   "Index",
@@ -124,7 +125,10 @@ function createModel(): Model {
 function createDeck(name: string): Deck {
   return new Deck({
     id: stableDeckId(name),
-    name,
+    // Modern Anki stores deck hierarchy segments with U+001F internally.
+    // ankipack writes names to SQLite verbatim, so passing the UI-facing
+    // `::` separator creates a flat deck whose literal name contains `::`.
+    name: name.replaceAll("::", ankiDeckHierarchySeparator),
     config: null,
   });
 }
