@@ -203,7 +203,7 @@ expression_pattern::<a-c>  (patternのみ)
 
 ## 9. Migration and compatibility
 
-`0008-situation-first-expression-contract.sql`はSayDeck expression domainをtruncateし、旧分類列、L1〜L4、旧カード本文列、2音声構造を置き換える。`0010-detail-expression-patterns.sql`でpattern_codeを追加し、`0011-three-layer-expression-model.sql`で現行のstandard/native/patternへ移行する。0011は互換性のある旧variantを移し、意味が変わる旧variantを削除せずarchivedにする。新アプリとmigrationは同じrelease単位で切り替える。
+`0008-situation-first-expression-contract.sql`はSayDeck expression domainをtruncateし、旧分類列、L1〜L4、旧カード本文列、2音声構造を置き換える。`0010-detail-expression-patterns.sql`でpattern_codeを追加し、`0011-three-layer-expression-model.sql`で現行のstandard/native/patternへ移行する。0011は互換性のある旧variantを移し、意味が変わる旧variantを削除せずarchivedにする。`0012-remove-legacy-learning-tables.sql`は廃止済みのアプリ内学習4テーブルと旧generation profile行を物理削除する。新アプリとmigrationは同じrelease単位で切り替える。
 
 旧practice系tableとmigrationは保持するが、現行UI・API・exportから参照しない。旧Anki note typeとの互換投影は行わない。
 
