@@ -5,6 +5,8 @@
  * at the store boundary so callers never need to know the SQL naming scheme.
  */
 
+import type { AiProviderCode } from "@/lib/ai-config";
+
 export const generationProfileCodes = [
   "standard",
   "native",
@@ -101,6 +103,8 @@ export type SentenceCard = {
   entryId: string;
   position: number;
   intentJa: string;
+  generationProvider: AiProviderCode;
+  generationModel: string;
   createdAt: string;
   updatedAt: string;
   variants?: SentenceVariant[];
@@ -180,6 +184,12 @@ export type GenerationSegment = {
 export type GenerationResult = {
   segments: GenerationSegment[];
   situationSuggestion: SituationSuggestion;
+};
+
+export type GenerationExecution = {
+  result: GenerationResult;
+  provider: AiProviderCode;
+  model: string;
 };
 
 export type SituationSuggestion = {

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { SignOutButton } from "@/components/sign-in-button";
 
 type AppFrameProps = {
-  activePath?: "input" | "lists" | "export";
+  activePath?: "input" | "lists" | "export" | "settings";
   children: React.ReactNode;
   roleLabel?: string;
   userLabel?: string;
@@ -14,6 +14,7 @@ const navigation = [
   { href: "/input", id: "input", label: "INPUT" },
   { href: "/lists", id: "lists", label: "LISTS" },
   { href: "/export", id: "export", label: "EXPORT" },
+  { href: "/settings", id: "settings", label: "SETTINGS" },
 ] as const;
 
 /**

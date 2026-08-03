@@ -41,9 +41,14 @@ EXPORT
 - [Anki Export Specification](docs/specifications/anki-export.md)
 - [Situation-first data flow](docs/uiux/proposed-situation-first-data-flow.html)
 - [ADR 0016: Situation-first expression and Anki contract](docs/adr/0016-situation-first-expression-and-anki-contract.md)
+- [ADR 0017: Owner-selectable AI providers](docs/adr/0017-owner-selectable-ai-providers.md)
 - [Deployment guide](docs/vercel-deployment.md)
+- [Slack／Discordカード作成](docs/integrations/chat-capture.md)
+- [Slack初回セットアップ](docs/integrations/slack-first-setup.md)
+- [Slackスラッシュコマンド導入リファレンス](docs/integrations/slack-slash-command-reference.md)
+- [Discord初回セットアップ](docs/integrations/discord-first-setup.md)
 
-過去のADRとmigrationは意思決定・適用履歴として残します。現行仕様は上記の要求定義、設計、APKG仕様、ADR 0016を正本とします。
+過去のADRとmigrationは意思決定・適用履歴として残します。現行仕様は上記の要求定義、設計、APKG仕様、ADR 0016・0017を正本とします。
 
 ## Local development
 
@@ -61,6 +66,9 @@ DATABASE_URL
 OWNER_AI_KEY
 OWNER_AI_MODEL=grok-4.3
 OWNER_AI_EFFORT=medium
+SAKANA_API_KEY
+SAKANA_AI_MODEL=fugu
+SAKANA_AI_EFFORT=high
 SAYDECK_TTS_VOICE=eve
 SAYDECK_TTS_SPEED=1.0
 ```
@@ -82,6 +90,9 @@ migration runnerは未導入のため、次を番号順に手動適用します�
 9. `db/migrations/0009-refine-expression-layer-definitions.sql`
 10. `db/migrations/0010-detail-expression-patterns.sql`
 11. `db/migrations/0011-three-layer-expression-model.sql`
+12. `db/migrations/0012-remove-legacy-learning-tables.sql`
+13. `db/migrations/0013-chat-card-approval.sql`
+14. `db/migrations/0014-owner-ai-provider-selection.sql`
 
 `0008`は承認済みの破壊的migrationです。既存のSayDeck表現、音声metadata、APKG履歴を削除し、ジャンル、旧シチュエーションタグ、L1〜L4、旧8フィールド・2音声契約を新仕様へ置き換えます。旧practice系テーブルは削除しません。
 
@@ -90,6 +101,10 @@ migration runnerは未導入のため、次を番号順に手動適用します�
 `0010`は`sentence_variants.pattern_code`を追加し、`detail`の02a〜02eを同一意味単位内で保持できるようにします。既存のdetail行は02aへ移行し、04の表示名をネイティブ表現へ更新します。
 
 `0011`は現行の3層契約へ移行します。既存の`basic`は`standard`へ、会話・ネイティブ候補の代表1件は`native`へ移し、意味が変わる旧候補は削除せず`archived`として保持します。
+
+`0013`はSlack／Discordから生成した候補をownerが承認してから登録するための状態テーブルを追加します。連携方法と必要な環境変数は[Slack／Discordカード作成](docs/integrations/chat-capture.md)を参照してください。
+
+`0014`はBrowser／Slackで共有するownerのAI provider選択と、各意味単位カードの生成元provider/modelを追加します。既存カードは従来構成に基づき`xai`／`grok-4.3`へ移行します。
 
 ローカルでVercel Development環境を取得する場合:
 

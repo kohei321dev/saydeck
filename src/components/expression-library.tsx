@@ -366,6 +366,9 @@ export function ExpressionLibrary({ entries: initialEntries }: Props) {
                     {String(card.position + 1).padStart(2, "0")}
                   </span>
                   <strong>{card.intentJa}</strong>
+                  <small className="library-generation-source">
+                    {card.generationProvider === "sakana" ? "Sakana AI" : "xAI"} · {card.generationModel}
+                  </small>
                 </div>
                 {(card.variants ?? [])
                   .filter((variant) =>
