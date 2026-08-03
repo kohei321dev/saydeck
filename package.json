@@ -9,14 +9,19 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
+    "discord:register-command": "node scripts/register-discord-command.mjs",
     "verify:anki-wasm-trace": "node scripts/verify-anki-wasm-trace.mjs"
   },
   "dependencies": {
+    "@chat-adapter/discord": "^4.36.0",
+    "@chat-adapter/slack": "^4.36.0",
+    "@chat-adapter/state-pg": "^4.36.0",
     "@vercel/blob": "2.6.1",
     "ankipack": "0.1.3",
+    "chat": "^4.36.0",
     "lucide-react": "^0.468.0",
-    "next": "^15.3.3",
-    "next-auth": "^4.24.11",
+    "next": "15.5.22",
+    "next-auth": "4.24.15",
     "postgres": "^3.4.9",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
@@ -32,7 +37,8 @@
     "typescript": "^5.8.3"
   },
   "overrides": {
-    "postcss": "8.5.10",
+    "postcss": "8.5.25",
+    "sharp": "0.35.3",
     "uuid": "11.1.1"
   }
 }

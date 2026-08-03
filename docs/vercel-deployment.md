@@ -12,7 +12,7 @@
 
 [事実] GitHub sign-in grants `owner` when the GitHub `login` matches `GITHUB_OWNER`, which defaults to `kohei321dev`; other GitHub logins are denied.
 
-[事実] AI calls use `OWNER_AI_KEY` from server-side API routes. The browser never receives the API key.
+[事実] AI calls use the owner-selected xAI or Sakana AI provider from server-side API routes. `OWNER_AI_KEY` and `SAKANA_API_KEY` never reach the browser or Slack.
 
 [事実] Expression entries, variants, audio metadata, and APKG export state are stored in Postgres through `DATABASE_URL`. ADR 0008 selects Neon Postgres as the first cloud database target.
 
@@ -135,10 +135,24 @@ GITHUB_OWNER=kohei321dev
 OWNER_AI_KEY=<owner-grok-api-key>
 OWNER_AI_MODEL=grok-4.3
 OWNER_AI_EFFORT=medium
+SAKANA_API_KEY=<sakana-api-key>
+SAKANA_AI_MODEL=fugu
+SAKANA_AI_EFFORT=high
 DATABASE_URL=<neon-postgres-connection-string>
 SAYDECK_TTS_VOICE=eve
 SAYDECK_TTS_SPEED=1.0
 BLOB_READ_WRITE_TOKEN=<private-vercel-blob-token>
+# Set the following group when Slack capture is enabled.
+SLACK_BOT_TOKEN=<slack-bot-token>
+SLACK_SIGNING_SECRET=<slack-signing-secret>
+SLACK_OWNER_USER_ID=<immutable-slack-member-id>
+SLACK_OWNER_TEAM_ID=<slack-workspace-id>
+# Set the following group when Discord capture is enabled.
+DISCORD_BOT_TOKEN=<discord-bot-token>
+DISCORD_PUBLIC_KEY=<discord-public-key>
+DISCORD_APPLICATION_ID=<discord-application-id>
+DISCORD_OWNER_USER_ID=<immutable-discord-user-id>
+DISCORD_OWNER_GUILD_ID=<discord-server-id>
 ```
 
 Do not set `DEV_AUTH_BYPASS` in Vercel Production.
@@ -164,6 +178,8 @@ Preview用のEnvironment Variablesは現在は管理しない。Preview deployme
    - `db/migrations/0010-detail-expression-patterns.sql`
    - `db/migrations/0011-three-layer-expression-model.sql`
    - `db/migrations/0012-remove-legacy-learning-tables.sql`
+   - `db/migrations/0013-chat-card-approval.sql`
+   - `db/migrations/0014-owner-ai-provider-selection.sql`
 4. Redeploy the Vercel project after setting `DATABASE_URL`.
 
 `0003` creates `practice_attempts` and `saved_notes`, which are required for DB-backed practice history and saved notes.
@@ -179,6 +195,10 @@ Preview用のEnvironment Variablesは現在は管理しない。Preview deployme
 `0010` adds `sentence_variants.pattern_code` for 02a〜02e detail patterns, updates the persisted names/instructions for detail and native expressions, and preserves any existing detail row as 02a.
 
 `0012` removes the retired in-app learning tables (`scene_cards`, `practice_records`, `practice_attempts`, and `saved_notes`) and deletes obsolete `basic`, `detail`, `conversation`, and `natural_alternative` generation-profile rows. It does not delete current INPUT, LISTS, audio, situation, or APKG export data.
+
+`0013` adds the owner-only Slack／Discord generation approval state. Apply it before enabling either production webhook. The Chat SDK Postgres state tables are created on first webhook access; `chat_card_requests` remains the business source of truth for idempotent approval.
+
+`0014` adds the owner-wide active AI provider setting and immutable provider/model provenance to each generated sentence card. Existing cards are backfilled as `xai` / `grok-4.3`. Apply it before using `/settings`, `/saydeck model`, or `/saydeck modelchange`.
 
 `0011` activates the approved `standard/native/pattern` three-layer model. It preserves existing rows, maps compatible legacy variants, and archives incompatible legacy variants instead of deleting them.
 
@@ -212,14 +232,17 @@ the INPUT page after provider authentication.
    - `OWNER_AI_KEY`
    - `OWNER_AI_MODEL=grok-4.3`
    - `OWNER_AI_EFFORT=medium`（`low` / `medium` / `high`）
+   - `SAKANA_API_KEY`
+   - `SAKANA_AI_MODEL=fugu`
+   - `SAKANA_AI_EFFORT=high`
    - `BLOB_READ_WRITE_TOKEN`
 5. Confirm the `/signin` page shows GitHub OAuth as enabled before testing provider login.
 
 ## Runtime connection probe
 
-After deploying the current source and applying migrations through `0011`, sign in as the owner and request `GET /api/diagnostics?probe=1`. The probe reports only boolean/status information for the database connection, SayDeck expression schema, and owner AI provider. It verifies the situation master, entry assignments, sequence counter, pattern column, and three-layer profile constraint without returning `DATABASE_URL`, API keys, raw provider responses, or connection strings.
+After deploying the current source and applying migrations through `0014`, sign in as the owner and request `GET /api/diagnostics?probe=1`. The probe reports only boolean/status information for the database connection, SayDeck expression schema, chat capture configuration/schema, and selected owner AI provider. It verifies the situation master, entry assignments, sequence counter, pattern column, three-layer profile constraint, `chat_card_requests`, provider settings, and card provenance without returning `DATABASE_URL`, API keys, signing secrets, raw provider responses, or connection strings.
 
-If the probe reports `Database connection: 未接続`, check the Production `DATABASE_URL` value and Neon network access. If it reports `expression schema: 未適用`, confirm that migrations through `0011` were applied in order. If it reports `AI connection: 未接続`, check `OWNER_AI_KEY` and `OWNER_AI_MODEL=grok-4.3` in the Production environment.
+If the probe reports `Database connection: 未接続`, check the Production `DATABASE_URL` value and Neon network access. If it reports `expression schema: 未適用`, confirm that migrations through `0014` were applied in order. If it reports `AI connection: 未接続`, check the key and model for the provider shown in the diagnostic result. For xAI these are `OWNER_AI_KEY` / `OWNER_AI_MODEL`; for Sakana AI these are `SAKANA_API_KEY` / `SAKANA_AI_MODEL`.
 
 Do not paste client secrets, tokens, or raw provider error payloads into issues
 or docs. If an env value changes in Vercel, redeploy before retesting because

@@ -38,6 +38,7 @@ Next.js App RouterのServer Componentsが初期データを読み、対話部分
 | `/input` | 日本語入力、既存主の任意優先、AI生成、分類・候補確認、登録 |
 | `/lists` | 登録済みentryの絞り込み、英文・和訳編集、論理削除、export選択 |
 | `/export` | 選択確認、音声・APKG生成、download |
+| `/settings` | ownerのAI provider確認、接続probe、provider切替 |
 
 `/api/situations`はownerのactiveな主・副分類を返す。分類専用管理画面は持たない。
 
@@ -56,6 +57,9 @@ Next.js App RouterのServer Componentsが初期データを読み、対話部分
 | `situation_sequence_counters` | 主分類内の入力連番 | owner・primary ID primary key |
 | `audio_assets` | variantごとのExpression音声metadata | owner・variant unique |
 | `anki_exports` | APKG artifact状態 | owner scope、private path |
+| `owner_ai_settings` | ownerごとの生成provider選択 | owner primary key、providerは`xai/sakana` |
+
+`sentence_cards`は生成時の`generation_provider`と`generation_model`を持つ。provider変更後も保存済みカードの値は変更しない。
 
 ### Situation invariants
 
@@ -111,7 +115,7 @@ AI output:
 
 server validation:
 
-- xAI Responses APIの`text.format.type=json_schema`を使い、strictなStructured Outputsとして受け取る。
+- xAIとSakana AIはResponses APIの`text.format.type=json_schema`を使う。xAIには全制約を含むschemaを渡し、Sakanaにはproviderが受理できる構造・必須field・基本型のstrict schemaを渡す。件数、長さ、固定値、target順、nullable整合を含む同じserver-side正規化処理を必ず通し、不正responseは保存しない。
 - segmentは1〜8件。
 - 各segmentに`standard`が1件必須。
 - `standard`は必要な詳細を含み、その場で単独利用できる1発話とする。原則1文・18語以内に収め、独立した複数の内容はsegmentへ分ける。
@@ -126,7 +130,21 @@ server validation:
 
 AIの分類提案はgeneration responseとしてREVIEWへ返し、分類masterは変更しない。ユーザーのPATCH確定時だけ分類を永続化する。
 
-Grok 4.3のreasoning effortは`OWNER_AI_EFFORT`で`low`、`medium`、`high`を選べる。未設定・不正値・旧`none`値は品質下限として`medium`へ正規化する。03cはモデルの米国英語知識に基づくコロケーション判定であり、MVPでは外部コーパスを検索しない。
+Grok 4.3のreasoning effortは`OWNER_AI_EFFORT`で`low`、`medium`、`high`を選べる。未設定・不正値・旧`none`値は品質下限として`medium`へ正規化する。Sakana AIは`SAKANA_AI_EFFORT`で対応modelが許可するeffortを選び、既定値を`high`とする。03cはモデルの米国英語知識に基づくコロケーション判定であり、MVPでは外部コーパスを検索しない。
+
+### Provider selection
+
+`GET /api/settings/ai`は選択中providerと各providerのmodel・設定有無を返す。`PATCH /api/settings/ai`は設定済みproviderだけを`owner_ai_settings`へupsertする。`POST /api/settings/ai/probe`は明示的に選んだproviderへ短い接続確認を行うが、選択状態を変更しない。
+
+Slackでは既存`/saydeck` commandのtextをsubcommandとして解釈する。
+
+```text
+/saydeck model        → 現在のprovider/modelと設定状態
+/saydeck modelchange  → xAI／Sakana AIの選択button
+/saydeck <日本語>     → 選択中providerで通常生成
+```
+
+Browser APIとSlack actionは共通のprovider setting serviceを呼ぶ。API keyはenvからだけ読み、DBとresponseへ保存しない。選択providerが失敗した場合はそのproviderの失敗として返し、silent fallbackしない。
 
 ## 5. Store transaction
 
@@ -204,6 +222,19 @@ expression_pattern::<a-c>  (patternのみ)
 ## 9. Migration and compatibility
 
 `0008-situation-first-expression-contract.sql`はSayDeck expression domainをtruncateし、旧分類列、L1〜L4、旧カード本文列、2音声構造を置き換える。`0010-detail-expression-patterns.sql`でpattern_codeを追加し、`0011-three-layer-expression-model.sql`で現行のstandard/native/patternへ移行する。0011は互換性のある旧variantを移し、意味が変わる旧variantを削除せずarchivedにする。`0012-remove-legacy-learning-tables.sql`は廃止済みのアプリ内学習4テーブルと旧generation profile行を物理削除する。新アプリとmigrationは同じrelease単位で切り替える。
+
+## Slack／Discord capture境界
+
+Slack／DiscordはブラウザAPIの代替認証ではなく、署名付きWebhookから既存のexpression domain serviceを呼ぶ追加入力経路とする。Slackはメンション・DM・`/saydeck`、DiscordはHTTP Interactionの`/saydeck`をMVP対象とする。
+
+- platform署名検証とimmutable user ID allowlistを両方通過した操作だけを`GITHUB_OWNER`へserver-side mappingする。
+- client payload、表示名、メールアドレスから`owner_login`を決定しない。
+- AI生成結果は`generated`のままプレビューし、ownerの`登録`操作で初めて`registered`へ遷移する。
+- `chat_card_requests`の一意なsource eventと状態claimでWebhook再送・ボタン連打を冪等化する。
+- Slackの応答は元メッセージまたはslash受付メッセージのthreadへ返す。
+- chat経由で承認したカードも既存LISTS／EXPORT／Anki note契約をそのまま利用する。
+
+`0013-chat-card-approval.sql`はこの承認状態を追加する。`0014-owner-ai-provider-selection.sql`はowner provider設定とカード生成元metadataを追加し、既存カードを`xai`／`grok-4.3`へbackfillする。Chat SDKのPostgres state tableは配送・lock用であり、業務状態の正本にはしない。
 
 旧practice系tableとmigrationは保持するが、現行UI・API・exportから参照しない。旧Anki note typeとの互換投影は行わない。
 

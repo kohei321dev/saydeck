@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 
 import type postgres from "postgres";
 
+import type { AiProviderCode } from "@/lib/ai-config";
 import { putPrivateBinary } from "@/lib/binary-store";
 import { getSql, isDatabaseConfigured } from "@/lib/db";
 import { defaultGenerationProfiles, profileOrder } from "@/lib/generation-profiles";
@@ -111,6 +112,8 @@ type SentenceCardRow = {
   entry_id: string;
   position: number;
   intent_ja: string;
+  generation_provider: AiProviderCode;
+  generation_model: string;
   created_at: Date | string;
   updated_at: Date | string;
 };
@@ -369,6 +372,8 @@ export async function saveGenerationResult(input: {
   ownerLogin: string;
   entryId: string;
   result: GenerationResult;
+  generationProvider: AiProviderCode;
+  generationModel: string;
 }): Promise<ExpressionEntryDetail> {
   const sql = requireDatabase();
   const current = await getExpressionEntry(input.ownerLogin, input.entryId);
@@ -392,11 +397,13 @@ export async function saveGenerationResult(input: {
       const sentenceCardId = `sc_${crypto.randomUUID()}`;
       await transaction`
         insert into sentence_cards (
-          id, owner_login, entry_id, position, intent_ja
+          id, owner_login, entry_id, position, intent_ja,
+          generation_provider, generation_model
         )
         values (
           ${sentenceCardId}, ${input.ownerLogin}, ${input.entryId},
-          ${position}, ${segment.intentJa}
+          ${position}, ${segment.intentJa},
+          ${input.generationProvider}, ${input.generationModel}
         )
       `;
 
@@ -850,7 +857,8 @@ async function readDetails(
   const sql = requireDatabase();
   const entryIds = entries.map((entry) => entry.id);
   const cards = await sql<SentenceCardRow[]>`
-    select id, owner_login, entry_id, position, intent_ja, created_at, updated_at
+    select id, owner_login, entry_id, position, intent_ja,
+      generation_provider, generation_model, created_at, updated_at
     from sentence_cards
     where owner_login = ${ownerLogin}
       and entry_id = any(${sql.array(entryIds)})
@@ -1137,6 +1145,8 @@ function toCard(row: SentenceCardRow): SentenceCard {
     entryId: row.entry_id,
     position: row.position,
     intentJa: row.intent_ja,
+    generationProvider: row.generation_provider,
+    generationModel: row.generation_model,
     createdAt: toIso(row.created_at),
     updatedAt: toIso(row.updated_at),
   };

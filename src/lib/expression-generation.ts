@@ -1,15 +1,11 @@
-import {
-  AiModelNotAllowedError,
-  MissingAiApiKeyError,
-  getOwnerAiConfig,
-} from "@/lib/ai-config";
-import type { OwnerAiConfig } from "@/lib/ai-config";
+import type { AiProviderConfig } from "@/lib/ai-config";
 import {
   generationAlternativeTargets,
 } from "@/lib/expression-types";
 import type {
   GenerationAlternativeAssessment,
   GenerationAlternativeTarget,
+  GenerationExecution,
   GenerationProfile,
   GenerationProfileCode,
   GenerationResult,
@@ -30,7 +26,7 @@ type GenerateExpressionInput = {
   profiles: GenerationProfile[];
 };
 
-type XaiResponse = {
+type AiResponse = {
   output_text?: string;
   output?: Array<{ content?: Array<{ text?: string }> }>;
   error?: { message?: string };
@@ -127,6 +123,57 @@ const generationOutputSchema = {
   ],
 } as const;
 
+const sakanaGenerationOutputSchema = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    primarySituationId: { anyOf: [{ type: "string" }, { type: "null" }] },
+    primaryLabelJa: { type: "string" },
+    secondaryBaseLabelJa: { type: "string" },
+    segments: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          position: { type: "integer" },
+          intentJa: { type: "string" },
+          standard: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              profileCode: { const: "standard" },
+              patternCode: { const: "default" },
+              expressionEn: { type: "string" },
+              translationJa: { type: "string" },
+            },
+            required: ["profileCode", "patternCode", "expressionEn", "translationJa"],
+          },
+          alternatives: {
+            type: "array",
+            minItems: 4,
+            maxItems: 4,
+            items: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                target: { enum: ["native", "pattern_a", "pattern_b", "pattern_c"] },
+                applicable: { type: "boolean" },
+                reasonJa: { type: "string" },
+                expressionEn: { anyOf: [{ type: "string" }, { type: "null" }] },
+                translationJa: { anyOf: [{ type: "string" }, { type: "null" }] },
+              },
+              required: ["target", "applicable", "reasonJa", "expressionEn", "translationJa"],
+            },
+          },
+        },
+        required: ["position", "intentJa", "standard", "alternatives"],
+      },
+    },
+  },
+  required: ["primarySituationId", "primaryLabelJa", "secondaryBaseLabelJa", "segments"],
+} as const;
+
 export class ExpressionGenerationError extends Error {
   code: "invalid_response" | "external_ai_quota_exceeded" | "external_ai_unavailable";
   status: number;
@@ -145,23 +192,8 @@ export class ExpressionGenerationError extends Error {
 
 export async function generateExpressionWithAi(
   input: GenerateExpressionInput,
-): Promise<GenerationResult> {
-  let config;
-
-  try {
-    config = getOwnerAiConfig();
-  } catch (error) {
-    if (error instanceof MissingAiApiKeyError || error instanceof AiModelNotAllowedError) {
-      throw error;
-    }
-
-    throw new ExpressionGenerationError(
-      "external_ai_unavailable",
-      "AI provider configuration is unavailable.",
-      503,
-    );
-  }
-
+  config: AiProviderConfig,
+): Promise<GenerationExecution> {
   const initialResult = await requestGeneration(config, input);
   const standardOnlyPositions = initialResult.segments
     .filter((segment) => segment.variants.every(
@@ -170,7 +202,7 @@ export async function generateExpressionWithAi(
     .map((segment) => segment.position);
 
   if (standardOnlyPositions.length === 0) {
-    return initialResult;
+    return { result: initialResult, provider: config.provider, model: config.model };
   }
 
   try {
@@ -178,21 +210,51 @@ export async function generateExpressionWithAi(
       initialResult,
       standardOnlyPositions,
     });
-    return mergeReevaluation(initialResult, reevaluated, standardOnlyPositions);
+    return {
+      result: mergeReevaluation(initialResult, reevaluated, standardOnlyPositions),
+      provider: config.provider,
+      model: config.model,
+    };
   } catch {
-    return initialResult;
+    return { result: initialResult, provider: config.provider, model: config.model };
   }
 }
 
 async function requestGeneration(
-  config: OwnerAiConfig,
+  config: AiProviderConfig,
   input: GenerateExpressionInput,
   retryContext?: GenerationRetryContext,
 ): Promise<GenerationResult> {
   let response: Response;
 
   try {
-    response = await fetch("https://api.x.ai/v1/responses", {
+    const systemPrompt = [
+      "あなたは日本人学習者が、実際の場面で言いたい英語をAnki用に整理する編集者です。",
+      "入力を必要な意味単位へ分け、各意味単位に必須の標準表現を作ってください。",
+      "任意カードの生成は任意ですが、native・文法展開・熟語／句動詞・コロケーションの4対象を評価すること自体は必須です。",
+      "日常的な入力では、自然な口語への短縮、別構文、句動詞、定型的な語の組み合わせがないか積極的に探してください。",
+      "日本語入力の主張・理由・判断を一つも省略してはいけません。句点ごとの内容を確認し、1つの標準表現へ収まらない独立した発話行為は別の意味単位にしてください。",
+      "標準表現は、その場でそのまま使える自然な一発話です。必要な詳細は含めてよいですが、複数の独立した内容を詰め込まず、意味単位へ分けてください。",
+      "表現パターンは文法解説や単語断片ではなく、元の意図を保った完成英文にしてください。コロケーションは自然な米国英語で一般的な組み合わせを優先してください。",
+      "似た英文を数合わせで増やしてはいけません。",
+      "主シチュエーションは登録済み一覧と照合し、該当する場合だけそのIDを返してください。",
+      "副シチュエーションは短い日本語の基底名を1つ返してください。",
+      "英語は自然な米国英語、和訳はその英文に対応する自然な日本語にしてください。",
+    ].join("\n");
+    const userPrompt = buildPrompt(input, retryContext);
+    const schema = config.provider === "sakana"
+      ? sakanaGenerationOutputSchema
+      : generationOutputSchema;
+    const providerInput = config.provider === "sakana"
+      ? { instructions: systemPrompt, input: userPrompt }
+      : {
+          input: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+          ],
+        };
+
+    response = await fetch(config.responsesUrl, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${config.apiKey}`,
@@ -200,39 +262,18 @@ async function requestGeneration(
       },
       body: JSON.stringify({
         model: config.model,
-        input: [
-          {
-            role: "system",
-            content: [
-              "あなたは日本人学習者が、実際の場面で言いたい英語をAnki用に整理する編集者です。",
-              "入力を必要な意味単位へ分け、各意味単位に必須の標準表現を作ってください。",
-              "任意カードの生成は任意ですが、native・文法展開・熟語／句動詞・コロケーションの4対象を評価すること自体は必須です。",
-              "日常的な入力では、自然な口語への短縮、別構文、句動詞、定型的な語の組み合わせがないか積極的に探してください。",
-              "日本語入力の主張・理由・判断を一つも省略してはいけません。句点ごとの内容を確認し、1つの標準表現へ収まらない独立した発話行為は別の意味単位にしてください。",
-              "標準表現は、その場でそのまま使える自然な一発話です。必要な詳細は含めてよいですが、複数の独立した内容を詰め込まず、意味単位へ分けてください。",
-              "表現パターンは文法解説や単語断片ではなく、元の意図を保った完成英文にしてください。コロケーションは自然な米国英語で一般的な組み合わせを優先してください。",
-              "似た英文を数合わせで増やしてはいけません。",
-              "主シチュエーションは登録済み一覧と照合し、該当する場合だけそのIDを返してください。",
-              "副シチュエーションは短い日本語の基底名を1つ返してください。",
-              "英語は自然な米国英語、和訳はその英文に対応する自然な日本語にしてください。",
-            ].join("\n"),
-          },
-          {
-            role: "user",
-            content: buildPrompt(input, retryContext),
-          },
-        ],
+        ...providerInput,
         max_output_tokens: 5_000,
         reasoning: { effort: config.reasoningEffort },
         text: {
           format: {
             type: "json_schema",
             name: "saydeck_expression_generation",
-            schema: generationOutputSchema,
+            schema,
             strict: true,
           },
         },
-        store: false,
+        ...(config.provider === "xai" ? { store: false } : {}),
       }),
     });
   } catch (error) {
@@ -242,7 +283,7 @@ async function requestGeneration(
     );
   }
 
-  const data = (await response.json().catch(() => ({}))) as XaiResponse;
+  const data = (await response.json().catch(() => ({}))) as AiResponse;
 
   if (!response.ok) {
     const message = data.error?.message ?? `AI request failed (${response.status}).`;
@@ -646,7 +687,7 @@ function countSentences(value: string): number {
   return Math.max(1, value.match(/[.!?]+(?=\s|$)/g)?.length ?? 0);
 }
 
-function getResponseText(data: XaiResponse): string | undefined {
+function getResponseText(data: AiResponse): string | undefined {
   if (data.output_text) {
     return data.output_text;
   }

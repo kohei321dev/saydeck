@@ -1,7 +1,7 @@
 # Product Brief: SayDeck
 
 - Status: Accepted
-- Updated: 2026-07-27
+- Updated: 2026-08-03
 
 ## Product statement
 
@@ -18,6 +18,10 @@ SayDeckの責務はアプリ内学習ではない。現実の気づきを、Anki
 ### INPUT
 
 ユーザーは`言いたいこと`を日本語で入力する。以前使った主シチュエーションを任意で優先できる。AIは登録済み主分類と照合し、主・副シチュエーション、必要な意味単位、必須の`01_標準表現`を提案する。さらに各意味単位で`02_ネイティブ・口語表現`と`03a〜03c`を必ず適用判定し、差がある完成英文だけを候補にする。01は1文・原則18語以内で必要な詳細を含む、その場で使える標準表現とする。複数の発話行為は意味単位へ分割する。ユーザーが分類と候補を確認した時点でDBへ登録する。
+
+入力経路はブラウザに加え、owner本人だけが利用できるSlack／Discordを持つ。chatではAI候補を先に表示し、ownerが`登録`を押した時だけ既存のLISTS／EXPORTへ追加する。Slackの結果はthreadへ返し、chat履歴ではなくNeonをカードの正本とする。
+
+ownerはxAIとSakana AIを設定画面またはSlackから明示的に切り替えられる。API keyはserver環境変数だけに保持し、画面とSlackには接続先provider、model、設定・接続状態だけを表示する。各意味単位カードには生成時provider/modelを保存し、後から品質を比較できるようにする。
 
 ### LISTS
 
@@ -40,6 +44,8 @@ SayDeckの責務はアプリ内学習ではない。現実の気づきを、Anki
 - Ankiカードの表裏に主・副・表現レイヤーが表示される。
 - 表面は英語とen-US音声、裏面は日本語訳だけを表示する。
 - 同一variantの再export・再importでカードが重複しない。
+- Slack／Discordでも本人だけが生成・承認でき、再送やボタン連打でカードが重複しない。
+- BrowserとSlackで同じAI provider設定を確認・切替でき、保存カードから生成元provider/modelを確認できる。
 
 ## Product boundaries
 

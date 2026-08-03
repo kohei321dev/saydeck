@@ -1,0 +1,38 @@
+display_information:
+  name: SayDeck
+  description: 日本語からAnki向け英語表現を作成し、承認後にSayDeckへ登録します
+  background_color: "#176b5b"
+features:
+  app_home:
+    home_tab_enabled: false
+    messages_tab_enabled: true
+    messages_tab_read_only_enabled: false
+  bot_user:
+    display_name: SayDeck
+    always_online: false
+  slash_commands:
+    - command: /saydeck
+      url: https://scene-builder-tau.vercel.app/api/webhooks/slack
+      description: 日本語からSayDeck登録候補を作成
+      usage_hint: 言いたいことを日本語で入力
+      should_escape: false
+oauth_config:
+  scopes:
+    bot:
+      - app_mentions:read
+      - chat:write
+      - commands
+      - im:history
+      - im:read
+settings:
+  event_subscriptions:
+    request_url: https://scene-builder-tau.vercel.app/api/webhooks/slack
+    bot_events:
+      - app_mention
+      - message.im
+  interactivity:
+    is_enabled: true
+    request_url: https://scene-builder-tau.vercel.app/api/webhooks/slack
+  org_deploy_enabled: false
+  socket_mode_enabled: false
+  token_rotation_enabled: false

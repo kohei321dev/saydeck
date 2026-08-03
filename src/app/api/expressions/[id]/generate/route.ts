@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { getExpressionOwnerLogin } from "@/lib/expression-auth";
+import { resolveGenerationAiConfig } from "@/lib/ai-provider-settings";
 import { AiModelNotAllowedError, MissingAiApiKeyError } from "@/lib/ai-config";
 import {
   ExpressionGenerationError,
@@ -51,11 +52,12 @@ export async function POST(
       );
     }
 
-    const [profiles, primarySituations] = await Promise.all([
+    const [profiles, primarySituations, aiConfig] = await Promise.all([
       listGenerationProfiles(ownerLogin),
       listPrimarySituationDefinitions(ownerLogin),
+      resolveGenerationAiConfig(ownerLogin),
     ]);
-    const result = await generateExpressionWithAi({
+    const generation = await generateExpressionWithAi({
       inputJa: entry.inputJa,
       existingPrimarySituations: primarySituations,
       preferredPrimarySituationId: primarySituations.some(
@@ -65,16 +67,18 @@ export async function POST(
         : undefined,
       segmentIntents,
       profiles,
-    });
+    }, aiConfig);
     const saved = await saveGenerationResult({
       ownerLogin,
       entryId: id,
-      result,
+      result: generation.result,
+      generationProvider: generation.provider,
+      generationModel: generation.model,
     });
 
     return NextResponse.json({
       entry: saved,
-      situationSuggestion: result.situationSuggestion,
+      situationSuggestion: generation.result.situationSuggestion,
     });
   } catch (error) {
     if (error instanceof ExpressionDatabaseUnavailableError) {
@@ -93,7 +97,7 @@ export async function POST(
 
     if (error instanceof MissingAiApiKeyError || error instanceof AiModelNotAllowedError) {
       return NextResponse.json(
-        { error: { code: "ai_not_configured", message: "OWNER_AI_KEYと許可済みOWNER_AI_MODELを設定してください。" } },
+        { error: { code: "ai_not_configured", message: "選択中AI providerのAPI keyと許可済みmodelを設定してください。" } },
         { status: 503 },
       );
     }

@@ -13,7 +13,7 @@
 1. AIで英語表現を生成し、主・副シチュエーションで整理してDBへ保存する。
 2. 選択した表現を米国英語音声付きAPKGとして出力する。
 
-UIはこの責務を`INPUT`、`LISTS`、`EXPORT`の3画面で表現する。
+UIはこの責務を`INPUT`、`LISTS`、`EXPORT`の3主要画面で表現し、owner専用の`SETTINGS`でAI providerを管理する。
 
 ## 2. 対象ユーザー
 
@@ -29,6 +29,7 @@ UIはこの責務を`INPUT`、`LISTS`、`EXPORT`の3画面で表現する。
 | `INPUT` | `/input` | 日本語入力、AI生成、主・副分類と候補の確認、保存 |
 | `LISTS` | `/lists` | 一覧、検索、分類・日付filter、英文・和訳編集、削除、export選択 |
 | `EXPORT` | `/export` | 対象確認、en-US音声・APKG生成、download |
+| `SETTINGS` | `/settings` | 選択中AI provider/model、credential設定状態、接続確認、provider切替 |
 
 `/`は`/input`へ遷移する。学習、添削、練習履歴、TSV、個別音声生成の導線を表示しない。
 
@@ -112,14 +113,40 @@ UIはこの責務を`INPUT`、`LISTS`、`EXPORT`の3画面で表現する。
 - DBの`anki_guid`と`anki_index`を再exportでも再利用する。
 - 正式出力はAPKGだけ。TSV、CSV、個別WAV endpointを提供しない。
 
+### FR-8: Slack／Discord入力
+
+- GitHub owner向けブラウザ機能に加え、同じownerだけがSlack／Discordから日本語入力と登録承認を実行できる。
+- Slackはメンション、DM、`/saydeck`を受け付け、チャンネル内の結果はthreadへ返す。
+- DiscordはMVPでHTTP Interactionの`/saydeck`と承認ボタンを受け付ける。常時接続Gatewayは利用しない。
+- AI生成時点ではLISTSへ登録せず、ownerが候補カードの`登録`を押した時だけ全候補を既存expression domainへ登録する。`破棄`では下書きをarchiveする。
+- platform署名とimmutable user ID allowlistを別々に検証し、両方を通過した場合だけserver側で`GITHUB_OWNER`へ対応付ける。
+- Webhook再送と承認ボタン連打は、source eventの一意制約と承認状態claimにより二重登録させない。
+- Slack／Discordの会話履歴をカードの正本にせず、承認済みデータはNeonへ保存する。
+
+### FR-9: AI provider設定と生成元
+
+- ownerは`xai`と`sakana`から生成providerを1つ選択できる。
+- Browserの`/settings`とSlackの`/saydeck model`は同じ選択状態を表示する。
+- Slackの`/saydeck modelchange`は設定済みproviderをbuttonで選択し、owner本人だけが変更できる。
+- API key本体は環境変数だけに保存し、画面、Slack、API response、DB、logへ返さない。
+- 画面とSlackにはprovider名、model ID、credential設定有無、明示的に実行した接続確認結果だけを表示する。
+- 未設定providerへの切替を拒否し、provider障害時に別providerへ自動fallbackしない。
+- provider選択はowner単位でNeonへ保存し、BrowserとSlackからの次回生成に共通適用する。未保存時は後方互換として`xai`を使用する。
+- 生成開始時のprovider/modelをgeneration中は固定し、再評価も同じprovider/modelを使う。
+- 新規`sentence_cards`へ`generation_provider`と`generation_model`を保存し、LISTSで確認できる。
+- 既存カードは従来の固定構成に基づき`xai`／`grok-4.3`として移行する。
+- 生成元metadataはMVPではAnkiの5-field、deck、tagへ追加しない。
+
 ## 5. 非機能要件
 
 - Neon/Postgresを構造化データの正本とする。
 - 音声binaryとAPKGはprivate object storageへ保存し、DBにはpathとmetadataだけを持つ。
 - API key、connection string、Blob token、raw AI response、署名URLをlogへ出さない。
+- provider設定APIと接続確認APIはowner認証で保護し、credentialの値・一部・長さをclientへ返さない。
 - 主要操作はiOS縦画面で横スクロールせず実行できる。
 - 主・副分類作成、連番、副suffix採番をtransactionとDB unique制約で保護する。
 - owner scopeを全query・mutationで検証する。
+- Slack signing secret、Discord public keyでWebhookを検証し、platform user IDとworkspace／guild IDをserver-side allowlistで照合する。
 
 ## 6. 非対象
 
@@ -129,6 +156,7 @@ UIはこの責務を`INPUT`、`LISTS`、`EXPORT`の3画面で表現する。
 - TSV、CSV、個別WAV、日本語TTS、発音採点
 - AnkiConnectやAnkiWebへの直接同期
 - 共有、共同編集、公開deck
+- Discordの通常メッセージ監視・常時接続Gateway
 
 ## 7. Migration
 
@@ -149,3 +177,6 @@ UIはこの責務を`INPUT`、`LISTS`、`EXPORT`の3画面で表現する。
 - 生成音声を人間が試聴し、米国英語であることを確認する。
 - 空のAnki profileで初回import、Context、deck階層、表面音声、裏面無音を確認する。
 - 同一variantを再export・再importし、重複しないことを確認する。
+- Slack／Discordでownerだけが候補を生成・承認でき、Webhook再送とボタン連打で登録が重複しないことを確認する。
+- BrowserとSlackでproviderを切り替えると双方へ同じ選択が表示され、次に生成したカードだけへ選択したprovider/modelが記録されることを確認する。
+- xAIとSakana AIの実接続確認が個別に行え、片方の失敗時に自動fallbackしないことを確認する。
